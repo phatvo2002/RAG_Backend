@@ -229,6 +229,9 @@ namespace Nexora.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("Module", "Status");
 
+                    b.HasIndex("HttpMethod", "RouteTemplate", "Status")
+                        .HasDatabaseName("ix_api_functions_http_method_route_status");
+
                     b.ToTable("ApiFunctions", "security");
                 });
 
@@ -2464,6 +2467,116 @@ namespace Nexora.Infrastructure.Persistence.Migrations
                     b.ToTable("RetrievalRuns", "rag");
                 });
 
+            modelBuilder.Entity("Nexora.Domain.Security.AccessToken", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<IPAddress>("CreatedIp")
+                        .HasColumnType("inet")
+                        .HasColumnName("createdIp");
+
+                    b.Property<DateTimeOffset>("ExpiresAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("expiresAt");
+
+                    b.Property<DateTimeOffset>("IssuedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("issuedAt");
+
+                    b.Property<string>("Jti")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("jti");
+
+                    b.Property<DateTimeOffset?>("LastUsedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("lastUsedAt");
+
+                    b.Property<IPAddress>("LastUsedIp")
+                        .HasColumnType("inet")
+                        .HasColumnName("lastUsedIp");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("organizationId");
+
+                    b.Property<string>("RevokeReason")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("revokeReason");
+
+                    b.Property<DateTimeOffset?>("RevokedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("revokedAt");
+
+                    b.Property<Guid?>("RevokedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("revokedByUserId");
+
+                    b.Property<long>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasDefaultValue(1L)
+                        .HasColumnName("rowVersion");
+
+                    b.Property<byte[]>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("bytea")
+                        .HasColumnName("tokenHash");
+
+                    b.Property<string>("TokenName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("tokenName");
+
+                    b.Property<string>("TokenType")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("tokenType");
+
+                    b.Property<string>("UserAgent")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("userAgent");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("userId");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExpiresAt");
+
+                    b.HasIndex("Jti")
+                        .IsUnique();
+
+                    b.HasIndex("RevokedByUserId");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("OrganizationId", "TokenType", "ExpiresAt");
+
+                    b.HasIndex("OrganizationId", "UserId", "RevokedAt", "ExpiresAt");
+
+                    b.ToTable("AccessTokens", "security", t =>
+                        {
+                            t.HasCheckConstraint("ck_access_token_hash_length", "octet_length(\"tokenHash\") = 32");
+
+                            t.HasCheckConstraint("ck_access_token_revoke_actor", "(\"revokedAt\" IS NULL AND \"revokedByUserId\" IS NULL) OR (\"revokedAt\" IS NOT NULL AND \"revokedByUserId\" IS NOT NULL)");
+
+                            t.HasCheckConstraint("ck_access_token_valid_range", "\"issuedAt\" < \"expiresAt\"");
+                        });
+                });
+
             modelBuilder.Entity("Nexora.Domain.Security.ActivityLog", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2689,116 +2802,6 @@ namespace Nexora.Infrastructure.Persistence.Migrations
                     b.ToTable("Tasks", "task");
                 });
 
-            modelBuilder.Entity("Nexora.Infrastructure.Identity.AccessToken", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid")
-                        .HasColumnName("id");
-
-                    b.Property<IPAddress>("CreatedIp")
-                        .HasColumnType("inet")
-                        .HasColumnName("createdIp");
-
-                    b.Property<DateTimeOffset>("ExpiresAt")
-                        .HasColumnType("timestamptz")
-                        .HasColumnName("expiresAt");
-
-                    b.Property<DateTimeOffset>("IssuedAt")
-                        .HasColumnType("timestamptz")
-                        .HasColumnName("issuedAt");
-
-                    b.Property<string>("Jti")
-                        .HasMaxLength(150)
-                        .HasColumnType("character varying(150)")
-                        .HasColumnName("jti");
-
-                    b.Property<DateTimeOffset?>("LastUsedAt")
-                        .HasColumnType("timestamptz")
-                        .HasColumnName("lastUsedAt");
-
-                    b.Property<IPAddress>("LastUsedIp")
-                        .HasColumnType("inet")
-                        .HasColumnName("lastUsedIp");
-
-                    b.Property<Guid>("OrganizationId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("organizationId");
-
-                    b.Property<string>("RevokeReason")
-                        .HasMaxLength(300)
-                        .HasColumnType("character varying(300)")
-                        .HasColumnName("revokeReason");
-
-                    b.Property<DateTimeOffset?>("RevokedAt")
-                        .HasColumnType("timestamptz")
-                        .HasColumnName("revokedAt");
-
-                    b.Property<Guid?>("RevokedByUserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("revokedByUserId");
-
-                    b.Property<long>("RowVersion")
-                        .IsConcurrencyToken()
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint")
-                        .HasDefaultValue(1L)
-                        .HasColumnName("rowVersion");
-
-                    b.Property<byte[]>("TokenHash")
-                        .IsRequired()
-                        .HasMaxLength(32)
-                        .HasColumnType("bytea")
-                        .HasColumnName("tokenHash");
-
-                    b.Property<string>("TokenName")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("tokenName");
-
-                    b.Property<string>("TokenType")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasColumnName("tokenType");
-
-                    b.Property<string>("UserAgent")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
-                        .HasColumnName("userAgent");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid")
-                        .HasColumnName("userId");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ExpiresAt");
-
-                    b.HasIndex("Jti")
-                        .IsUnique();
-
-                    b.HasIndex("RevokedByUserId");
-
-                    b.HasIndex("TokenHash")
-                        .IsUnique();
-
-                    b.HasIndex("UserId");
-
-                    b.HasIndex("OrganizationId", "TokenType", "ExpiresAt");
-
-                    b.HasIndex("OrganizationId", "UserId", "RevokedAt", "ExpiresAt");
-
-                    b.ToTable("AccessTokens", "security", t =>
-                        {
-                            t.HasCheckConstraint("ck_access_token_hash_length", "octet_length(\"tokenHash\") = 32");
-
-                            t.HasCheckConstraint("ck_access_token_revoke_actor", "(\"revokedAt\" IS NULL AND \"revokedByUserId\" IS NULL) OR (\"revokedAt\" IS NOT NULL AND \"revokedByUserId\" IS NOT NULL)");
-
-                            t.HasCheckConstraint("ck_access_token_valid_range", "\"issuedAt\" < \"expiresAt\"");
-                        });
-                });
-
             modelBuilder.Entity("Nexora.Infrastructure.Identity.ApplicationRole", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2808,6 +2811,11 @@ namespace Nexora.Infrastructure.Persistence.Migrations
                     b.Property<string>("ConcurrencyStamp")
                         .IsConcurrencyToken()
                         .HasColumnType("text");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
 
                     b.Property<string>("Name")
                         .HasMaxLength(256)
@@ -2845,6 +2853,11 @@ namespace Nexora.Infrastructure.Persistence.Migrations
 
                     b.Property<bool>("EmailConfirmed")
                         .HasColumnType("boolean");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
 
                     b.Property<bool>("LockoutEnabled")
                         .HasColumnType("boolean");
@@ -3714,6 +3727,20 @@ namespace Nexora.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Nexora.Domain.Security.AccessToken", b =>
+                {
+                    b.HasOne("Nexora.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("RevokedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Nexora.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Nexora.Domain.Security.ActivityLog", b =>
                 {
                     b.HasOne("Nexora.Infrastructure.Identity.ApplicationUser", null)
@@ -3782,20 +3809,6 @@ namespace Nexora.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("UpdatedByUserId")
                         .OnDelete(DeleteBehavior.Restrict);
-                });
-
-            modelBuilder.Entity("Nexora.Infrastructure.Identity.AccessToken", b =>
-                {
-                    b.HasOne("Nexora.Infrastructure.Identity.ApplicationUser", null)
-                        .WithMany()
-                        .HasForeignKey("RevokedByUserId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.HasOne("Nexora.Infrastructure.Identity.ApplicationUser", null)
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
                 });
 
             modelBuilder.Entity("Nexora.Domain.Authorization.ApiFunction", b =>

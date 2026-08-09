@@ -21,6 +21,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Nexora.Domain\Nexora.Domain.csproj" />
     <ProjectReference Include="..\..\src\Nexora.Application\Nexora.Application.csproj" />
+    <ProjectReference Include="..\..\src\Nexora.WebApi\Nexora.WebApi.csproj" />
   </ItemGroup>
 
 </Project>

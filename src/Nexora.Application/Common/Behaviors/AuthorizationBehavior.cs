@@ -1,4 +1,5 @@
 using MediatR;
+using Nexora.Application.Common.Constants;
 
 namespace Nexora.Application.Common.Behaviors;
 
@@ -24,7 +25,7 @@ public sealed class AuthorizationBehavior<TRequest, TResponse>(IPermissionChecke
             !await permissionChecker.HasPermissionAsync(permissionRequest.PermissionCode, cancellationToken))
         {
             throw new UnauthorizedAccessException(
-                $"Permission '{permissionRequest.PermissionCode}' was not granted.");
+                string.Format(CommonMessages.Api.PermissionNotGrantedTemplate, permissionRequest.PermissionCode));
         }
 
         return await next(cancellationToken);

@@ -1,4 +1,5 @@
 using MediatR;
+using Nexora.Application.Common.Constants;
 using Nexora.Application.Common.Abstractions;
 using Nexora.Application.Common.Abstractions.Auth;
 using Nexora.Application.Common.Abstractions.Repositories;
@@ -22,20 +23,20 @@ public sealed class GetCurrentUserQueryHandler(
         if (!userContext.UserId.HasValue)
         {
             return Result<CurrentUserResponse>.Failure(
-                Error.Unauthorized("Cần đăng nhập để xem thông tin tài khoản."));
+                Error.Unauthorized(CommonMessages.Auth.LoginRequiredToViewCurrentUser));
         }
 
         if (!tenantContext.OrganizationId.HasValue)
         {
             return Result<CurrentUserResponse>.Failure(
-                new Error("auth.organization_required", "JWT chưa có Organization context."));
+                new Error(CommonMessages.ErrorCodes.OrganizationRequired, CommonMessages.Auth.OrganizationRequired));
         }
 
         var user = await identityService.GetByIdAsync(userContext.UserId.Value, cancellationToken);
         if (user is null)
         {
             return Result<CurrentUserResponse>.Failure(
-                Error.Unauthorized("Tài khoản không còn hợp lệ."));
+                Error.Unauthorized(CommonMessages.Auth.UserNotValid));
         }
 
         var profile = await userProfileRepository.GetByUserIdAsync(user.UserId, cancellationToken);

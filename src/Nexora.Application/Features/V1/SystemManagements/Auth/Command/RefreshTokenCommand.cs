@@ -1,4 +1,5 @@
 using MediatR;
+using Nexora.Application.Common.Constants;
 using Nexora.Application.Common.Abstractions;
 using Nexora.Application.Common.Abstractions.Auth;
 using Nexora.Application.Common.Messaging;
@@ -21,14 +22,14 @@ public sealed class RefreshTokenCommandHandler(IAuthTokenService authTokenServic
         if (tokenSet is null)
         {
             return Result<AuthResponse>.Failure(
-                new Error("auth.invalid_refresh_token", "Refresh token không hợp lệ hoặc đã hết hạn."));
+                new Error(CommonMessages.ErrorCodes.InvalidRefreshToken, CommonMessages.Auth.InvalidRefreshToken));
         }
 
         var user = await identityService.GetByIdAsync(tokenSet.UserId, cancellationToken);
         if (user is null)
         {
             return Result<AuthResponse>.Failure(
-                new Error("auth.user_not_found", "Tài khoản không còn tồn tại hoặc đã bị vô hiệu hóa."));
+                new Error(CommonMessages.ErrorCodes.UserNotFound, CommonMessages.Auth.UserNotFound));
         }
 
         return Result<AuthResponse>.Success(AuthMapper.ToResponse(user, tokenSet));

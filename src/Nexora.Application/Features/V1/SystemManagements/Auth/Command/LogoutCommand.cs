@@ -1,6 +1,7 @@
 using MediatR;
 using Nexora.Application.Common.Abstractions;
 using Nexora.Application.Common.Abstractions.Auth;
+using Nexora.Application.Common.Constants;
 using Nexora.Application.Common.Messaging;
 using Nexora.Application.Common.Results;
 
@@ -14,7 +15,7 @@ public sealed class LogoutCommandHandler(IAuthTokenService authTokenService, IUs
 {
     public async Task<Result> Handle(LogoutCommand request, CancellationToken cancellationToken)
     {
-        await authTokenService.RevokeRefreshTokenAsync(request.RefreshToken, userContext.UserId, "user_logout", cancellationToken);
+        await authTokenService.RevokeRefreshTokenAsync(request.RefreshToken, userContext.UserId, CommonMessages.TokenReasons.UserLogout, cancellationToken);
 
         return Result.Success();
     }

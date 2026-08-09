@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MediatR;
+using Nexora.Application.Common.Constants;
 using Nexora.Application.Common.Results;
 using Nexora.Application.Features.V1.SystemManagements.Auth.Command;
 using Nexora.Application.Features.V1.SystemManagements.Auth.Model;
@@ -64,16 +65,16 @@ public sealed class AuthController(ISender sender) : ControllerBase
             return Ok(result.Value);
         }
 
-        var error = result.Error ?? new Error("server.error", "Không thể xử lý yêu cầu.");
+        var error = result.Error ?? new Error(CommonMessages.ErrorCodes.Server, CommonMessages.Api.DefaultError);
         var statusCode = error.Code switch
         {
-            "validation.error" => StatusCodes.Status400BadRequest,
-            "authorization.unauthorized" => StatusCodes.Status401Unauthorized,
-            "auth.invalid_credentials" => StatusCodes.Status401Unauthorized,
-            "auth.invalid_refresh_token" => StatusCodes.Status401Unauthorized,
-            "authorization.forbidden" => StatusCodes.Status403Forbidden,
-            "auth.organization_access_denied" => StatusCodes.Status403Forbidden,
-            "auth.organization_required" => StatusCodes.Status409Conflict,
+            CommonMessages.ErrorCodes.Validation => StatusCodes.Status400BadRequest,
+            CommonMessages.ErrorCodes.Unauthorized => StatusCodes.Status401Unauthorized,
+            CommonMessages.ErrorCodes.InvalidCredentials => StatusCodes.Status401Unauthorized,
+            CommonMessages.ErrorCodes.InvalidRefreshToken => StatusCodes.Status401Unauthorized,
+            CommonMessages.ErrorCodes.Forbidden => StatusCodes.Status403Forbidden,
+            CommonMessages.ErrorCodes.OrganizationAccessDenied => StatusCodes.Status403Forbidden,
+            CommonMessages.ErrorCodes.OrganizationRequired => StatusCodes.Status409Conflict,
             _ => StatusCodes.Status400BadRequest
         };
 

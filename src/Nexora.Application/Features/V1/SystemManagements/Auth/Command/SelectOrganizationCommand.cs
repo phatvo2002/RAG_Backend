@@ -1,4 +1,5 @@
 using MediatR;
+using Nexora.Application.Common.Constants;
 using Nexora.Application.Common.Abstractions;
 using Nexora.Application.Common.Abstractions.Auth;
 using Nexora.Application.Common.Abstractions.Repositories;
@@ -25,7 +26,7 @@ public sealed class SelectOrganizationCommandHandler(
         if (!userContext.UserId.HasValue)
         {
             return Result<AuthResponse>.Failure(
-                Error.Unauthorized("Cần đăng nhập để chọn Organization."));
+                Error.Unauthorized(CommonMessages.Auth.LoginRequiredToSelectOrganization));
         }
 
         var user = await identityService.GetByIdAsync(userContext.UserId.Value, cancellationToken);
@@ -34,7 +35,7 @@ public sealed class SelectOrganizationCommandHandler(
         if (user is null || membership is null)
         {
             return Result<AuthResponse>.Failure(
-                new Error("auth.organization_access_denied", "Tài khoản không thuộc Organization được chọn."));
+                new Error(CommonMessages.ErrorCodes.OrganizationAccessDenied, CommonMessages.Auth.OrganizationAccessDenied));
         }
 
         var tokenSet = await authTokenService.IssueAsync(user, request.OrganizationId, requestMetadata.IpAddress, requestMetadata.UserAgent, cancellationToken);
