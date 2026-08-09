@@ -60,6 +60,8 @@ internal sealed class ApiFunctionConfiguration : IEntityTypeConfiguration<ApiFun
 
         builder.HasIndex(x => x.Code).IsUnique();
         builder.HasIndex(x => new { x.Module, x.Status });
+        builder.HasIndex(x => new { x.HttpMethod, x.RouteTemplate, x.Status })
+            .HasDatabaseName("ix_api_functions_http_method_route_status");
         builder.HasMany(x => x.RoleApiFunctions).WithOne(x => x.Function).HasForeignKey(x => x.FunctionId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.UpdatedByUserId).OnDelete(DeleteBehavior.Restrict);
     }

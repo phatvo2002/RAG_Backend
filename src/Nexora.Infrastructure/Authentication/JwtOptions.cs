@@ -1,3 +1,5 @@
+using Nexora.Application.Common.Constants;
+
 namespace Nexora.Infrastructure.Authentication;
 
 public sealed class JwtOptions
@@ -22,22 +24,22 @@ public sealed class JwtOptions
     {
         if (string.IsNullOrWhiteSpace(Issuer) || string.IsNullOrWhiteSpace(Audience))
         {
-            throw new InvalidOperationException("JWT issuer and audience are required.");
+            throw new InvalidOperationException(CommonMessages.Infrastructure.JwtIssuerAudienceRequired);
         }
 
         if (string.IsNullOrWhiteSpace(SigningKey) || SigningKey.Length < 32)
         {
-            throw new InvalidOperationException("JWT signature private key must contain at least 32 characters.");
+            throw new InvalidOperationException(CommonMessages.Infrastructure.JwtSigningKeyTooShort);
         }
 
         if (AccessTokenMinutes is < 1 or > 1440)
         {
-            throw new InvalidOperationException("JWT access token lifetime must be between 1 and 1440 minutes.");
+            throw new InvalidOperationException(CommonMessages.Infrastructure.JwtAccessTokenLifetimeInvalid);
         }
 
         if (RefreshTokenDays is < 1 or > 365)
         {
-            throw new InvalidOperationException("JWT refresh token lifetime must be between 1 and 365 days.");
+            throw new InvalidOperationException(CommonMessages.Infrastructure.JwtRefreshTokenLifetimeInvalid);
         }
     }
 }

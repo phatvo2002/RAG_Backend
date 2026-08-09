@@ -1,6 +1,7 @@
 using Microsoft.OpenApi.Models;
 using Nexora.Infrastructure;
 using Nexora.WebApi;
+using Nexora.WebApi.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -45,8 +46,10 @@ app.UseExceptionHandler();
 app.UseHttpsRedirection();
 app.UseSwagger();
 app.UseSwaggerUI(options => { options.SwaggerEndpoint("/swagger/v1/swagger.json", "Nexora AI API v1"); options.RoutePrefix = "swagger"; });
+app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseMiddleware<ApiPermissionMiddleware>();
 
 app.MapControllers();
 

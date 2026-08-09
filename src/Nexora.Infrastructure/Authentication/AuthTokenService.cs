@@ -6,6 +6,7 @@ using System.Text;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
+using Nexora.Application.Common.Constants;
 using Nexora.Application.Common.Abstractions;
 using Nexora.Application.Common.Abstractions.Auth;
 using Nexora.Application.Common.Abstractions.Repositories;
@@ -73,13 +74,13 @@ internal sealed class AuthTokenService(
 
         if (token.RevokedAt is not null)
         {
-            await accessTokenRepository.RevokeRefreshTokensAsync(token.UserId, token.OrganizationId, token.UserId, now, "refresh_token_reuse_detected", cancellationToken);
+            await accessTokenRepository.RevokeRefreshTokensAsync(token.UserId, token.OrganizationId, token.UserId, now, CommonMessages.TokenReasons.RefreshTokenReuseDetected, cancellationToken);
             return null;
         }
 
         if (!token.IsActiveAt(now))
         {
-            token.Revoke(token.UserId, now, "refresh_token_expired");
+            token.Revoke(token.UserId, now, CommonMessages.TokenReasons.RefreshTokenExpired);
             return null;
         }
 
@@ -88,12 +89,12 @@ internal sealed class AuthTokenService(
 
         if (user is null || membership is null)
         {
-            token.Revoke(token.UserId, now, "refresh_token_identity_invalid");
+            token.Revoke(token.UserId, now, CommonMessages.TokenReasons.RefreshTokenIdentityInvalid);
             return null;
         }
 
         token.MarkUsed(now, ParseIpAddress(ipAddress));
-        token.Revoke(token.UserId, now, "refresh_token_rotated");
+        token.Revoke(token.UserId, now, CommonMessages.TokenReasons.RefreshTokenRotated);
 
         return await IssueAsync(
             user,

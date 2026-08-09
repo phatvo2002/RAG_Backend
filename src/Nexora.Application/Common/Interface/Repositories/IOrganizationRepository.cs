@@ -7,7 +7,8 @@ public interface IOrganizationRepository : IBaseRepository<Organization>
 {
     Task<Organization?> GetByIdAsync(
         Guid organizationId,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        bool asTracking = false);
 
     Task AddAsync(
         Organization organization,
@@ -15,5 +16,8 @@ public interface IOrganizationRepository : IBaseRepository<Organization>
 
     Task<bool> SlugExistsAsync(
         OrganizationSlug slug,
-        CancellationToken cancellationToken);
+        CancellationToken cancellationToken,
+        Guid? excludingOrganizationId = null);
+
+    Task<List<Organization>> GetAllForManagementAsync(CancellationToken cancellationToken);
 }

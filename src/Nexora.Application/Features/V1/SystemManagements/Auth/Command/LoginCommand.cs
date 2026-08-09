@@ -1,4 +1,5 @@
 using MediatR;
+using Nexora.Application.Common.Constants;
 using Nexora.Application.Common.Abstractions;
 using Nexora.Application.Common.Abstractions.Auth;
 using Nexora.Application.Common.Abstractions.Repositories;
@@ -25,7 +26,7 @@ public sealed class LoginCommandHandler(
         if (user is null)
         {
             return Result<AuthResponse>.Failure(
-                new Error("auth.invalid_credentials", "Email hoặc mật khẩu không đúng."));
+                new Error(CommonMessages.ErrorCodes.InvalidCredentials, CommonMessages.Auth.InvalidCredentials));
         }
 
         var membership = await membershipRepository.GetForAuthenticationAsync(request.OrganizationId, user.UserId, cancellationToken);
@@ -33,7 +34,7 @@ public sealed class LoginCommandHandler(
         if (membership is null)
         {
             return Result<AuthResponse>.Failure(
-                new Error("auth.organization_access_denied", "Tài khoản không thuộc Organization được chọn."));
+                new Error(CommonMessages.ErrorCodes.OrganizationAccessDenied, CommonMessages.Auth.OrganizationAccessDenied));
         }
 
         var tokenSet = await authTokenService.IssueAsync(user, request.OrganizationId, requestMetadata.IpAddress, requestMetadata.UserAgent, cancellationToken);

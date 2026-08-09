@@ -2,6 +2,7 @@ using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using Nexora.Application.Common.Abstractions;
 using Nexora.Application.Common.Abstractions.Repositories;
+using Nexora.Application.Common.Constants;
 using Nexora.Domain.Common.Entities;
 
 namespace Nexora.Infrastructure.Persistence.Repositories;
@@ -70,7 +71,7 @@ public class BaseRepository<TEntity> : IBaseRepository<TEntity>
     {
         if (pageSize is < 1 or > 1_000)
         {
-            throw new ArgumentOutOfRangeException(nameof(pageSize), "Page size must be between 1 and 1000.");
+            throw new ArgumentOutOfRangeException(nameof(pageSize), CommonMessages.Infrastructure.PageSizeInvalid);
         }
 
         var normalizedPage = page < 1 ? 1 : page;
@@ -160,7 +161,7 @@ public class BaseRepository<TEntity> : IBaseRepository<TEntity>
                 if (DbContext.Entry(entityToUpdate).Metadata.FindProperty(propertyName) is null)
                 {
                     throw new ArgumentException(
-                        $"Property '{propertyName}' is not a mapped scalar property of {typeof(TEntity).Name}.",
+                        string.Format(CommonMessages.Infrastructure.PropertyNotMappedTemplate, propertyName, typeof(TEntity).Name),
                         nameof(propertiesToUpdate));
                 }
 
@@ -210,5 +211,5 @@ public class BaseRepository<TEntity> : IBaseRepository<TEntity>
 
     private Guid GetCurrentUserId() =>
         _userContext.UserId
-        ?? throw new InvalidOperationException("An authenticated user is required for soft delete.");
+        ?? throw new InvalidOperationException(CommonMessages.Infrastructure.AuthenticatedUserRequiredForSoftDelete);
 }
