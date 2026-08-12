@@ -1,10 +1,8 @@
 using MediatR;
 using Nexora.Application.Common.Abstractions;
 using Nexora.Application.Common.Abstractions.Repositories;
-using Nexora.Application.Common.Behaviors;
 using Nexora.Application.Common.Constants;
 using Nexora.Application.Common.Messaging;
-using Nexora.Application.Common.Permissions;
 using Nexora.Application.Common.Results;
 using Nexora.Application.Features.V1.SystemManagements.Organization.Model;
 using Nexora.Domain.Common.ValueObjects;
@@ -13,10 +11,7 @@ using OrganizationEntity = Nexora.Domain.Organizations.Organization;
 
 namespace Nexora.Application.Features.V1.SystemManagements.Organization.Command;
 
-public sealed record CreateOrganizationCommand(string Slug, string Name, string? DataResidency) : ITransactionalCommand<Result<OrganizationResponse>>, IRequirePermission
-{
-    public string PermissionCode => PermissionCodes.OrganizationCreate;
-}
+public sealed record CreateOrganizationCommand(string Slug, string Name, string? DataResidency) : ITransactionalCommand<Result<OrganizationResponse>>;
 
 public sealed class CreateOrganizationCommandHandler(IOrganizationRepository organizationRepository, IClock clock) : IRequestHandler<CreateOrganizationCommand, Result<OrganizationResponse>>
 {
@@ -36,10 +31,7 @@ public sealed class CreateOrganizationCommandHandler(IOrganizationRepository org
     private static OrganizationResponse ToResponse(OrganizationEntity organization) => new(organization.Id, organization.Slug.Value, organization.Name, organization.Status.ToString(), organization.DataResidency);
 }
 
-public sealed record UpdateOrganizationCommand(Guid OrganizationId, string Name, string? DataResidency) : ITransactionalCommand<Result<OrganizationResponse>>, IRequirePermission
-{
-    public string PermissionCode => PermissionCodes.OrganizationUpdate;
-}
+public sealed record UpdateOrganizationCommand(Guid OrganizationId, string Name, string? DataResidency) : ITransactionalCommand<Result<OrganizationResponse>>;
 
 public sealed class UpdateOrganizationCommandHandler(IOrganizationRepository organizationRepository) : IRequestHandler<UpdateOrganizationCommand, Result<OrganizationResponse>>
 {
@@ -57,10 +49,7 @@ public sealed class UpdateOrganizationCommandHandler(IOrganizationRepository org
     }
 }
 
-public sealed record SuspendOrganizationCommand(Guid OrganizationId) : ITransactionalCommand<Result>, IRequirePermission
-{
-    public string PermissionCode => PermissionCodes.OrganizationSuspend;
-}
+public sealed record SuspendOrganizationCommand(Guid OrganizationId) : ITransactionalCommand<Result>;
 
 public sealed class SuspendOrganizationCommandHandler(IOrganizationRepository organizationRepository) : IRequestHandler<SuspendOrganizationCommand, Result>
 {
@@ -77,10 +66,7 @@ public sealed class SuspendOrganizationCommandHandler(IOrganizationRepository or
     }
 }
 
-public sealed record ActivateOrganizationCommand(Guid OrganizationId) : ITransactionalCommand<Result>, IRequirePermission
-{
-    public string PermissionCode => PermissionCodes.OrganizationActivate;
-}
+public sealed record ActivateOrganizationCommand(Guid OrganizationId) : ITransactionalCommand<Result>;
 
 public sealed class ActivateOrganizationCommandHandler(IOrganizationRepository organizationRepository) : IRequestHandler<ActivateOrganizationCommand, Result>
 {
@@ -97,10 +83,7 @@ public sealed class ActivateOrganizationCommandHandler(IOrganizationRepository o
     }
 }
 
-public sealed record ArchiveOrganizationCommand(Guid OrganizationId) : ITransactionalCommand<Result>, IRequirePermission
-{
-    public string PermissionCode => PermissionCodes.OrganizationArchive;
-}
+public sealed record ArchiveOrganizationCommand(Guid OrganizationId) : ITransactionalCommand<Result>;
 
 public sealed class ArchiveOrganizationCommandHandler(IOrganizationRepository organizationRepository) : IRequestHandler<ArchiveOrganizationCommand, Result>
 {

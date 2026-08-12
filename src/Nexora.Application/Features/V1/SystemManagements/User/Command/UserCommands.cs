@@ -2,10 +2,8 @@ using MediatR;
 using Nexora.Application.Common.Abstractions;
 using Nexora.Application.Common.Abstractions.Auth;
 using Nexora.Application.Common.Abstractions.Repositories;
-using Nexora.Application.Common.Behaviors;
 using Nexora.Application.Common.Constants;
 using Nexora.Application.Common.Messaging;
-using Nexora.Application.Common.Permissions;
 using Nexora.Application.Common.Results;
 using Nexora.Application.Features.V1.SystemManagements.User.Model;
 using Nexora.Domain.Common.ValueObjects;
@@ -13,25 +11,22 @@ using Nexora.Domain.Organizations;
 
 namespace Nexora.Application.Features.V1.SystemManagements.User.Command;
 
-public sealed record CreateUserCommand(string Email, string UserName, string Password, string? PhoneNumber, string DisplayName, string PreferredLanguage, string? TimeZone) : ITransactionalCommand<Result<UserResponse>>, IRequirePermission
-{
-    public string PermissionCode => PermissionCodes.UserCreate;
-}
+public sealed record CreateUserCommand(string Email, string UserName, string Password, string? PhoneNumber, string DisplayName, string PreferredLanguage, string? TimeZone) : ITransactionalCommand<Result<UserResponse>>;
 
 public sealed class CreateUserCommandHandler(IIdentityService identityService, IUserProfileRepository profileRepository, IOrganizationMembershipRepository membershipRepository, IDefaultOrganizationProvider organizationProvider, IUserContext userContext, IClock clock) : IRequestHandler<CreateUserCommand, Result<UserResponse>>
 {
     public async Task<Result<UserResponse>> Handle(CreateUserCommand request, CancellationToken cancellationToken)
     {
-        if (!userContext.UserId.HasValue)
-        {
-            return Result<UserResponse>.Failure(Error.Unauthorized(CommonMessages.User.LoginRequiredToCreate));
-        }
+        //if (!userContext.UserId.HasValue)
+        //{
+        //    return Result<UserResponse>.Failure(Error.Unauthorized(CommonMessages.User.LoginRequiredToCreate));
+        //}
 
-        var organizationId = await organizationProvider.GetOrganizationIdAsync(cancellationToken);
-        if (!organizationId.HasValue)
-        {
-            return Result<UserResponse>.Failure(Error.Conflict(CommonMessages.User.DefaultOrganizationNotConfigured));
-        }
+        //var organizationId = await organizationProvider.GetOrganizationIdAsync(cancellationToken);
+        //if (!organizationId.HasValue)
+        //{
+        //    return Result<UserResponse>.Failure(Error.Conflict(CommonMessages.User.DefaultOrganizationNotConfigured));
+        //}
 
         var userResult = await identityService.CreateUserAsync(request.Email, request.UserName, request.Password, request.PhoneNumber, cancellationToken);
         if (!userResult.IsSuccess || userResult.Value is null)
@@ -43,9 +38,9 @@ public sealed class CreateUserCommandHandler(IIdentityService identityService, I
         var profile = UserProfile.Create(userResult.Value.UserId, request.DisplayName, LanguageCode.Create(request.PreferredLanguage), request.TimeZone is null ? null : TimeZoneId.Create(request.TimeZone), now);
         await profileRepository.AddAsync(profile, cancellationToken);
 
-        var membership = OrganizationMembership.Create(organizationId.Value, userResult.Value.UserId, userContext.UserId.Value, now);
-        membership.Activate(now);
-        await membershipRepository.AddAsync(membership, cancellationToken);
+    //    var membership = OrganizationMembership.Create(organizationId.Value, userResult.Value.UserId, userContext.UserId.Value, now);
+        //membership.Activate(now);
+        //await membershipRepository.AddAsync(membership, cancellationToken);
 
         return Result<UserResponse>.Success(ToResponse(userResult.Value, profile));
     }
@@ -53,10 +48,7 @@ public sealed class CreateUserCommandHandler(IIdentityService identityService, I
     private static UserResponse ToResponse(IdentityUserSnapshot user, UserProfile profile) => new(user.UserId, user.Email, user.UserName, user.PhoneNumber, user.IsActive, profile.DisplayName, profile.PreferredLanguage.Value, profile.TimeZone?.Value);
 }
 
-public sealed record UpdateUserCommand(Guid UserId, string Email, string UserName, string? PhoneNumber, string DisplayName, string PreferredLanguage, string? TimeZone) : ITransactionalCommand<Result<UserResponse>>, IRequirePermission
-{
-    public string PermissionCode => PermissionCodes.UserUpdate;
-}
+public sealed record UpdateUserCommand(Guid UserId, string Email, string UserName, string? PhoneNumber, string DisplayName, string PreferredLanguage, string? TimeZone) : ITransactionalCommand<Result<UserResponse>>;
 
 public sealed class UpdateUserCommandHandler(IIdentityService identityService, IUserProfileRepository profileRepository, IClock clock) : IRequestHandler<UpdateUserCommand, Result<UserResponse>>
 {
@@ -85,10 +77,7 @@ public sealed class UpdateUserCommandHandler(IIdentityService identityService, I
     }
 }
 
-public sealed record DeactivateUserCommand(Guid UserId) : ITransactionalCommand<Result>, IRequirePermission
-{
-    public string PermissionCode => PermissionCodes.UserDeactivate;
-}
+public sealed record DeactivateUserCommand(Guid UserId) : ITransactionalCommand<Result>;
 
 public sealed class DeactivateUserCommandHandler(IIdentityService identityService, IAccessTokenRepository accessTokenRepository, IDefaultOrganizationProvider organizationProvider, IUserContext userContext, IClock clock) : IRequestHandler<DeactivateUserCommand, Result>
 {
@@ -109,30 +98,21 @@ public sealed class DeactivateUserCommandHandler(IIdentityService identityServic
     }
 }
 
-public sealed record ReactivateUserCommand(Guid UserId) : ITransactionalCommand<Result>, IRequirePermission
-{
-    public string PermissionCode => PermissionCodes.UserReactivate;
-}
+public sealed record ReactivateUserCommand(Guid UserId) : ITransactionalCommand<Result>;
 
 public sealed class ReactivateUserCommandHandler(IIdentityService identityService) : IRequestHandler<ReactivateUserCommand, Result>
 {
     public Task<Result> Handle(ReactivateUserCommand request, CancellationToken cancellationToken) => identityService.ReactivateUserAsync(request.UserId, cancellationToken);
 }
 
-public sealed record ResetUserPasswordCommand(Guid UserId, string NewPassword) : ITransactionalCommand<Result>, IRequirePermission
-{
-    public string PermissionCode => PermissionCodes.UserResetPassword;
-}
+public sealed record ResetUserPasswordCommand(Guid UserId, string NewPassword) : ITransactionalCommand<Result>;
 
 public sealed class ResetUserPasswordCommandHandler(IIdentityService identityService) : IRequestHandler<ResetUserPasswordCommand, Result>
 {
     public Task<Result> Handle(ResetUserPasswordCommand request, CancellationToken cancellationToken) => identityService.ResetPasswordAsync(request.UserId, request.NewPassword, cancellationToken);
 }
 
-public sealed record AssignUserRoleCommand(Guid UserId, Guid RoleId) : ITransactionalCommand<Result>, IRequirePermission
-{
-    public string PermissionCode => PermissionCodes.UserRoleAssign;
-}
+public sealed record AssignUserRoleCommand(Guid UserId, Guid RoleId) : ITransactionalCommand<Result>;
 
 public sealed class AssignUserRoleCommandHandler(IIdentityService identityService, IOrganizationRoleAssignmentRepository assignmentRepository, IDefaultOrganizationProvider organizationProvider, IUserContext userContext, IClock clock) : IRequestHandler<AssignUserRoleCommand, Result>
 {
@@ -162,10 +142,7 @@ public sealed class AssignUserRoleCommandHandler(IIdentityService identityServic
     }
 }
 
-public sealed record RevokeUserRoleCommand(Guid UserId, Guid RoleId) : ITransactionalCommand<Result>, IRequirePermission
-{
-    public string PermissionCode => PermissionCodes.UserRoleRevoke;
-}
+public sealed record RevokeUserRoleCommand(Guid UserId, Guid RoleId) : ITransactionalCommand<Result>;
 
 public sealed class RevokeUserRoleCommandHandler(IOrganizationRoleAssignmentRepository assignmentRepository, IDefaultOrganizationProvider organizationProvider, IUserContext userContext, IClock clock) : IRequestHandler<RevokeUserRoleCommand, Result>
 {

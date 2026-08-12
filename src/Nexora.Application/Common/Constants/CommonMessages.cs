@@ -99,6 +99,9 @@ public static class CommonMessages
 
     public static class Api
     {
+        public const string AuthenticationRequired = "Cần đăng nhập để truy cập API này.";
+        public const string EndpointNotFound = "Không tìm thấy API được yêu cầu.";
+        public const string MethodNotAllowed = "HTTP method không được hỗ trợ cho API này.";
         public const string RequestValidationFailed = "Request validation failed.";
         public const string Forbidden = "The requested operation is not permitted.";
         public const string ConcurrencyConflict = "The resource was changed by another operation.";

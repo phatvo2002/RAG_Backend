@@ -1,8 +1,4 @@
-using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.Metadata;
-using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Routing;
 using Nexora.Application.Common.Constants;
 using Nexora.Application.Common.Permissions;
@@ -13,21 +9,13 @@ internal sealed class ApiPermissionMiddleware(RequestDelegate next)
 {
     public async Task InvokeAsync(HttpContext context, IApiRequestPermissionChecker permissionChecker)
     {
-        var endpoint = context.GetEndpoint();
-        if (endpoint is null ||
-            endpoint.Metadata.GetMetadata<ControllerActionDescriptor>() is null ||
-            endpoint.Metadata.GetMetadata<IAllowAnonymous>() is not null)
+        if (!ControllerSecurityMetadata.RequiresSecurity(context))
         {
             await next(context);
             return;
         }
 
-        if (context.User.Identity?.IsAuthenticated != true)
-        {
-            await context.ChallengeAsync(JwtBearerDefaults.AuthenticationScheme);
-            return;
-        }
-
+        var endpoint = context.GetEndpoint();
         if (endpoint is not RouteEndpoint routeEndpoint ||
             endpoint.Metadata.GetMetadata<IHttpMethodMetadata>() is not { HttpMethods.Count: > 0 } methodMetadata)
         {

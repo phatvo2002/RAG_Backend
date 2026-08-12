@@ -1,13 +1,14 @@
 using FluentValidation;
 using Microsoft.AspNetCore.Diagnostics;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
 using Nexora.Application.Common.Constants;
 using Nexora.Domain.Common.Exceptions;
+using Nexora.WebApi.Responses;
 
 namespace Nexora.WebApi;
 
-internal sealed class GlobalExceptionHandler(IProblemDetailsService problemDetailsService, ILogger<GlobalExceptionHandler> logger) : IExceptionHandler
+internal sealed class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logger) : IExceptionHandler
 {
     public async ValueTask<bool> TryHandleAsync(HttpContext httpContext, Exception exception, CancellationToken cancellationToken)
     {
@@ -25,20 +26,16 @@ internal sealed class GlobalExceptionHandler(IProblemDetailsService problemDetai
             logger.LogError(exception, CommonMessages.Api.UnhandledRequestLogTemplate, httpContext.TraceIdentifier);
         }
 
+        var details = exception is ValidationException validationException
+            ? validationException.Errors
+                .Select(error => new ApiErrorDetail(JsonNamingPolicy.CamelCase.ConvertName(error.PropertyName), error.ErrorMessage))
+                .ToArray()
+            : null;
+
         httpContext.Response.StatusCode = statusCode;
-        await problemDetailsService.WriteAsync(new ProblemDetailsContext
-        {
-            HttpContext = httpContext,
-            Exception = exception,
-            ProblemDetails = new Microsoft.AspNetCore.Mvc.ProblemDetails
-            {
-                Status = statusCode,
-                Title = title,
-                Type = $"https://httpstatuses.com/{statusCode}",
-                Instance = httpContext.Request.Path,
-                Extensions = { ["code"] = code, ["traceId"] = httpContext.TraceIdentifier }
-            }
-        });
+        await httpContext.Response.WriteAsJsonAsync(
+            ApiResponseFactory.Failure(httpContext, statusCode, title, code, details),
+            cancellationToken);
 
         return true;
     }

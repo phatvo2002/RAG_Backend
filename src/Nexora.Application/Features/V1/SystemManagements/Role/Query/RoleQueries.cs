@@ -2,19 +2,14 @@ using MediatR;
 using Nexora.Application.Common.Abstractions;
 using Nexora.Application.Common.Abstractions.Auth;
 using Nexora.Application.Common.Abstractions.Repositories;
-using Nexora.Application.Common.Behaviors;
 using Nexora.Application.Common.Constants;
 using Nexora.Application.Common.Messaging;
-using Nexora.Application.Common.Permissions;
 using Nexora.Application.Common.Results;
 using Nexora.Application.Features.V1.SystemManagements.Role.Model;
 
 namespace Nexora.Application.Features.V1.SystemManagements.Role.Query;
 
-public sealed record GetRolesQuery(int Page = 1, int PageSize = 20) : IQuery<PagedResult<RoleResponse>>, IRequirePermission
-{
-    public string PermissionCode => PermissionCodes.RoleRead;
-}
+public sealed record GetRolesQuery(int Page = 1, int PageSize = 20) : IQuery<PagedResult<RoleResponse>>;
 
 public sealed class GetRolesQueryHandler(IIdentityService identityService) : IRequestHandler<GetRolesQuery, PagedResult<RoleResponse>>
 {
@@ -25,10 +20,7 @@ public sealed class GetRolesQueryHandler(IIdentityService identityService) : IRe
     }
 }
 
-public sealed record GetRoleQuery(Guid RoleId) : IQuery<Result<RoleResponse>>, IRequirePermission
-{
-    public string PermissionCode => PermissionCodes.RoleReadById;
-}
+public sealed record GetRoleQuery(Guid RoleId) : IQuery<Result<RoleResponse>>;
 
 public sealed class GetRoleQueryHandler(IIdentityService identityService) : IRequestHandler<GetRoleQuery, Result<RoleResponse>>
 {
@@ -39,10 +31,7 @@ public sealed class GetRoleQueryHandler(IIdentityService identityService) : IReq
     }
 }
 
-public sealed record GetRolePermissionsQuery(Guid RoleId) : IQuery<IReadOnlyList<RolePermissionResponse>>, IRequirePermission
-{
-    public string PermissionCode => PermissionCodes.RoleReadPermissions;
-}
+public sealed record GetRolePermissionsQuery(Guid RoleId) : IQuery<IReadOnlyList<RolePermissionResponse>>;
 
 public sealed class GetRolePermissionsQueryHandler(IRoleApiFunctionRepository grantRepository, IDefaultOrganizationProvider organizationProvider) : IRequestHandler<GetRolePermissionsQuery, IReadOnlyList<RolePermissionResponse>>
 {

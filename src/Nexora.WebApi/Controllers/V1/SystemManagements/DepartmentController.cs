@@ -1,5 +1,4 @@
 using MediatR;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Nexora.Application.Features.V1.SystemManagements.Department.Command;
 using Nexora.Application.Features.V1.SystemManagements.Department.Model;
@@ -7,13 +6,11 @@ using Nexora.Application.Features.V1.SystemManagements.Department.Query;
 
 namespace Nexora.WebApi.Controllers.V1.SystemManagements;
 
-[ApiController]
-[Authorize]
 [Route("api/departments")]
-public sealed class DepartmentController(ISender sender) : ControllerBase
+public sealed class DepartmentController(ISender sender) : BaseController
 {
     [HttpGet]
-    public async Task<IActionResult> GetDepartments(CancellationToken cancellationToken) => Ok(await sender.Send(new GetDepartmentsQuery(), cancellationToken));
+    public async Task<IActionResult> GetDepartments(CancellationToken cancellationToken) => this.ToSuccessResponse(await sender.Send(new GetDepartmentsQuery(), cancellationToken), "Lấy danh sách Department thành công.");
 
     [HttpPost]
     public async Task<IActionResult> CreateDepartment([FromBody] CreateDepartmentRequest request, CancellationToken cancellationToken) => this.ToActionResult(await sender.Send(new CreateDepartmentCommand(request.Code, request.Name, request.ParentDepartmentId, request.ManagerUserId), cancellationToken));
@@ -34,5 +31,5 @@ public sealed class DepartmentController(ISender sender) : ControllerBase
     public async Task<IActionResult> RemoveMember(Guid departmentId, Guid userId, CancellationToken cancellationToken) => this.ToActionResult(await sender.Send(new RemoveDepartmentMemberCommand(departmentId, userId), cancellationToken));
 
     [HttpGet("{departmentId:guid}/members")]
-    public async Task<IActionResult> GetMembers(Guid departmentId, CancellationToken cancellationToken) => Ok(await sender.Send(new GetDepartmentMembersQuery(departmentId), cancellationToken));
+    public async Task<IActionResult> GetMembers(Guid departmentId, CancellationToken cancellationToken) => this.ToSuccessResponse(await sender.Send(new GetDepartmentMembersQuery(departmentId), cancellationToken), "Lấy danh sách thành viên Department thành công.");
 }

@@ -1,5 +1,4 @@
 using MediatR;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Nexora.Application.Features.V1.SystemManagements.Role.Command;
 using Nexora.Application.Features.V1.SystemManagements.Role.Model;
@@ -8,12 +7,11 @@ using Nexora.Application.Features.V1.SystemManagements.Role.Query;
 namespace Nexora.WebApi.Controllers.V1.SystemManagements;
 
 [ApiController]
-[Authorize]
 [Route("api/roles")]
-public sealed class RoleController(ISender sender) : ControllerBase
+public class RoleController(ISender sender) : ControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> GetRoles([FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken cancellationToken = default) => Ok(await sender.Send(new GetRolesQuery(page, pageSize), cancellationToken));
+    public async Task<IActionResult> GetRoles([FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken cancellationToken = default) => this.ToSuccessResponse(await sender.Send(new GetRolesQuery(page, pageSize), cancellationToken), "Lấy danh sách Role thành công.");
 
     [HttpPost]
     public async Task<IActionResult> CreateRole([FromBody] CreateRoleRequest request, CancellationToken cancellationToken) => this.ToActionResult(await sender.Send(new CreateRoleCommand(request.Name), cancellationToken));
@@ -37,5 +35,5 @@ public sealed class RoleController(ISender sender) : ControllerBase
     public async Task<IActionResult> RevokePermission(Guid roleId, string functionCode, CancellationToken cancellationToken) => this.ToActionResult(await sender.Send(new RevokeRolePermissionCommand(roleId, functionCode), cancellationToken));
 
     [HttpGet("{roleId:guid}/permissions")]
-    public async Task<IActionResult> GetPermissions(Guid roleId, CancellationToken cancellationToken) => Ok(await sender.Send(new GetRolePermissionsQuery(roleId), cancellationToken));
+    public async Task<IActionResult> GetPermissions(Guid roleId, CancellationToken cancellationToken) => this.ToSuccessResponse(await sender.Send(new GetRolePermissionsQuery(roleId), cancellationToken), "Lấy danh sách permission của Role thành công.");
 }

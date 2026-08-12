@@ -1,18 +1,13 @@
 using MediatR;
 using Nexora.Application.Common.Abstractions.Repositories;
-using Nexora.Application.Common.Behaviors;
 using Nexora.Application.Common.Constants;
 using Nexora.Application.Common.Messaging;
-using Nexora.Application.Common.Permissions;
 using Nexora.Application.Common.Results;
 using Nexora.Application.Features.V1.SystemManagements.Organization.Model;
 
 namespace Nexora.Application.Features.V1.SystemManagements.Organization.Query;
 
-public sealed record GetOrganizationsQuery : IQuery<IReadOnlyList<OrganizationResponse>>, IRequirePermission
-{
-    public string PermissionCode => PermissionCodes.OrganizationRead;
-}
+public sealed record GetOrganizationsQuery : IQuery<IReadOnlyList<OrganizationResponse>>;
 
 public sealed class GetOrganizationsQueryHandler(IOrganizationRepository organizationRepository) : IRequestHandler<GetOrganizationsQuery, IReadOnlyList<OrganizationResponse>>
 {
@@ -23,10 +18,7 @@ public sealed class GetOrganizationsQueryHandler(IOrganizationRepository organiz
     }
 }
 
-public sealed record GetOrganizationQuery(Guid OrganizationId) : IQuery<Result<OrganizationResponse>>, IRequirePermission
-{
-    public string PermissionCode => PermissionCodes.OrganizationReadById;
-}
+public sealed record GetOrganizationQuery(Guid OrganizationId) : IQuery<Result<OrganizationResponse>>;
 
 public sealed class GetOrganizationQueryHandler(IOrganizationRepository organizationRepository) : IRequestHandler<GetOrganizationQuery, Result<OrganizationResponse>>
 {
