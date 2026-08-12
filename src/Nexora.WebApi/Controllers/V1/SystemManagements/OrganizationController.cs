@@ -1,5 +1,4 @@
 using MediatR;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Nexora.Application.Features.V1.SystemManagements.Organization.Command;
 using Nexora.Application.Features.V1.SystemManagements.Organization.Model;
@@ -8,12 +7,11 @@ using Nexora.Application.Features.V1.SystemManagements.Organization.Query;
 namespace Nexora.WebApi.Controllers.V1.SystemManagements;
 
 [ApiController]
-[Authorize]
 [Route("api/organizations")]
 public sealed class OrganizationController(ISender sender) : ControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> GetOrganizations(CancellationToken cancellationToken) => Ok(await sender.Send(new GetOrganizationsQuery(), cancellationToken));
+    public async Task<IActionResult> GetOrganizations(CancellationToken cancellationToken) => this.ToSuccessResponse(await sender.Send(new GetOrganizationsQuery(), cancellationToken), "Lấy danh sách Organization thành công.");
 
     [HttpPost]
     public async Task<IActionResult> CreateOrganization([FromBody] CreateOrganizationRequest request, CancellationToken cancellationToken) => this.ToActionResult(await sender.Send(new CreateOrganizationCommand(request.Slug, request.Name, request.DataResidency), cancellationToken));

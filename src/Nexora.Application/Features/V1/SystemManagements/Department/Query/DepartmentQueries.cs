@@ -1,19 +1,14 @@
 using MediatR;
 using Nexora.Application.Common.Abstractions;
 using Nexora.Application.Common.Abstractions.Repositories;
-using Nexora.Application.Common.Behaviors;
 using Nexora.Application.Common.Constants;
 using Nexora.Application.Common.Messaging;
-using Nexora.Application.Common.Permissions;
 using Nexora.Application.Common.Results;
 using Nexora.Application.Features.V1.SystemManagements.Department.Model;
 
 namespace Nexora.Application.Features.V1.SystemManagements.Department.Query;
 
-public sealed record GetDepartmentsQuery : IQuery<IReadOnlyList<DepartmentResponse>>, IRequirePermission
-{
-    public string PermissionCode => PermissionCodes.DepartmentRead;
-}
+public sealed record GetDepartmentsQuery : IQuery<IReadOnlyList<DepartmentResponse>>;
 
 public sealed class GetDepartmentsQueryHandler(IDepartmentRepository departmentRepository, IDefaultOrganizationProvider organizationProvider) : IRequestHandler<GetDepartmentsQuery, IReadOnlyList<DepartmentResponse>>
 {
@@ -30,10 +25,7 @@ public sealed class GetDepartmentsQueryHandler(IDepartmentRepository departmentR
     }
 }
 
-public sealed record GetDepartmentQuery(Guid DepartmentId) : IQuery<Result<DepartmentResponse>>, IRequirePermission
-{
-    public string PermissionCode => PermissionCodes.DepartmentReadById;
-}
+public sealed record GetDepartmentQuery(Guid DepartmentId) : IQuery<Result<DepartmentResponse>>;
 
 public sealed class GetDepartmentQueryHandler(IDepartmentRepository departmentRepository, IDefaultOrganizationProvider organizationProvider) : IRequestHandler<GetDepartmentQuery, Result<DepartmentResponse>>
 {
@@ -47,10 +39,7 @@ public sealed class GetDepartmentQueryHandler(IDepartmentRepository departmentRe
     }
 }
 
-public sealed record GetDepartmentMembersQuery(Guid DepartmentId) : IQuery<IReadOnlyList<DepartmentMemberResponse>>, IRequirePermission
-{
-    public string PermissionCode => PermissionCodes.DepartmentMemberRead;
-}
+public sealed record GetDepartmentMembersQuery(Guid DepartmentId) : IQuery<IReadOnlyList<DepartmentMemberResponse>>;
 
 public sealed class GetDepartmentMembersQueryHandler(IDepartmentMembershipRepository membershipRepository, IDefaultOrganizationProvider organizationProvider) : IRequestHandler<GetDepartmentMembersQuery, IReadOnlyList<DepartmentMemberResponse>>
 {

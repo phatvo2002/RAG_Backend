@@ -2,10 +2,8 @@ using MediatR;
 using Nexora.Application.Common.Abstractions;
 using Nexora.Application.Common.Abstractions.Auth;
 using Nexora.Application.Common.Abstractions.Repositories;
-using Nexora.Application.Common.Behaviors;
 using Nexora.Application.Common.Constants;
 using Nexora.Application.Common.Messaging;
-using Nexora.Application.Common.Permissions;
 using Nexora.Application.Common.Results;
 using Nexora.Application.Features.V1.SystemManagements.Department.Model;
 using Nexora.Domain.Organizations;
@@ -14,10 +12,7 @@ using DepartmentEntity = Nexora.Domain.Organizations.Department;
 
 namespace Nexora.Application.Features.V1.SystemManagements.Department.Command;
 
-public sealed record CreateDepartmentCommand(string Code, string Name, Guid? ParentDepartmentId, Guid? ManagerUserId) : ITransactionalCommand<Result<DepartmentResponse>>, IRequirePermission
-{
-    public string PermissionCode => PermissionCodes.DepartmentCreate;
-}
+public sealed record CreateDepartmentCommand(string Code, string Name, Guid? ParentDepartmentId, Guid? ManagerUserId) : ITransactionalCommand<Result<DepartmentResponse>>;
 
 public sealed class CreateDepartmentCommandHandler(IDepartmentRepository departmentRepository, IDefaultOrganizationProvider organizationProvider, IIdentityService identityService, IClock clock) : IRequestHandler<CreateDepartmentCommand, Result<DepartmentResponse>>
 {
@@ -56,10 +51,7 @@ public sealed class CreateDepartmentCommandHandler(IDepartmentRepository departm
     private static DepartmentResponse ToResponse(DepartmentEntity department) => new(department.Id, department.ParentDepartmentId, department.Code.Value, department.Name, department.ManagerUserId, department.Status.ToString());
 }
 
-public sealed record UpdateDepartmentCommand(Guid DepartmentId, string Name, Guid? ParentDepartmentId, Guid? ManagerUserId) : ITransactionalCommand<Result<DepartmentResponse>>, IRequirePermission
-{
-    public string PermissionCode => PermissionCodes.DepartmentUpdate;
-}
+public sealed record UpdateDepartmentCommand(Guid DepartmentId, string Name, Guid? ParentDepartmentId, Guid? ManagerUserId) : ITransactionalCommand<Result<DepartmentResponse>>;
 
 public sealed class UpdateDepartmentCommandHandler(IDepartmentRepository departmentRepository, IDefaultOrganizationProvider organizationProvider, IIdentityService identityService) : IRequestHandler<UpdateDepartmentCommand, Result<DepartmentResponse>>
 {
@@ -101,10 +93,7 @@ public sealed class UpdateDepartmentCommandHandler(IDepartmentRepository departm
     }
 }
 
-public sealed record ArchiveDepartmentCommand(Guid DepartmentId) : ITransactionalCommand<Result>, IRequirePermission
-{
-    public string PermissionCode => PermissionCodes.DepartmentArchive;
-}
+public sealed record ArchiveDepartmentCommand(Guid DepartmentId) : ITransactionalCommand<Result>;
 
 public sealed class ArchiveDepartmentCommandHandler(IDepartmentRepository departmentRepository, IDefaultOrganizationProvider organizationProvider) : IRequestHandler<ArchiveDepartmentCommand, Result>
 {
@@ -122,10 +111,7 @@ public sealed class ArchiveDepartmentCommandHandler(IDepartmentRepository depart
     }
 }
 
-public sealed record AddDepartmentMemberCommand(Guid DepartmentId, Guid UserId, DepartmentMembershipType MembershipType = DepartmentMembershipType.Member) : ITransactionalCommand<Result>, IRequirePermission
-{
-    public string PermissionCode => PermissionCodes.DepartmentMemberAdd;
-}
+public sealed record AddDepartmentMemberCommand(Guid DepartmentId, Guid UserId, DepartmentMembershipType MembershipType = DepartmentMembershipType.Member) : ITransactionalCommand<Result>;
 
 public sealed class AddDepartmentMemberCommandHandler(IDepartmentRepository departmentRepository, IDepartmentMembershipRepository membershipRepository, IIdentityService identityService, IDefaultOrganizationProvider organizationProvider, IClock clock) : IRequestHandler<AddDepartmentMemberCommand, Result>
 {
@@ -149,10 +135,7 @@ public sealed class AddDepartmentMemberCommandHandler(IDepartmentRepository depa
     }
 }
 
-public sealed record RemoveDepartmentMemberCommand(Guid DepartmentId, Guid UserId) : ITransactionalCommand<Result>, IRequirePermission
-{
-    public string PermissionCode => PermissionCodes.DepartmentMemberRemove;
-}
+public sealed record RemoveDepartmentMemberCommand(Guid DepartmentId, Guid UserId) : ITransactionalCommand<Result>;
 
 public sealed class RemoveDepartmentMemberCommandHandler(IDepartmentMembershipRepository membershipRepository, IDefaultOrganizationProvider organizationProvider, IUserContext userContext, IClock clock) : IRequestHandler<RemoveDepartmentMemberCommand, Result>
 {

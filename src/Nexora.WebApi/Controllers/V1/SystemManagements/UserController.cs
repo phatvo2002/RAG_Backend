@@ -1,5 +1,4 @@
 using MediatR;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Nexora.Application.Features.V1.SystemManagements.User.Command;
 using Nexora.Application.Features.V1.SystemManagements.User.Model;
@@ -8,18 +7,17 @@ using Nexora.Application.Features.V1.SystemManagements.User.Query;
 namespace Nexora.WebApi.Controllers.V1.SystemManagements;
 
 [ApiController]
-[Authorize]
 [Route("api/users")]
 public sealed class UserController(ISender sender) : ControllerBase
 {
     [HttpGet]
-    public async Task<IActionResult> GetUsers([FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken cancellationToken = default) => Ok(await sender.Send(new GetUsersQuery(page, pageSize), cancellationToken));
+    public async Task<IActionResult> GetUsers([FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken cancellationToken = default) => this.ToSuccessResponse(await sender.Send(new GetUsersQuery(page, pageSize), cancellationToken), "Lấy danh sách User thành công.");
 
     [HttpPost]
     public async Task<IActionResult> CreateUser([FromBody] CreateUserRequest request, CancellationToken cancellationToken)
     {
         var result = await sender.Send(new CreateUserCommand(request.Email, request.UserName, request.Password, request.PhoneNumber, request.DisplayName, request.PreferredLanguage, request.TimeZone), cancellationToken);
-        return this.ToActionResult(result);
+        return this.ToActionResult(result, "Tạo User thành công.");
     }
 
     [HttpGet("{userId:guid}")]
@@ -48,5 +46,5 @@ public sealed class UserController(ISender sender) : ControllerBase
     public async Task<IActionResult> RevokeRole(Guid userId, Guid roleId, CancellationToken cancellationToken) => this.ToActionResult(await sender.Send(new RevokeUserRoleCommand(userId, roleId), cancellationToken));
 
     [HttpGet("{userId:guid}/roles")]
-    public async Task<IActionResult> GetRoles(Guid userId, CancellationToken cancellationToken) => Ok(await sender.Send(new GetUserRolesQuery(userId), cancellationToken));
+    public async Task<IActionResult> GetRoles(Guid userId, CancellationToken cancellationToken) => this.ToSuccessResponse(await sender.Send(new GetUserRolesQuery(userId), cancellationToken), "Lấy danh sách Role của User thành công.");
 }

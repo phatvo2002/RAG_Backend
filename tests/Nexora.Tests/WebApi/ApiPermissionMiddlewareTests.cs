@@ -1,11 +1,12 @@
-using System.Security.Claims;
-using Microsoft.AspNetCore.Authorization;
+using System.Reflection;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.Metadata;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Controllers;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.AspNetCore.Routing.Patterns;
 using Nexora.Application.Common.Permissions;
+using Nexora.WebApi.Controllers;
 using Nexora.WebApi.Middleware;
 
 namespace Nexora.Tests.WebApi;
@@ -13,7 +14,7 @@ namespace Nexora.Tests.WebApi;
 public sealed class ApiPermissionMiddlewareTests
 {
     [Fact]
-    public async Task AllowAnonymousEndpoint_ShouldSkipPermissionChecker()
+    public async Task PublicController_ShouldSkipPermissionChecker()
     {
         var checker = new TestPermissionChecker(false);
         var nextCalls = 0;
@@ -22,9 +23,7 @@ public sealed class ApiPermissionMiddlewareTests
             nextCalls++;
             return Task.CompletedTask;
         });
-        var context = CreateContext(
-            new AllowAnonymousAttribute(),
-            new HttpMethodMetadata(["GET"]));
+        var context = CreateContext(typeof(PublicController), new HttpMethodMetadata(["GET"]));
 
         await middleware.InvokeAsync(context, checker);
 
@@ -33,7 +32,7 @@ public sealed class ApiPermissionMiddlewareTests
     }
 
     [Fact]
-    public async Task AuthorizedEndpoint_ShouldUseCanonicalRouteAndContinueWhenAllowed()
+    public async Task ProtectedController_WhenAllowed_ShouldUseCanonicalRouteAndContinue()
     {
         var checker = new TestPermissionChecker(true);
         var nextCalls = 0;
@@ -42,8 +41,7 @@ public sealed class ApiPermissionMiddlewareTests
             nextCalls++;
             return Task.CompletedTask;
         });
-        var context = CreateContext(new HttpMethodMetadata(["GET"]));
-        context.User = new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString())], "Test"));
+        var context = CreateContext(typeof(ProtectedController), new HttpMethodMetadata(["GET"]));
 
         await middleware.InvokeAsync(context, checker);
 
@@ -51,9 +49,28 @@ public sealed class ApiPermissionMiddlewareTests
         Assert.Equal(new ApiRequestDescriptor("GET", "/api/users/{userId:guid}"), checker.Request);
     }
 
-    private static DefaultHttpContext CreateContext(params object[] metadata)
+    [Fact]
+    public async Task ProtectedController_WhenDenied_ShouldStopRequest()
     {
-        var endpointMetadata = new List<object> { new ControllerActionDescriptor() };
+        var checker = new TestPermissionChecker(false);
+        var nextCalls = 0;
+        var middleware = new ApiPermissionMiddleware(_ =>
+        {
+            nextCalls++;
+            return Task.CompletedTask;
+        });
+        var context = CreateContext(typeof(ProtectedController), new HttpMethodMetadata(["GET"]));
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => middleware.InvokeAsync(context, checker));
+
+        Assert.Equal(0, nextCalls);
+        Assert.Equal(new ApiRequestDescriptor("GET", "/api/users/{userId:guid}"), checker.Request);
+    }
+
+    private static DefaultHttpContext CreateContext(Type controllerType, params object[] metadata)
+    {
+        var descriptor = new ControllerActionDescriptor { ControllerTypeInfo = controllerType.GetTypeInfo() };
+        var endpointMetadata = new List<object> { descriptor };
         endpointMetadata.AddRange(metadata);
         var endpoint = new RouteEndpoint(
             _ => Task.CompletedTask,
@@ -66,6 +83,10 @@ public sealed class ApiPermissionMiddlewareTests
         context.Request.Method = "GET";
         return context;
     }
+
+    private sealed class PublicController : ControllerBase;
+
+    private sealed class ProtectedController : BaseController;
 
     private sealed class TestPermissionChecker(bool allowed) : IApiRequestPermissionChecker
     {

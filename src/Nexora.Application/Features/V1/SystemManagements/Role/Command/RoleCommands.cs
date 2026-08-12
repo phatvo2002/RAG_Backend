@@ -2,10 +2,8 @@ using MediatR;
 using Nexora.Application.Common.Abstractions;
 using Nexora.Application.Common.Abstractions.Auth;
 using Nexora.Application.Common.Abstractions.Repositories;
-using Nexora.Application.Common.Behaviors;
 using Nexora.Application.Common.Constants;
 using Nexora.Application.Common.Messaging;
-using Nexora.Application.Common.Permissions;
 using Nexora.Application.Common.Results;
 using Nexora.Application.Features.V1.SystemManagements.Role.Model;
 using Nexora.Domain.Authorization;
@@ -13,10 +11,7 @@ using Nexora.Domain.Authorization.Enums;
 
 namespace Nexora.Application.Features.V1.SystemManagements.Role.Command;
 
-public sealed record CreateRoleCommand(string Name) : ITransactionalCommand<Result<RoleResponse>>, IRequirePermission
-{
-    public string PermissionCode => PermissionCodes.RoleCreate;
-}
+public sealed record CreateRoleCommand(string Name) : ITransactionalCommand<Result<RoleResponse>>;
 
 public sealed class CreateRoleCommandHandler(IIdentityService identityService) : IRequestHandler<CreateRoleCommand, Result<RoleResponse>>
 {
@@ -29,10 +24,7 @@ public sealed class CreateRoleCommandHandler(IIdentityService identityService) :
     }
 }
 
-public sealed record UpdateRoleCommand(Guid RoleId, string Name) : ITransactionalCommand<Result<RoleResponse>>, IRequirePermission
-{
-    public string PermissionCode => PermissionCodes.RoleUpdate;
-}
+public sealed record UpdateRoleCommand(Guid RoleId, string Name) : ITransactionalCommand<Result<RoleResponse>>;
 
 public sealed class UpdateRoleCommandHandler(IIdentityService identityService) : IRequestHandler<UpdateRoleCommand, Result<RoleResponse>>
 {
@@ -45,30 +37,21 @@ public sealed class UpdateRoleCommandHandler(IIdentityService identityService) :
     }
 }
 
-public sealed record DeactivateRoleCommand(Guid RoleId) : ITransactionalCommand<Result>, IRequirePermission
-{
-    public string PermissionCode => PermissionCodes.RoleDeactivate;
-}
+public sealed record DeactivateRoleCommand(Guid RoleId) : ITransactionalCommand<Result>;
 
 public sealed class DeactivateRoleCommandHandler(IIdentityService identityService) : IRequestHandler<DeactivateRoleCommand, Result>
 {
     public Task<Result> Handle(DeactivateRoleCommand request, CancellationToken cancellationToken) => identityService.DeactivateRoleAsync(request.RoleId, cancellationToken);
 }
 
-public sealed record ReactivateRoleCommand(Guid RoleId) : ITransactionalCommand<Result>, IRequirePermission
-{
-    public string PermissionCode => PermissionCodes.RoleReactivate;
-}
+public sealed record ReactivateRoleCommand(Guid RoleId) : ITransactionalCommand<Result>;
 
 public sealed class ReactivateRoleCommandHandler(IIdentityService identityService) : IRequestHandler<ReactivateRoleCommand, Result>
 {
     public Task<Result> Handle(ReactivateRoleCommand request, CancellationToken cancellationToken) => identityService.ReactivateRoleAsync(request.RoleId, cancellationToken);
 }
 
-public sealed record GrantRolePermissionCommand(Guid RoleId, string FunctionCode, PermissionEffect Effect, DateTimeOffset? ValidFrom, DateTimeOffset? ExpiresAt) : ITransactionalCommand<Result>, IRequirePermission
-{
-    public string PermissionCode => PermissionCodes.RolePermissionGrant;
-}
+public sealed record GrantRolePermissionCommand(Guid RoleId, string FunctionCode, PermissionEffect Effect, DateTimeOffset? ValidFrom, DateTimeOffset? ExpiresAt) : ITransactionalCommand<Result>;
 
 public sealed class GrantRolePermissionCommandHandler(IIdentityService identityService, IApiFunctionRepository functionRepository, IRoleApiFunctionRepository grantRepository, IDefaultOrganizationProvider organizationProvider, IUserContext userContext, IClock clock) : IRequestHandler<GrantRolePermissionCommand, Result>
 {
@@ -104,10 +87,7 @@ public sealed class GrantRolePermissionCommandHandler(IIdentityService identityS
     }
 }
 
-public sealed record RevokeRolePermissionCommand(Guid RoleId, string FunctionCode) : ITransactionalCommand<Result>, IRequirePermission
-{
-    public string PermissionCode => PermissionCodes.RolePermissionRevoke;
-}
+public sealed record RevokeRolePermissionCommand(Guid RoleId, string FunctionCode) : ITransactionalCommand<Result>;
 
 public sealed class RevokeRolePermissionCommandHandler(IApiFunctionRepository functionRepository, IRoleApiFunctionRepository grantRepository, IDefaultOrganizationProvider organizationProvider, IUserContext userContext, IClock clock) : IRequestHandler<RevokeRolePermissionCommand, Result>
 {

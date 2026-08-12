@@ -2,20 +2,15 @@ using MediatR;
 using Nexora.Application.Common.Abstractions;
 using Nexora.Application.Common.Abstractions.Auth;
 using Nexora.Application.Common.Abstractions.Repositories;
-using Nexora.Application.Common.Behaviors;
 using Nexora.Application.Common.Constants;
 using Nexora.Application.Common.Messaging;
-using Nexora.Application.Common.Permissions;
 using Nexora.Application.Common.Results;
 using Nexora.Application.Features.V1.SystemManagements.User.Model;
 using Nexora.Domain.Organizations;
 
 namespace Nexora.Application.Features.V1.SystemManagements.User.Query;
 
-public sealed record GetUsersQuery(int Page = 1, int PageSize = 20) : IQuery<PagedResult<UserResponse>>, IRequirePermission
-{
-    public string PermissionCode => PermissionCodes.UserRead;
-}
+public sealed record GetUsersQuery(int Page = 1, int PageSize = 20) : IQuery<PagedResult<UserResponse>>;
 
 public sealed class GetUsersQueryHandler(IIdentityService identityService, IUserProfileRepository profileRepository) : IRequestHandler<GetUsersQuery, PagedResult<UserResponse>>
 {
@@ -39,10 +34,7 @@ public sealed class GetUsersQueryHandler(IIdentityService identityService, IUser
     private static UserResponse ToResponse(IdentityUserSnapshot user, UserProfile? profile) => new(user.UserId, user.Email, user.UserName, user.PhoneNumber, user.IsActive, profile?.DisplayName, profile?.PreferredLanguage.Value, profile?.TimeZone?.Value);
 }
 
-public sealed record GetUserQuery(Guid UserId) : IQuery<Result<UserResponse>>, IRequirePermission
-{
-    public string PermissionCode => PermissionCodes.UserReadById;
-}
+public sealed record GetUserQuery(Guid UserId) : IQuery<Result<UserResponse>>;
 
 public sealed class GetUserQueryHandler(IIdentityService identityService, IUserProfileRepository profileRepository) : IRequestHandler<GetUserQuery, Result<UserResponse>>
 {
@@ -59,10 +51,7 @@ public sealed class GetUserQueryHandler(IIdentityService identityService, IUserP
     }
 }
 
-public sealed record GetUserRolesQuery(Guid UserId) : IQuery<IReadOnlyList<UserRoleResponse>>, IRequirePermission
-{
-    public string PermissionCode => PermissionCodes.UserReadRoles;
-}
+public sealed record GetUserRolesQuery(Guid UserId) : IQuery<IReadOnlyList<UserRoleResponse>>;
 
 public sealed class GetUserRolesQueryHandler(IOrganizationRoleAssignmentRepository assignmentRepository, IDefaultOrganizationProvider organizationProvider) : IRequestHandler<GetUserRolesQuery, IReadOnlyList<UserRoleResponse>>
 {

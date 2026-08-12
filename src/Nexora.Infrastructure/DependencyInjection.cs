@@ -93,8 +93,6 @@ public static class DependencyInjection
                     ClockSkew = TimeSpan.FromSeconds(30)
                 };
             });
-        services.AddAuthorization();
-
         services.AddHttpContextAccessor();
         services.AddSingleton<IClock, SystemClock>();
         services.AddScoped<IUserContext, HttpUserContext>();
@@ -115,13 +113,11 @@ public static class DependencyInjection
         services.AddScoped<IRoleApiFunctionRepository, RoleApiFunctionRepository>();
         services.AddScoped<IAccessTokenRepository, AccessTokenRepository>();
 
-        services.AddScoped<IPermissionChecker, ApiPermissionService>();
         services.AddScoped<IApiRequestPermissionChecker, ApiPermissionService>();
         services.AddMediatR(config =>
         {
             config.RegisterServicesFromAssembly(typeof(ApplicationAssemblyMarker).Assembly);
             config.AddOpenBehavior(typeof(ValidationBehavior<,>));
-            config.AddOpenBehavior(typeof(AuthorizationBehavior<,>));
             config.AddOpenBehavior(typeof(TransactionBehavior<,>));
         });
         services.AddValidatorsFromAssembly(typeof(ApplicationAssemblyMarker).Assembly);
