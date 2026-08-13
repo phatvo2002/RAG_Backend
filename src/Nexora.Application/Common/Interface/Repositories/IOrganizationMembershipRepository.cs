@@ -14,7 +14,4 @@ public interface IOrganizationMembershipRepository : IBaseRepository<Organizatio
         Guid userId,
         CancellationToken cancellationToken);
 
-    Task AddAsync(
-        OrganizationMembership membership,
-        CancellationToken cancellationToken);
 }

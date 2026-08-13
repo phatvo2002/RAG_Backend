@@ -1,9 +1,83 @@
 namespace Nexora.Application.Features.V1.SystemManagements.Department.Model;
 
-public sealed record DepartmentResponse(Guid DepartmentId, Guid? ParentDepartmentId, string Code, string Name, Guid? ManagerUserId, string Status);
+public class DepartmentResponse
+{
+    public DepartmentResponse()
+    {
+    }
 
-public sealed record DepartmentMemberResponse(Guid UserId, string MembershipType, DateTimeOffset JoinedAt, DateTimeOffset? LeftAt);
+    public DepartmentResponse(Guid departmentId, Guid? parentDepartmentId, string code, string name, Guid? managerUserId, string status)
+    {
+        DepartmentId = departmentId;
+        ParentDepartmentId = parentDepartmentId;
+        Code = code;
+        Name = name;
+        ManagerUserId = managerUserId;
+        Status = status;
+    }
 
-public sealed record CreateDepartmentRequest(string Code, string Name, Guid? ParentDepartmentId = null, Guid? ManagerUserId = null);
+    public Guid DepartmentId { get; set; }
+    public Guid? ParentDepartmentId { get; set; }
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public Guid? ManagerUserId { get; set; }
+    public string Status { get; set; } = string.Empty;
+}
 
-public sealed record UpdateDepartmentRequest(string Name, Guid? ParentDepartmentId = null, Guid? ManagerUserId = null);
+public class DepartmentMemberResponse
+{
+    public DepartmentMemberResponse()
+    {
+    }
+
+    public DepartmentMemberResponse(Guid userId, string membershipType, DateTimeOffset joinedAt, DateTimeOffset? leftAt)
+    {
+        UserId = userId;
+        MembershipType = membershipType;
+        JoinedAt = joinedAt;
+        LeftAt = leftAt;
+    }
+
+    public Guid UserId { get; set; }
+    public string MembershipType { get; set; } = string.Empty;
+    public DateTimeOffset JoinedAt { get; set; }
+    public DateTimeOffset? LeftAt { get; set; }
+}
+
+public class CreateDepartmentRequest
+{
+    public CreateDepartmentRequest()
+    {
+    }
+
+    public CreateDepartmentRequest(string code, string name, Guid? parentDepartmentId = null, Guid? managerUserId = null)
+    {
+        Code = code;
+        Name = name;
+        ParentDepartmentId = parentDepartmentId;
+        ManagerUserId = managerUserId;
+    }
+
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public Guid? ParentDepartmentId { get; set; }
+    public Guid? ManagerUserId { get; set; }
+}
+
+public class UpdateDepartmentRequest
+{
+    public UpdateDepartmentRequest()
+    {
+    }
+
+    public UpdateDepartmentRequest(string name, Guid? parentDepartmentId = null, Guid? managerUserId = null)
+    {
+        Name = name;
+        ParentDepartmentId = parentDepartmentId;
+        ManagerUserId = managerUserId;
+    }
+
+    public string Name { get; set; } = string.Empty;
+    public Guid? ParentDepartmentId { get; set; }
+    public Guid? ManagerUserId { get; set; }
+}

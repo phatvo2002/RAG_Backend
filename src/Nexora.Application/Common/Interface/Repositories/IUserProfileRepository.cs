@@ -9,7 +9,4 @@ public interface IUserProfileRepository : IBaseRepository<UserProfile>
         CancellationToken cancellationToken,
         bool asTracking = false);
 
-    Task AddAsync(
-        UserProfile profile,
-        CancellationToken cancellationToken);
 }

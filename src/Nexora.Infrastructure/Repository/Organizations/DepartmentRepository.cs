@@ -27,5 +27,4 @@ internal sealed class DepartmentRepository(NexoraDbContext dbContext, IUserConte
     public Task<List<Department>> GetAllForOrganizationAsync(Guid organizationId, CancellationToken cancellationToken) =>
         DbContext.Departments.IgnoreQueryFilters().Where(department => department.OrganizationId == organizationId).OrderBy(department => department.Name).AsNoTracking().ToListAsync(cancellationToken);
 
-    public Task AddAsync(Department department, CancellationToken cancellationToken) => base.AddEntityAsync(department, cancellationToken);
 }

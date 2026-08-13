@@ -13,18 +13,18 @@ namespace Nexora.Application.Features.V1.SystemManagements.Organization.Command;
 
 public sealed record CreateOrganizationCommand(string Slug, string Name, string? DataResidency) : ITransactionalCommand<Result<OrganizationResponse>>;
 
-public sealed class CreateOrganizationCommandHandler(IOrganizationRepository organizationRepository, IClock clock) : IRequestHandler<CreateOrganizationCommand, Result<OrganizationResponse>>
+public sealed class CreateOrganizationCommandHandler(IUnitOfWork unitOfWork, IClock clock) : IRequestHandler<CreateOrganizationCommand, Result<OrganizationResponse>>
 {
     public async Task<Result<OrganizationResponse>> Handle(CreateOrganizationCommand request, CancellationToken cancellationToken)
     {
         var slug = OrganizationSlug.Create(request.Slug);
-        if (await organizationRepository.SlugExistsAsync(slug, cancellationToken))
+        if (await unitOfWork.OrganizationRepository.SlugExistsAsync(slug, cancellationToken))
         {
             return Result<OrganizationResponse>.Failure(Error.Conflict(CommonMessages.Organization.SlugAlreadyExists));
         }
 
         var organization = OrganizationEntity.Create(slug.Value, request.Name, clock.UtcNow, request.DataResidency);
-        await organizationRepository.AddAsync(organization, cancellationToken);
+        unitOfWork.OrganizationRepository.Insert(organization);
         return Result<OrganizationResponse>.Success(ToResponse(organization));
     }
 
@@ -33,11 +33,11 @@ public sealed class CreateOrganizationCommandHandler(IOrganizationRepository org
 
 public sealed record UpdateOrganizationCommand(Guid OrganizationId, string Name, string? DataResidency) : ITransactionalCommand<Result<OrganizationResponse>>;
 
-public sealed class UpdateOrganizationCommandHandler(IOrganizationRepository organizationRepository) : IRequestHandler<UpdateOrganizationCommand, Result<OrganizationResponse>>
+public sealed class UpdateOrganizationCommandHandler(IUnitOfWork unitOfWork) : IRequestHandler<UpdateOrganizationCommand, Result<OrganizationResponse>>
 {
     public async Task<Result<OrganizationResponse>> Handle(UpdateOrganizationCommand request, CancellationToken cancellationToken)
     {
-        var organization = await organizationRepository.GetByIdAsync(request.OrganizationId, cancellationToken, asTracking: true);
+        var organization = await unitOfWork.OrganizationRepository.GetByIdAsync(request.OrganizationId, cancellationToken, asTracking: true);
         if (organization is null)
         {
             return Result<OrganizationResponse>.Failure(Error.NotFound(CommonMessages.Organization.NotFound));
@@ -51,11 +51,11 @@ public sealed class UpdateOrganizationCommandHandler(IOrganizationRepository org
 
 public sealed record SuspendOrganizationCommand(Guid OrganizationId) : ITransactionalCommand<Result>;
 
-public sealed class SuspendOrganizationCommandHandler(IOrganizationRepository organizationRepository) : IRequestHandler<SuspendOrganizationCommand, Result>
+public sealed class SuspendOrganizationCommandHandler(IUnitOfWork unitOfWork) : IRequestHandler<SuspendOrganizationCommand, Result>
 {
     public async Task<Result> Handle(SuspendOrganizationCommand request, CancellationToken cancellationToken)
     {
-        var organization = await organizationRepository.GetByIdAsync(request.OrganizationId, cancellationToken, asTracking: true);
+        var organization = await unitOfWork.OrganizationRepository.GetByIdAsync(request.OrganizationId, cancellationToken, asTracking: true);
         if (organization is null)
         {
             return Result.Failure(Error.NotFound(CommonMessages.Organization.NotFound));
@@ -68,11 +68,11 @@ public sealed class SuspendOrganizationCommandHandler(IOrganizationRepository or
 
 public sealed record ActivateOrganizationCommand(Guid OrganizationId) : ITransactionalCommand<Result>;
 
-public sealed class ActivateOrganizationCommandHandler(IOrganizationRepository organizationRepository) : IRequestHandler<ActivateOrganizationCommand, Result>
+public sealed class ActivateOrganizationCommandHandler(IUnitOfWork unitOfWork) : IRequestHandler<ActivateOrganizationCommand, Result>
 {
     public async Task<Result> Handle(ActivateOrganizationCommand request, CancellationToken cancellationToken)
     {
-        var organization = await organizationRepository.GetByIdAsync(request.OrganizationId, cancellationToken, asTracking: true);
+        var organization = await unitOfWork.OrganizationRepository.GetByIdAsync(request.OrganizationId, cancellationToken, asTracking: true);
         if (organization is null)
         {
             return Result.Failure(Error.NotFound(CommonMessages.Organization.NotFound));
@@ -85,11 +85,11 @@ public sealed class ActivateOrganizationCommandHandler(IOrganizationRepository o
 
 public sealed record ArchiveOrganizationCommand(Guid OrganizationId) : ITransactionalCommand<Result>;
 
-public sealed class ArchiveOrganizationCommandHandler(IOrganizationRepository organizationRepository) : IRequestHandler<ArchiveOrganizationCommand, Result>
+public sealed class ArchiveOrganizationCommandHandler(IUnitOfWork unitOfWork) : IRequestHandler<ArchiveOrganizationCommand, Result>
 {
     public async Task<Result> Handle(ArchiveOrganizationCommand request, CancellationToken cancellationToken)
     {
-        var organization = await organizationRepository.GetByIdAsync(request.OrganizationId, cancellationToken, asTracking: true);
+        var organization = await unitOfWork.OrganizationRepository.GetByIdAsync(request.OrganizationId, cancellationToken, asTracking: true);
         if (organization is null)
         {
             return Result.Failure(Error.NotFound(CommonMessages.Organization.NotFound));

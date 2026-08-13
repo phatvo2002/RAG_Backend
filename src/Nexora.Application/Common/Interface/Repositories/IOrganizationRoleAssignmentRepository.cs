@@ -8,7 +8,4 @@ public interface IOrganizationRoleAssignmentRepository : IBaseRepository<Organiz
 
     Task<List<OrganizationRoleAssignment>> GetByUserAsync(Guid organizationId, Guid userId, CancellationToken cancellationToken);
 
-    Task AddAsync(
-        OrganizationRoleAssignment assignment,
-        CancellationToken cancellationToken);
 }

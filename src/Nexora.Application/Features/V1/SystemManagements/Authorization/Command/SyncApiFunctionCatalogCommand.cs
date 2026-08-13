@@ -6,12 +6,13 @@ using Nexora.Application.Common.Messaging;
 using Nexora.Application.Common.Results;
 using Nexora.Domain.Authorization;
 using Nexora.Domain.Authorization.Enums;
+using DomainApiFunction = Nexora.Domain.Authorization.ApiFunction;
 
 namespace Nexora.Application.Features.V1.SystemManagements.Authorization.Command;
 
 public sealed record SyncApiFunctionCatalogCommand : ITransactionalCommand<Result>;
 
-public sealed class SyncApiFunctionCatalogCommandHandler(IApiFunctionRepository functionRepository, IClock clock)
+public sealed class SyncApiFunctionCatalogCommandHandler(IUnitOfWork unitOfWork, IClock clock)
     : IRequestHandler<SyncApiFunctionCatalogCommand, Result>
 {
     private static readonly IReadOnlyList<ApiFunctionDefinition> Definitions =
@@ -40,6 +41,12 @@ public sealed class SyncApiFunctionCatalogCommandHandler(IApiFunctionRepository 
         new("role.permission.grant", "Role", "Grant role permission", ApiHttpMethod.Put, "/api/roles/{roleId:guid}/permissions/{functionCode}", ApiActionType.Admin, ApiRiskLevel.High),
         new("role.permission.revoke", "Role", "Revoke role permission", ApiHttpMethod.Delete, "/api/roles/{roleId:guid}/permissions/{functionCode}", ApiActionType.Admin, ApiRiskLevel.High),
         new("role.read.permissions", "Role", "Get role permissions", ApiHttpMethod.Get, "/api/roles/{roleId:guid}/permissions", ApiActionType.Read, ApiRiskLevel.Medium),
+        new("api_function.read", "Authorization", "List API functions", ApiHttpMethod.Get, "/api/api-functions", ApiActionType.Read, ApiRiskLevel.Low),
+        new("api_function.create", "Authorization", "Create API function", ApiHttpMethod.Post, "/api/api-functions", ApiActionType.Admin, ApiRiskLevel.High),
+        new("api_function.read.by_id", "Authorization", "Get API function", ApiHttpMethod.Get, "/api/api-functions/{apiFunctionId:guid}", ApiActionType.Read, ApiRiskLevel.Low),
+        new("api_function.update", "Authorization", "Update API function", ApiHttpMethod.Put, "/api/api-functions/{apiFunctionId:guid}", ApiActionType.Admin, ApiRiskLevel.High),
+        new("api_function.deactivate", "Authorization", "Deactivate API function", ApiHttpMethod.Post, "/api/api-functions/{apiFunctionId:guid}/deactivate", ApiActionType.Admin, ApiRiskLevel.High),
+        new("api_function.reactivate", "Authorization", "Reactivate API function", ApiHttpMethod.Post, "/api/api-functions/{apiFunctionId:guid}/reactivate", ApiActionType.Admin, ApiRiskLevel.High),
         new("department.read", "Department", "List departments", ApiHttpMethod.Get, "/api/departments", ApiActionType.Read, ApiRiskLevel.Low),
         new("department.create", "Department", "Create department", ApiHttpMethod.Post, "/api/departments", ApiActionType.Write, ApiRiskLevel.Medium),
         new("department.read.by_id", "Department", "Get department", ApiHttpMethod.Get, "/api/departments/{departmentId:guid}", ApiActionType.Read, ApiRiskLevel.Low),
@@ -61,10 +68,10 @@ public sealed class SyncApiFunctionCatalogCommandHandler(IApiFunctionRepository 
     {
         foreach (var definition in Definitions)
         {
-            var existing = await functionRepository.GetByCodeAsync(definition.Code, cancellationToken);
+            var existing = await unitOfWork.ApiFunctionRepository.GetByCodeAsync(definition.Code, cancellationToken);
             if (existing is null)
             {
-                await functionRepository.AddAsync(definition.Create(clock.UtcNow), cancellationToken);
+                unitOfWork.ApiFunctionRepository.Insert(definition.Create(clock.UtcNow));
                 continue;
             }
 
@@ -87,6 +94,6 @@ public sealed class SyncApiFunctionCatalogCommandHandler(IApiFunctionRepository 
         ApiRiskLevel RiskLevel,
         string? Description = null)
     {
-        public ApiFunction Create(DateTimeOffset now) => Domain.Authorization.ApiFunction.Create(Code, Module, Name, HttpMethod, RouteTemplate, ActionType, RiskLevel, now, description: Description);
+        public DomainApiFunction Create(DateTimeOffset now) => DomainApiFunction.Create(Code, Module, Name, HttpMethod, RouteTemplate, ActionType, RiskLevel, now, description: Description);
     }
 }

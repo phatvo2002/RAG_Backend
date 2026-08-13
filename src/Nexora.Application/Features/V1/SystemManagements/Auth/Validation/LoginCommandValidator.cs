@@ -16,7 +16,5 @@ public sealed class LoginCommandValidator : AbstractValidator<LoginCommand>
             .NotEmpty()
             .MaximumLength(128);
 
-        RuleFor(x => x.OrganizationId)
-            .NotEmpty();
     }
 }

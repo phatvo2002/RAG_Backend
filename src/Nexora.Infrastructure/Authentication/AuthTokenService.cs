@@ -17,21 +17,24 @@ namespace Nexora.Infrastructure.Authentication;
 internal sealed class AuthTokenService(
     IOptions<JwtOptions> options,
     IClock clock,
-    IIdentityService identityService,
-    IOrganizationMembershipRepository membershipRepository,
-    IAccessTokenRepository accessTokenRepository)
+    IUnitOfWork unitOfWork,
+    IDefaultOrganizationProvider organizationProvider)
     : IAuthTokenService
 {
     private readonly JwtOptions _options = options.Value;
 
-    public Task<AuthTokenSet> IssueAsync(IdentityUserSnapshot user, Guid organizationId, string? ipAddress, string? userAgent, CancellationToken cancellationToken)
+    public async Task<AuthTokenSet> IssueAsync(IdentityUserSnapshot user, string? ipAddress, string? userAgent, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         _options.Validate();
 
+        var organizationId = await organizationProvider.GetOrganizationIdAsync(cancellationToken)
+            ?? throw new InvalidOperationException(CommonMessages.User.DefaultOrganizationNotConfigured);
+
         var now = clock.UtcNow;
         var accessTokenExpiresAt = now.AddMinutes(_options.AccessTokenMinutes);
         var refreshTokenExpiresAt = now.AddDays(_options.RefreshTokenDays);
+        var roleId = await GetEffectiveRoleIdAsync(user.UserId, organizationId, now, cancellationToken);
         var refreshTokenId = Guid.NewGuid();
         var rawRefreshToken = CreateRawToken();
         var refreshTokenHash = HashToken(rawRefreshToken);
@@ -47,17 +50,17 @@ internal sealed class AuthTokenService(
             parsedIpAddress,
             userAgent);
 
-        accessTokenRepository.Insert(refreshToken);
+        unitOfWork.AccessTokenRepository.Insert(refreshToken);
 
         var accessToken = CreateAccessToken(
             user,
             organizationId,
+            roleId,
             refreshTokenId,
             now,
             accessTokenExpiresAt);
 
-        return Task.FromResult(
-            new AuthTokenSet(accessToken, accessTokenExpiresAt, rawRefreshToken, refreshTokenExpiresAt, organizationId, user.UserId));
+        return new AuthTokenSet(accessToken, accessTokenExpiresAt, rawRefreshToken, refreshTokenExpiresAt, user.UserId);
     }
 
     public async Task<AuthTokenSet?> RotateRefreshTokenAsync(string refreshToken, string? ipAddress, string? userAgent, CancellationToken cancellationToken)
@@ -65,7 +68,7 @@ internal sealed class AuthTokenService(
         _options.Validate();
 
         var now = clock.UtcNow;
-        var token = await accessTokenRepository.GetRefreshTokenAsync(HashToken(refreshToken), cancellationToken);
+        var token = await unitOfWork.AccessTokenRepository.GetRefreshTokenAsync(HashToken(refreshToken), cancellationToken);
 
         if (token is null)
         {
@@ -74,7 +77,7 @@ internal sealed class AuthTokenService(
 
         if (token.RevokedAt is not null)
         {
-            await accessTokenRepository.RevokeRefreshTokensAsync(token.UserId, token.OrganizationId, token.UserId, now, CommonMessages.TokenReasons.RefreshTokenReuseDetected, cancellationToken);
+            await unitOfWork.AccessTokenRepository.RevokeRefreshTokensAsync(token.UserId, token.OrganizationId, token.UserId, now, CommonMessages.TokenReasons.RefreshTokenReuseDetected, cancellationToken);
             return null;
         }
 
@@ -84,21 +87,28 @@ internal sealed class AuthTokenService(
             return null;
         }
 
-        var user = await identityService.GetByIdAsync(token.UserId, cancellationToken);
-        var membership = await membershipRepository.GetForAuthenticationAsync(token.OrganizationId, token.UserId, cancellationToken);
-
-        if (user is null || membership is null)
+        var userEntity = await unitOfWork.UserRepository.GetAsync(
+            user => user.Id == token.UserId && user.IsActive,
+            asNoTracking: true,
+            cancellationToken: cancellationToken);
+        if (userEntity is null)
         {
             token.Revoke(token.UserId, now, CommonMessages.TokenReasons.RefreshTokenIdentityInvalid);
             return null;
         }
+
+        var user = new IdentityUserSnapshot(
+            userEntity.Id,
+            userEntity.Email ?? userEntity.UserName ?? string.Empty,
+            userEntity.UserName ?? userEntity.Email ?? string.Empty,
+            userEntity.PhoneNumber,
+            userEntity.IsActive);
 
         token.MarkUsed(now, ParseIpAddress(ipAddress));
         token.Revoke(token.UserId, now, CommonMessages.TokenReasons.RefreshTokenRotated);
 
         return await IssueAsync(
             user,
-            token.OrganizationId,
             ipAddress,
             userAgent,
             cancellationToken);
@@ -106,7 +116,7 @@ internal sealed class AuthTokenService(
 
     public async Task<bool> RevokeRefreshTokenAsync(string refreshToken, Guid? revokedByUserId, string reason, CancellationToken cancellationToken)
     {
-        var token = await accessTokenRepository.GetRefreshTokenAsync(HashToken(refreshToken), cancellationToken);
+        var token = await unitOfWork.AccessTokenRepository.GetRefreshTokenAsync(HashToken(refreshToken), cancellationToken);
 
         if (token is null || token.RevokedAt is not null)
         {
@@ -122,21 +132,46 @@ internal sealed class AuthTokenService(
         return true;
     }
 
-    private string CreateAccessToken(IdentityUserSnapshot user, Guid organizationId, Guid tokenId, DateTimeOffset issuedAt, DateTimeOffset expiresAt)
+    private async Task<Guid?> GetEffectiveRoleIdAsync(
+        Guid userId,
+        Guid organizationId,
+        DateTimeOffset at,
+        CancellationToken cancellationToken)
+    {
+        var assignments = await unitOfWork.OrganizationRoleAssignmentRepository.GetByUserAsync(
+            organizationId,
+            userId,
+            cancellationToken);
+
+        return assignments
+            .Where(assignment => assignment.IsEffectiveAt(at))
+            .OrderByDescending(assignment => assignment.ValidFrom)
+            .Select(assignment => (Guid?)assignment.RoleId)
+            .FirstOrDefault();
+    }
+
+    private string CreateAccessToken(
+        IdentityUserSnapshot user,
+        Guid organizationId,
+        Guid? roleId,
+        Guid tokenId,
+        DateTimeOffset issuedAt,
+        DateTimeOffset expiresAt)
     {
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_options.SigningKey));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-        var claims = new[]
+        var claims = new List<Claim>
         {
             new Claim(JwtRegisteredClaimNames.Sub, user.UserId.ToString()),
-            new Claim(ClaimTypes.NameIdentifier, user.UserId.ToString()),
-            new Claim(JwtRegisteredClaimNames.Email, user.Email),
-            new Claim(ClaimTypes.Email, user.Email),
-            new Claim(ClaimTypes.Name, user.UserName),
             new Claim("organizationId", organizationId.ToString()),
             new Claim(JwtRegisteredClaimNames.Jti, tokenId.ToString("N")),
             new Claim("tokenType", "ACCESS")
         };
+
+        if (roleId.HasValue)
+        {
+            claims.Add(new Claim("roleId", roleId.Value.ToString()));
+        }
 
         var token = new JwtSecurityToken(
             issuer: _options.Issuer,

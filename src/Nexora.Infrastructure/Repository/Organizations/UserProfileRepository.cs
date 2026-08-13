@@ -13,6 +13,4 @@ internal sealed class UserProfileRepository(NexoraDbContext dbContext, IUserCont
             profile => profile.UserId == userId,
             cancellationToken);
 
-    public Task AddAsync(UserProfile profile, CancellationToken cancellationToken) =>
-        base.AddEntityAsync(profile, cancellationToken);
 }

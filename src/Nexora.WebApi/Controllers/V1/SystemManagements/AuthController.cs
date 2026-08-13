@@ -1,5 +1,5 @@
-using Microsoft.AspNetCore.Mvc;
 using MediatR;
+using Microsoft.AspNetCore.Mvc;
 using Nexora.Application.Features.V1.SystemManagements.Auth.Command;
 using Nexora.Application.Features.V1.SystemManagements.Auth.Model;
 using Nexora.Application.Features.V1.SystemManagements.Auth.Query;
@@ -13,7 +13,7 @@ public sealed class AuthController(ISender sender) : ControllerBase
     [HttpPost("login")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request, CancellationToken cancellationToken)
     {
-        var result = await sender.Send(new LoginCommand(request.Email, request.Password, request.OrganizationId), cancellationToken);
+        var result = await sender.Send(new LoginCommand(request.Email, request.Password), cancellationToken);
 
         return this.ToActionResult(result, "Đăng nhập thành công.");
     }
@@ -32,14 +32,6 @@ public sealed class AuthController(ISender sender) : ControllerBase
         await sender.Send(new LogoutCommand(request.RefreshToken), cancellationToken);
 
         return this.ToSuccessResponse("Đăng xuất thành công.");
-    }
-
-    [HttpPost("select-organization")]
-    public async Task<IActionResult> SelectOrganization([FromBody] SelectOrganizationRequest request, CancellationToken cancellationToken)
-    {
-        var result = await sender.Send(new SelectOrganizationCommand(request.OrganizationId), cancellationToken);
-
-        return this.ToActionResult(result, "Chọn Organization thành công.");
     }
 
     [HttpGet("me")]

@@ -4,7 +4,6 @@ public interface IAuthTokenService
 {
     Task<AuthTokenSet> IssueAsync(
         IdentityUserSnapshot user,
-        Guid organizationId,
         string? ipAddress,
         string? userAgent,
         CancellationToken cancellationToken);
@@ -27,5 +26,4 @@ public sealed record AuthTokenSet(
     DateTimeOffset AccessTokenExpiresAt,
     string RefreshToken,
     DateTimeOffset RefreshTokenExpiresAt,
-    Guid OrganizationId,
     Guid UserId);

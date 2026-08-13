@@ -1,11 +1,36 @@
 using Microsoft.EntityFrameworkCore;
 using Nexora.Application.Common.Abstractions;
+using Nexora.Application.Common.Abstractions.Repositories;
 using Nexora.Application.Common.Results;
 
 namespace Nexora.Infrastructure.Persistence;
 
-internal sealed class UnitOfWork(NexoraDbContext dbContext) : IUnitOfWork
+internal sealed class UnitOfWork(
+    NexoraDbContext dbContext,
+    IUserRepository userRepository,
+    IRoleRepository roleRepository,
+    IOrganizationRepository organizationRepository,
+    IUserProfileRepository userProfileRepository,
+    IOrganizationMembershipRepository organizationMembershipRepository,
+    IOrganizationRoleAssignmentRepository organizationRoleAssignmentRepository,
+    IDepartmentRepository departmentRepository,
+    IDepartmentMembershipRepository departmentMembershipRepository,
+    IApiFunctionRepository apiFunctionRepository,
+    IRoleApiFunctionRepository roleApiFunctionRepository,
+    IAccessTokenRepository accessTokenRepository) : IUnitOfWork
 {
+    public IUserRepository UserRepository { get; } = userRepository;
+    public IRoleRepository RoleRepository { get; } = roleRepository;
+    public IOrganizationRepository OrganizationRepository { get; } = organizationRepository;
+    public IUserProfileRepository UserProfileRepository { get; } = userProfileRepository;
+    public IOrganizationMembershipRepository OrganizationMembershipRepository { get; } = organizationMembershipRepository;
+    public IOrganizationRoleAssignmentRepository OrganizationRoleAssignmentRepository { get; } = organizationRoleAssignmentRepository;
+    public IDepartmentRepository DepartmentRepository { get; } = departmentRepository;
+    public IDepartmentMembershipRepository DepartmentMembershipRepository { get; } = departmentMembershipRepository;
+    public IApiFunctionRepository ApiFunctionRepository { get; } = apiFunctionRepository;
+    public IRoleApiFunctionRepository RoleApiFunctionRepository { get; } = roleApiFunctionRepository;
+    public IAccessTokenRepository AccessTokenRepository { get; } = accessTokenRepository;
+
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken) =>
         dbContext.SaveChangesAsync(cancellationToken);
 

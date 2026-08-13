@@ -17,5 +17,4 @@ internal sealed class OrganizationRoleAssignmentRepository(NexoraDbContext dbCon
     public Task<List<OrganizationRoleAssignment>> GetByUserAsync(Guid organizationId, Guid userId, CancellationToken cancellationToken) =>
         DbContext.OrganizationRoleAssignments.IgnoreQueryFilters().Where(assignment => assignment.OrganizationId == organizationId && assignment.UserId == userId).AsNoTracking().ToListAsync(cancellationToken);
 
-    public Task AddAsync(OrganizationRoleAssignment assignment, CancellationToken cancellationToken) => base.AddEntityAsync(assignment, cancellationToken);
 }

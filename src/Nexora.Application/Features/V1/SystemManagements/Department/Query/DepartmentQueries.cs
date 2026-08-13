@@ -10,7 +10,7 @@ namespace Nexora.Application.Features.V1.SystemManagements.Department.Query;
 
 public sealed record GetDepartmentsQuery : IQuery<IReadOnlyList<DepartmentResponse>>;
 
-public sealed class GetDepartmentsQueryHandler(IDepartmentRepository departmentRepository, IDefaultOrganizationProvider organizationProvider) : IRequestHandler<GetDepartmentsQuery, IReadOnlyList<DepartmentResponse>>
+public sealed class GetDepartmentsQueryHandler(IUnitOfWork unitOfWork, IDefaultOrganizationProvider organizationProvider) : IRequestHandler<GetDepartmentsQuery, IReadOnlyList<DepartmentResponse>>
 {
     public async Task<IReadOnlyList<DepartmentResponse>> Handle(GetDepartmentsQuery request, CancellationToken cancellationToken)
     {
@@ -20,19 +20,19 @@ public sealed class GetDepartmentsQueryHandler(IDepartmentRepository departmentR
             return Array.Empty<DepartmentResponse>();
         }
 
-        var departments = await departmentRepository.GetAllForOrganizationAsync(organizationId.Value, cancellationToken);
+        var departments = await unitOfWork.DepartmentRepository.GetAllForOrganizationAsync(organizationId.Value, cancellationToken);
         return departments.Select(department => new DepartmentResponse(department.Id, department.ParentDepartmentId, department.Code.Value, department.Name, department.ManagerUserId, department.Status.ToString())).ToArray();
     }
 }
 
 public sealed record GetDepartmentQuery(Guid DepartmentId) : IQuery<Result<DepartmentResponse>>;
 
-public sealed class GetDepartmentQueryHandler(IDepartmentRepository departmentRepository, IDefaultOrganizationProvider organizationProvider) : IRequestHandler<GetDepartmentQuery, Result<DepartmentResponse>>
+public sealed class GetDepartmentQueryHandler(IUnitOfWork unitOfWork, IDefaultOrganizationProvider organizationProvider) : IRequestHandler<GetDepartmentQuery, Result<DepartmentResponse>>
 {
     public async Task<Result<DepartmentResponse>> Handle(GetDepartmentQuery request, CancellationToken cancellationToken)
     {
         var organizationId = await organizationProvider.GetOrganizationIdAsync(cancellationToken);
-        var department = organizationId.HasValue ? await departmentRepository.GetByIdAsync(request.DepartmentId, asTracking: false, cancellationToken: cancellationToken) : null;
+        var department = organizationId.HasValue ? await unitOfWork.DepartmentRepository.GetByIdAsync(request.DepartmentId, asTracking: false, cancellationToken: cancellationToken) : null;
         return !organizationId.HasValue || department is null || department.OrganizationId != organizationId.Value
             ? Result<DepartmentResponse>.Failure(Error.NotFound(CommonMessages.Department.NotFound))
             : Result<DepartmentResponse>.Success(new DepartmentResponse(department.Id, department.ParentDepartmentId, department.Code.Value, department.Name, department.ManagerUserId, department.Status.ToString()));
@@ -41,7 +41,7 @@ public sealed class GetDepartmentQueryHandler(IDepartmentRepository departmentRe
 
 public sealed record GetDepartmentMembersQuery(Guid DepartmentId) : IQuery<IReadOnlyList<DepartmentMemberResponse>>;
 
-public sealed class GetDepartmentMembersQueryHandler(IDepartmentMembershipRepository membershipRepository, IDefaultOrganizationProvider organizationProvider) : IRequestHandler<GetDepartmentMembersQuery, IReadOnlyList<DepartmentMemberResponse>>
+public sealed class GetDepartmentMembersQueryHandler(IUnitOfWork unitOfWork, IDefaultOrganizationProvider organizationProvider) : IRequestHandler<GetDepartmentMembersQuery, IReadOnlyList<DepartmentMemberResponse>>
 {
     public async Task<IReadOnlyList<DepartmentMemberResponse>> Handle(GetDepartmentMembersQuery request, CancellationToken cancellationToken)
     {
@@ -51,7 +51,7 @@ public sealed class GetDepartmentMembersQueryHandler(IDepartmentMembershipReposi
             return Array.Empty<DepartmentMemberResponse>();
         }
 
-        var memberships = await membershipRepository.GetByDepartmentAsync(organizationId.Value, request.DepartmentId, cancellationToken);
+        var memberships = await unitOfWork.DepartmentMembershipRepository.GetByDepartmentAsync(organizationId.Value, request.DepartmentId, cancellationToken);
         return memberships.Select(membership => new DepartmentMemberResponse(membership.UserId, membership.MembershipType.ToString(), membership.JoinedAt, membership.LeftAt)).ToArray();
     }
 }

@@ -14,7 +14,7 @@ namespace Nexora.Application.Features.V1.SystemManagements.Department.Command;
 
 public sealed record CreateDepartmentCommand(string Code, string Name, Guid? ParentDepartmentId, Guid? ManagerUserId) : ITransactionalCommand<Result<DepartmentResponse>>;
 
-public sealed class CreateDepartmentCommandHandler(IDepartmentRepository departmentRepository, IDefaultOrganizationProvider organizationProvider, IIdentityService identityService, IClock clock) : IRequestHandler<CreateDepartmentCommand, Result<DepartmentResponse>>
+public sealed class CreateDepartmentCommandHandler(IUnitOfWork unitOfWork, IDefaultOrganizationProvider organizationProvider, IClock clock) : IRequestHandler<CreateDepartmentCommand, Result<DepartmentResponse>>
 {
     public async Task<Result<DepartmentResponse>> Handle(CreateDepartmentCommand request, CancellationToken cancellationToken)
     {
@@ -24,19 +24,22 @@ public sealed class CreateDepartmentCommandHandler(IDepartmentRepository departm
             return Result<DepartmentResponse>.Failure(Error.Conflict(CommonMessages.User.DefaultOrganizationNotConfigured));
         }
 
-        if (await departmentRepository.CodeExistsAsync(organizationId.Value, request.Code, null, cancellationToken))
+        if (await unitOfWork.DepartmentRepository.CodeExistsAsync(organizationId.Value, request.Code, null, cancellationToken))
         {
             return Result<DepartmentResponse>.Failure(Error.Conflict(CommonMessages.Department.CodeAlreadyExists));
         }
 
-        if (request.ParentDepartmentId.HasValue && !await departmentRepository.ExistsAsync(request.ParentDepartmentId.Value, organizationId.Value, cancellationToken))
+        if (request.ParentDepartmentId.HasValue && !await unitOfWork.DepartmentRepository.ExistsAsync(request.ParentDepartmentId.Value, organizationId.Value, cancellationToken))
         {
             return Result<DepartmentResponse>.Failure(Error.NotFound(CommonMessages.Department.ParentNotFound));
         }
 
         if (request.ManagerUserId.HasValue)
         {
-            var manager = await identityService.GetUserForManagementAsync(request.ManagerUserId.Value, cancellationToken);
+            var manager = await unitOfWork.UserRepository.GetAsync(
+                user => user.Id == request.ManagerUserId.Value,
+                asNoTracking: true,
+                cancellationToken: cancellationToken);
             if (manager is null || !manager.IsActive)
             {
                 return Result<DepartmentResponse>.Failure(Error.NotFound(CommonMessages.Department.ManagerNotFoundOrInactive));
@@ -44,7 +47,7 @@ public sealed class CreateDepartmentCommandHandler(IDepartmentRepository departm
         }
 
         var department = DepartmentEntity.Create(organizationId.Value, request.Code, request.Name, clock.UtcNow, request.ParentDepartmentId, request.ManagerUserId);
-        await departmentRepository.AddAsync(department, cancellationToken);
+        unitOfWork.DepartmentRepository.Insert(department);
         return Result<DepartmentResponse>.Success(ToResponse(department));
     }
 
@@ -53,25 +56,28 @@ public sealed class CreateDepartmentCommandHandler(IDepartmentRepository departm
 
 public sealed record UpdateDepartmentCommand(Guid DepartmentId, string Name, Guid? ParentDepartmentId, Guid? ManagerUserId) : ITransactionalCommand<Result<DepartmentResponse>>;
 
-public sealed class UpdateDepartmentCommandHandler(IDepartmentRepository departmentRepository, IDefaultOrganizationProvider organizationProvider, IIdentityService identityService) : IRequestHandler<UpdateDepartmentCommand, Result<DepartmentResponse>>
+public sealed class UpdateDepartmentCommandHandler(IUnitOfWork unitOfWork, IDefaultOrganizationProvider organizationProvider) : IRequestHandler<UpdateDepartmentCommand, Result<DepartmentResponse>>
 {
     public async Task<Result<DepartmentResponse>> Handle(UpdateDepartmentCommand request, CancellationToken cancellationToken)
     {
         var organizationId = await organizationProvider.GetOrganizationIdAsync(cancellationToken);
-        var department = organizationId.HasValue ? await departmentRepository.GetByIdAsync(request.DepartmentId, asTracking: true, cancellationToken: cancellationToken) : null;
+        var department = organizationId.HasValue ? await unitOfWork.DepartmentRepository.GetByIdAsync(request.DepartmentId, asTracking: true, cancellationToken: cancellationToken) : null;
         if (!organizationId.HasValue || department is null || department.OrganizationId != organizationId.Value)
         {
             return Result<DepartmentResponse>.Failure(Error.NotFound(CommonMessages.Department.NotFound));
         }
 
-        if (request.ParentDepartmentId.HasValue && (request.ParentDepartmentId.Value == request.DepartmentId || !await departmentRepository.ExistsAsync(request.ParentDepartmentId.Value, organizationId.Value, cancellationToken)))
+        if (request.ParentDepartmentId.HasValue && (request.ParentDepartmentId.Value == request.DepartmentId || !await unitOfWork.DepartmentRepository.ExistsAsync(request.ParentDepartmentId.Value, organizationId.Value, cancellationToken)))
         {
             return Result<DepartmentResponse>.Failure(Error.Conflict(CommonMessages.Department.ParentInvalid));
         }
 
         if (request.ManagerUserId.HasValue)
         {
-            var manager = await identityService.GetUserForManagementAsync(request.ManagerUserId.Value, cancellationToken);
+            var manager = await unitOfWork.UserRepository.GetAsync(
+                user => user.Id == request.ManagerUserId.Value,
+                asNoTracking: true,
+                cancellationToken: cancellationToken);
             if (manager is null || !manager.IsActive)
             {
                 return Result<DepartmentResponse>.Failure(Error.NotFound(CommonMessages.Department.ManagerNotFoundOrInactive));
@@ -95,12 +101,12 @@ public sealed class UpdateDepartmentCommandHandler(IDepartmentRepository departm
 
 public sealed record ArchiveDepartmentCommand(Guid DepartmentId) : ITransactionalCommand<Result>;
 
-public sealed class ArchiveDepartmentCommandHandler(IDepartmentRepository departmentRepository, IDefaultOrganizationProvider organizationProvider) : IRequestHandler<ArchiveDepartmentCommand, Result>
+public sealed class ArchiveDepartmentCommandHandler(IUnitOfWork unitOfWork, IDefaultOrganizationProvider organizationProvider) : IRequestHandler<ArchiveDepartmentCommand, Result>
 {
     public async Task<Result> Handle(ArchiveDepartmentCommand request, CancellationToken cancellationToken)
     {
         var organizationId = await organizationProvider.GetOrganizationIdAsync(cancellationToken);
-        var department = organizationId.HasValue ? await departmentRepository.GetByIdAsync(request.DepartmentId, asTracking: true, cancellationToken: cancellationToken) : null;
+        var department = organizationId.HasValue ? await unitOfWork.DepartmentRepository.GetByIdAsync(request.DepartmentId, asTracking: true, cancellationToken: cancellationToken) : null;
         if (!organizationId.HasValue || department is null || department.OrganizationId != organizationId.Value)
         {
             return Result.Failure(Error.NotFound(CommonMessages.Department.NotFound));
@@ -113,31 +119,34 @@ public sealed class ArchiveDepartmentCommandHandler(IDepartmentRepository depart
 
 public sealed record AddDepartmentMemberCommand(Guid DepartmentId, Guid UserId, DepartmentMembershipType MembershipType = DepartmentMembershipType.Member) : ITransactionalCommand<Result>;
 
-public sealed class AddDepartmentMemberCommandHandler(IDepartmentRepository departmentRepository, IDepartmentMembershipRepository membershipRepository, IIdentityService identityService, IDefaultOrganizationProvider organizationProvider, IClock clock) : IRequestHandler<AddDepartmentMemberCommand, Result>
+public sealed class AddDepartmentMemberCommandHandler(IUnitOfWork unitOfWork, IDefaultOrganizationProvider organizationProvider, IClock clock) : IRequestHandler<AddDepartmentMemberCommand, Result>
 {
     public async Task<Result> Handle(AddDepartmentMemberCommand request, CancellationToken cancellationToken)
     {
         var organizationId = await organizationProvider.GetOrganizationIdAsync(cancellationToken);
-        var department = organizationId.HasValue ? await departmentRepository.GetByIdAsync(request.DepartmentId, asTracking: false, cancellationToken: cancellationToken) : null;
-        var user = await identityService.GetUserForManagementAsync(request.UserId, cancellationToken);
+        var department = organizationId.HasValue ? await unitOfWork.DepartmentRepository.GetByIdAsync(request.DepartmentId, asTracking: false, cancellationToken: cancellationToken) : null;
+        var user = await unitOfWork.UserRepository.GetAsync(
+            item => item.Id == request.UserId,
+            asNoTracking: true,
+            cancellationToken: cancellationToken);
         if (!organizationId.HasValue || department is null || department.OrganizationId != organizationId.Value || user is null || !user.IsActive)
         {
             return Result.Failure(Error.NotFound(CommonMessages.Department.DepartmentOrUserNotFound));
         }
 
-        if (await membershipRepository.GetAsync(organizationId.Value, request.DepartmentId, request.UserId, asTracking: false, cancellationToken: cancellationToken) is not null)
+        if (await unitOfWork.DepartmentMembershipRepository.GetAsync(organizationId.Value, request.DepartmentId, request.UserId, asTracking: false, cancellationToken: cancellationToken) is not null)
         {
             return Result.Failure(Error.Conflict(CommonMessages.Department.UserAlreadyMember));
         }
 
-        await membershipRepository.AddAsync(DepartmentMembership.Create(organizationId.Value, request.DepartmentId, request.UserId, request.MembershipType, clock.UtcNow), cancellationToken);
+        unitOfWork.DepartmentMembershipRepository.Insert(DepartmentMembership.Create(organizationId.Value, request.DepartmentId, request.UserId, request.MembershipType, clock.UtcNow));
         return Result.Success();
     }
 }
 
 public sealed record RemoveDepartmentMemberCommand(Guid DepartmentId, Guid UserId) : ITransactionalCommand<Result>;
 
-public sealed class RemoveDepartmentMemberCommandHandler(IDepartmentMembershipRepository membershipRepository, IDefaultOrganizationProvider organizationProvider, IUserContext userContext, IClock clock) : IRequestHandler<RemoveDepartmentMemberCommand, Result>
+public sealed class RemoveDepartmentMemberCommandHandler(IUnitOfWork unitOfWork, IDefaultOrganizationProvider organizationProvider, IUserContext userContext, IClock clock) : IRequestHandler<RemoveDepartmentMemberCommand, Result>
 {
     public async Task<Result> Handle(RemoveDepartmentMemberCommand request, CancellationToken cancellationToken)
     {
@@ -152,7 +161,7 @@ public sealed class RemoveDepartmentMemberCommandHandler(IDepartmentMembershipRe
             return Result.Failure(Error.Conflict(CommonMessages.User.DefaultOrganizationNotConfigured));
         }
 
-        var membership = await membershipRepository.GetAsync(organizationId.Value, request.DepartmentId, request.UserId, asTracking: true, cancellationToken: cancellationToken);
+        var membership = await unitOfWork.DepartmentMembershipRepository.GetAsync(organizationId.Value, request.DepartmentId, request.UserId, asTracking: true, cancellationToken: cancellationToken);
         if (membership is null)
         {
             return Result.Failure(Error.NotFound(CommonMessages.Department.MembershipNotFound));

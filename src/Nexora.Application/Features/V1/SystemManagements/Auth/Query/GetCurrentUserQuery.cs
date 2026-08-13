@@ -13,9 +13,7 @@ public sealed record GetCurrentUserQuery : IQuery<Result<CurrentUserResponse>>;
 
 public sealed class GetCurrentUserQueryHandler(
     IUserContext userContext,
-    ITenantContext tenantContext,
-    IIdentityService identityService,
-    IUserProfileRepository userProfileRepository)
+    IUnitOfWork unitOfWork)
     : IRequestHandler<GetCurrentUserQuery, Result<CurrentUserResponse>>
 {
     public async Task<Result<CurrentUserResponse>> Handle(GetCurrentUserQuery request, CancellationToken cancellationToken)
@@ -26,22 +24,23 @@ public sealed class GetCurrentUserQueryHandler(
                 Error.Unauthorized(CommonMessages.Auth.LoginRequiredToViewCurrentUser));
         }
 
-        if (!tenantContext.OrganizationId.HasValue)
-        {
-            return Result<CurrentUserResponse>.Failure(
-                new Error(CommonMessages.ErrorCodes.OrganizationRequired, CommonMessages.Auth.OrganizationRequired));
-        }
-
-        var user = await identityService.GetByIdAsync(userContext.UserId.Value, cancellationToken);
+        var user = await unitOfWork.UserRepository.GetAsync(
+            item => item.Id == userContext.UserId.Value && item.IsActive,
+            asNoTracking: true,
+            cancellationToken: cancellationToken);
         if (user is null)
         {
             return Result<CurrentUserResponse>.Failure(
                 Error.Unauthorized(CommonMessages.Auth.UserNotValid));
         }
 
-        var profile = await userProfileRepository.GetByUserIdAsync(user.UserId, cancellationToken);
+        var profile = await unitOfWork.UserProfileRepository.GetByUserIdAsync(user.Id, cancellationToken);
 
         return Result<CurrentUserResponse>.Success(
-            new CurrentUserResponse(user.UserId, user.Email, user.UserName, profile?.DisplayName, tenantContext.OrganizationId.Value));
+            new CurrentUserResponse(
+                user.Id,
+                user.Email ?? user.UserName ?? string.Empty,
+                user.UserName ?? user.Email ?? string.Empty,
+                profile?.DisplayName));
     }
 }

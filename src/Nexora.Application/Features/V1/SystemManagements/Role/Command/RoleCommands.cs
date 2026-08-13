@@ -8,52 +8,118 @@ using Nexora.Application.Common.Results;
 using Nexora.Application.Features.V1.SystemManagements.Role.Model;
 using Nexora.Domain.Authorization;
 using Nexora.Domain.Authorization.Enums;
+using Nexora.Infrastructure.Identity;
 
 namespace Nexora.Application.Features.V1.SystemManagements.Role.Command;
 
 public sealed record CreateRoleCommand(string Name) : ITransactionalCommand<Result<RoleResponse>>;
 
-public sealed class CreateRoleCommandHandler(IIdentityService identityService) : IRequestHandler<CreateRoleCommand, Result<RoleResponse>>
+public sealed class CreateRoleCommandHandler(IUnitOfWork unitOfWork) : IRequestHandler<CreateRoleCommand, Result<RoleResponse>>
 {
     public async Task<Result<RoleResponse>> Handle(CreateRoleCommand request, CancellationToken cancellationToken)
     {
-        var result = await identityService.CreateRoleAsync(request.Name, cancellationToken);
-        return result.IsSuccess && result.Value is not null
-            ? Result<RoleResponse>.Success(new RoleResponse(result.Value.RoleId, result.Value.Name, result.Value.IsActive))
-            : Result<RoleResponse>.Failure(result.Error ?? new Error(CommonMessages.ErrorCodes.IdentityOperationFailed, CommonMessages.Role.CannotCreate));
+        var name = request.Name.Trim();
+        var normalizedName = name.ToUpperInvariant();
+        var existingRole = await unitOfWork.RoleRepository.GetAsync(
+            role => role.NormalizedName == normalizedName,
+            asNoTracking: true,
+            cancellationToken: cancellationToken);
+
+        if (existingRole is not null)
+        {
+            return Result<RoleResponse>.Failure(Error.Conflict(CommonMessages.Role.CannotCreate));
+        }
+
+        var role = new ApplicationRole
+        {
+            Id = Guid.NewGuid(),
+            Name = name,
+            NormalizedName = normalizedName,
+            IsActive = true,
+            ConcurrencyStamp = Guid.NewGuid().ToString()
+        };
+
+        unitOfWork.RoleRepository.Insert(role);
+        return Result<RoleResponse>.Success(new RoleResponse(role.Id, role.Name, role.IsActive));
     }
 }
 
 public sealed record UpdateRoleCommand(Guid RoleId, string Name) : ITransactionalCommand<Result<RoleResponse>>;
 
-public sealed class UpdateRoleCommandHandler(IIdentityService identityService) : IRequestHandler<UpdateRoleCommand, Result<RoleResponse>>
+public sealed class UpdateRoleCommandHandler(IUnitOfWork unitOfWork) : IRequestHandler<UpdateRoleCommand, Result<RoleResponse>>
 {
     public async Task<Result<RoleResponse>> Handle(UpdateRoleCommand request, CancellationToken cancellationToken)
     {
-        var result = await identityService.UpdateRoleAsync(request.RoleId, request.Name, cancellationToken);
-        return result.IsSuccess && result.Value is not null
-            ? Result<RoleResponse>.Success(new RoleResponse(result.Value.RoleId, result.Value.Name, result.Value.IsActive))
-            : Result<RoleResponse>.Failure(result.Error ?? new Error(CommonMessages.ErrorCodes.IdentityOperationFailed, CommonMessages.Role.CannotUpdate));
+        var role = await unitOfWork.RoleRepository.GetAsync(
+            item => item.Id == request.RoleId,
+            cancellationToken: cancellationToken);
+        if (role is null)
+        {
+            return Result<RoleResponse>.Failure(Error.NotFound(CommonMessages.Role.NotFound));
+        }
+
+        var name = request.Name.Trim();
+        var normalizedName = name.ToUpperInvariant();
+        var duplicateRole = await unitOfWork.RoleRepository.GetAsync(
+            item => item.Id != request.RoleId && item.NormalizedName == normalizedName,
+            asNoTracking: true,
+            cancellationToken: cancellationToken);
+        if (duplicateRole is not null)
+        {
+            return Result<RoleResponse>.Failure(Error.Conflict(CommonMessages.Role.CannotUpdate));
+        }
+
+        role.Name = name;
+        role.NormalizedName = normalizedName;
+        role.ConcurrencyStamp = Guid.NewGuid().ToString();
+
+        return Result<RoleResponse>.Success(new RoleResponse(role.Id, role.Name, role.IsActive));
     }
 }
 
 public sealed record DeactivateRoleCommand(Guid RoleId) : ITransactionalCommand<Result>;
 
-public sealed class DeactivateRoleCommandHandler(IIdentityService identityService) : IRequestHandler<DeactivateRoleCommand, Result>
+public sealed class DeactivateRoleCommandHandler(IUnitOfWork unitOfWork) : IRequestHandler<DeactivateRoleCommand, Result>
 {
-    public Task<Result> Handle(DeactivateRoleCommand request, CancellationToken cancellationToken) => identityService.DeactivateRoleAsync(request.RoleId, cancellationToken);
+    public async Task<Result> Handle(DeactivateRoleCommand request, CancellationToken cancellationToken)
+    {
+        var role = await unitOfWork.RoleRepository.GetAsync(
+            item => item.Id == request.RoleId,
+            cancellationToken: cancellationToken);
+        if (role is null)
+        {
+            return Result.Failure(Error.NotFound(CommonMessages.Role.NotFound));
+        }
+
+        role.IsActive = false;
+        role.ConcurrencyStamp = Guid.NewGuid().ToString();
+        return Result.Success();
+    }
 }
 
 public sealed record ReactivateRoleCommand(Guid RoleId) : ITransactionalCommand<Result>;
 
-public sealed class ReactivateRoleCommandHandler(IIdentityService identityService) : IRequestHandler<ReactivateRoleCommand, Result>
+public sealed class ReactivateRoleCommandHandler(IUnitOfWork unitOfWork) : IRequestHandler<ReactivateRoleCommand, Result>
 {
-    public Task<Result> Handle(ReactivateRoleCommand request, CancellationToken cancellationToken) => identityService.ReactivateRoleAsync(request.RoleId, cancellationToken);
+    public async Task<Result> Handle(ReactivateRoleCommand request, CancellationToken cancellationToken)
+    {
+        var role = await unitOfWork.RoleRepository.GetAsync(
+            item => item.Id == request.RoleId,
+            cancellationToken: cancellationToken);
+        if (role is null)
+        {
+            return Result.Failure(Error.NotFound(CommonMessages.Role.NotFound));
+        }
+
+        role.IsActive = true;
+        role.ConcurrencyStamp = Guid.NewGuid().ToString();
+        return Result.Success();
+    }
 }
 
 public sealed record GrantRolePermissionCommand(Guid RoleId, string FunctionCode, PermissionEffect Effect, DateTimeOffset? ValidFrom, DateTimeOffset? ExpiresAt) : ITransactionalCommand<Result>;
 
-public sealed class GrantRolePermissionCommandHandler(IIdentityService identityService, IApiFunctionRepository functionRepository, IRoleApiFunctionRepository grantRepository, IDefaultOrganizationProvider organizationProvider, IUserContext userContext, IClock clock) : IRequestHandler<GrantRolePermissionCommand, Result>
+public sealed class GrantRolePermissionCommandHandler(IUnitOfWork unitOfWork, IDefaultOrganizationProvider organizationProvider, IUserContext userContext, IClock clock) : IRequestHandler<GrantRolePermissionCommand, Result>
 {
     public async Task<Result> Handle(GrantRolePermissionCommand request, CancellationToken cancellationToken)
     {
@@ -63,14 +129,17 @@ public sealed class GrantRolePermissionCommandHandler(IIdentityService identityS
         }
 
         var organizationId = await organizationProvider.GetOrganizationIdAsync(cancellationToken);
-        var role = await identityService.GetRoleByIdAsync(request.RoleId, cancellationToken);
-        var function = await functionRepository.GetByCodeAsync(request.FunctionCode, cancellationToken);
+        var role = await unitOfWork.RoleRepository.GetAsync(
+            item => item.Id == request.RoleId,
+            asNoTracking: true,
+            cancellationToken: cancellationToken);
+        var function = await unitOfWork.ApiFunctionRepository.GetByCodeAsync(request.FunctionCode, cancellationToken);
         if (!organizationId.HasValue || role is null || !role.IsActive || function is null)
         {
             return Result.Failure(Error.NotFound(CommonMessages.Role.RoleOrganizationFunctionNotFound));
         }
 
-        var existing = await grantRepository.GetAsync(organizationId.Value, request.RoleId, function.Id, asTracking: false, cancellationToken: cancellationToken);
+        var existing = await unitOfWork.RoleApiFunctionRepository.GetAsync(organizationId.Value, request.RoleId, function.Id, asTracking: false, cancellationToken: cancellationToken);
         if (existing is not null && existing.RevokedAt is null)
         {
             return Result.Failure(Error.Conflict(CommonMessages.Role.PermissionAlreadyGranted));
@@ -82,14 +151,14 @@ public sealed class GrantRolePermissionCommandHandler(IIdentityService identityS
             return Result.Failure(Error.Conflict(CommonMessages.Role.PermissionCannotBeGrantedAgain));
         }
 
-        await grantRepository.AddAsync(RoleApiFunction.Create(organizationId.Value, request.RoleId, function.Id, request.Effect, userContext.UserId.Value, validFrom, request.ExpiresAt), cancellationToken);
+        unitOfWork.RoleApiFunctionRepository.Insert(RoleApiFunction.Create(organizationId.Value, request.RoleId, function.Id, request.Effect, userContext.UserId.Value, validFrom, request.ExpiresAt));
         return Result.Success();
     }
 }
 
 public sealed record RevokeRolePermissionCommand(Guid RoleId, string FunctionCode) : ITransactionalCommand<Result>;
 
-public sealed class RevokeRolePermissionCommandHandler(IApiFunctionRepository functionRepository, IRoleApiFunctionRepository grantRepository, IDefaultOrganizationProvider organizationProvider, IUserContext userContext, IClock clock) : IRequestHandler<RevokeRolePermissionCommand, Result>
+public sealed class RevokeRolePermissionCommandHandler(IUnitOfWork unitOfWork, IDefaultOrganizationProvider organizationProvider, IUserContext userContext, IClock clock) : IRequestHandler<RevokeRolePermissionCommand, Result>
 {
     public async Task<Result> Handle(RevokeRolePermissionCommand request, CancellationToken cancellationToken)
     {
@@ -99,13 +168,13 @@ public sealed class RevokeRolePermissionCommandHandler(IApiFunctionRepository fu
         }
 
         var organizationId = await organizationProvider.GetOrganizationIdAsync(cancellationToken);
-        var function = await functionRepository.GetByCodeAsync(request.FunctionCode, cancellationToken);
+        var function = await unitOfWork.ApiFunctionRepository.GetByCodeAsync(request.FunctionCode, cancellationToken);
         if (!organizationId.HasValue || function is null)
         {
             return Result.Failure(Error.NotFound(CommonMessages.Role.OrganizationFunctionNotFound));
         }
 
-        var grant = await grantRepository.GetAsync(organizationId.Value, request.RoleId, function.Id, asTracking: true, cancellationToken: cancellationToken);
+        var grant = await unitOfWork.RoleApiFunctionRepository.GetAsync(organizationId.Value, request.RoleId, function.Id, asTracking: true, cancellationToken: cancellationToken);
         if (grant is null)
         {
             return Result.Failure(Error.NotFound(CommonMessages.Role.PermissionNotFound));

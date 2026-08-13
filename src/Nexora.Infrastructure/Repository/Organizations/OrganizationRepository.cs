@@ -3,6 +3,7 @@ using Nexora.Application.Common.Abstractions.Repositories;
 using Nexora.Application.Common.Abstractions;
 using Nexora.Domain.Common.ValueObjects;
 using Nexora.Domain.Organizations;
+using Nexora.Domain.Organizations.Enums;
 
 namespace Nexora.Infrastructure.Persistence.Repositories;
 
@@ -14,12 +15,17 @@ internal sealed class OrganizationRepository(NexoraDbContext dbContext, IUserCon
             organization => organization.Id == organizationId,
             cancellationToken);
 
-    public Task AddAsync(Organization organization, CancellationToken cancellationToken) =>
-        base.AddEntityAsync(organization, cancellationToken);
-
     public Task<bool> SlugExistsAsync(OrganizationSlug slug, CancellationToken cancellationToken, Guid? excludingOrganizationId = null) =>
         DbContext.Organizations.IgnoreQueryFilters().AnyAsync(organization => organization.Slug == slug && (!excludingOrganizationId.HasValue || organization.Id != excludingOrganizationId.Value), cancellationToken);
 
     public Task<List<Organization>> GetAllForManagementAsync(CancellationToken cancellationToken) =>
         DbContext.Organizations.IgnoreQueryFilters().OrderBy(organization => organization.Name).AsNoTracking().ToListAsync(cancellationToken);
+
+    public Task<Guid?> GetDefaultActiveIdAsync(CancellationToken cancellationToken) =>
+        DbContext.Organizations
+            .IgnoreQueryFilters()
+            .Where(organization => organization.Status == OrganizationStatus.Active)
+            .OrderBy(organization => organization.CreatedAt)
+            .Select(organization => (Guid?)organization.Id)
+            .FirstOrDefaultAsync(cancellationToken);
 }

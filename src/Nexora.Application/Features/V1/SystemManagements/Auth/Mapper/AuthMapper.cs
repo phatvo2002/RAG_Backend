@@ -9,7 +9,6 @@ internal static class AuthMapper
         new(
             user.UserId,
             user.Email,
-            tokenSet.OrganizationId,
             "Bearer",
             tokenSet.AccessToken,
             tokenSet.AccessTokenExpiresAt,

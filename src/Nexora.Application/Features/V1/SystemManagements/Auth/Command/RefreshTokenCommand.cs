@@ -12,7 +12,7 @@ namespace Nexora.Application.Features.V1.SystemManagements.Auth.Command;
 public sealed record RefreshTokenCommand(string RefreshToken)
     : ITransactionalCommand<Result<AuthResponse>>;
 
-public sealed class RefreshTokenCommandHandler(IAuthTokenService authTokenService, IIdentityService identityService, IHttpRequestMetadata requestMetadata)
+public sealed class RefreshTokenCommandHandler(IAuthTokenService authTokenService, IUnitOfWork unitOfWork, IHttpRequestMetadata requestMetadata)
     : IRequestHandler<RefreshTokenCommand, Result<AuthResponse>>
 {
     public async Task<Result<AuthResponse>> Handle(RefreshTokenCommand request, CancellationToken cancellationToken)
@@ -25,7 +25,18 @@ public sealed class RefreshTokenCommandHandler(IAuthTokenService authTokenServic
                 new Error(CommonMessages.ErrorCodes.InvalidRefreshToken, CommonMessages.Auth.InvalidRefreshToken));
         }
 
-        var user = await identityService.GetByIdAsync(tokenSet.UserId, cancellationToken);
+        var userEntity = await unitOfWork.UserRepository.GetAsync(
+            user => user.Id == tokenSet.UserId && user.IsActive,
+            asNoTracking: true,
+            cancellationToken: cancellationToken);
+        var user = userEntity is null
+            ? null
+            : new IdentityUserSnapshot(
+                userEntity.Id,
+                userEntity.Email ?? userEntity.UserName ?? string.Empty,
+                userEntity.UserName ?? userEntity.Email ?? string.Empty,
+                userEntity.PhoneNumber,
+                userEntity.IsActive);
         if (user is null)
         {
             return Result<AuthResponse>.Failure(
