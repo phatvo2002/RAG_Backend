@@ -24,6 +24,4 @@ internal sealed class OrganizationMembershipRepository(NexoraDbContext dbContext
             membership => membership.OrganizationId == organizationId && membership.UserId == userId,
             cancellationToken);
 
-    public Task AddAsync(OrganizationMembership membership, CancellationToken cancellationToken) =>
-        base.AddEntityAsync(membership, cancellationToken);
 }

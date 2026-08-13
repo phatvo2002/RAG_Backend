@@ -103,6 +103,8 @@ public sealed class NexoraDbContext : IdentityDbContext<ApplicationUser, Applica
 
         builder.Entity<ApplicationUser>().ToTable("AspNetUsers", SchemaNames.Identity);
         builder.Entity<ApplicationRole>().ToTable("AspNetRoles", SchemaNames.Identity);
+        builder.Entity<ApplicationUser>().Property(user => user.IsActive).HasDefaultValue(true).IsRequired();
+        builder.Entity<ApplicationRole>().Property(role => role.IsActive).HasDefaultValue(true).IsRequired();
         builder.Entity<IdentityUserRole<Guid>>().ToTable("AspNetUserRoles", SchemaNames.Identity);
         builder.Entity<IdentityUserClaim<Guid>>().ToTable("AspNetUserClaims", SchemaNames.Identity);
         builder.Entity<IdentityRoleClaim<Guid>>().ToTable("AspNetRoleClaims", SchemaNames.Identity);

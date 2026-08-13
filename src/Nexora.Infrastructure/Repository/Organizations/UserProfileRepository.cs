@@ -8,11 +8,9 @@ namespace Nexora.Infrastructure.Persistence.Repositories;
 internal sealed class UserProfileRepository(NexoraDbContext dbContext, IUserContext userContext, IClock clock)
     : BaseRepository<UserProfile>(dbContext, userContext, clock), IUserProfileRepository
 {
-    public Task<UserProfile?> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken) =>
-        Query().SingleOrDefaultAsync(
+    public Task<UserProfile?> GetByUserIdAsync(Guid userId, CancellationToken cancellationToken, bool asTracking = false) =>
+        Query(asTracking).SingleOrDefaultAsync(
             profile => profile.UserId == userId,
             cancellationToken);
 
-    public Task AddAsync(UserProfile profile, CancellationToken cancellationToken) =>
-        base.AddEntityAsync(profile, cancellationToken);
 }

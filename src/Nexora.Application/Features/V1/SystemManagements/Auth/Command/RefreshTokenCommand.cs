@@ -1,4 +1,5 @@
 using MediatR;
+using Nexora.Application.Common.Constants;
 using Nexora.Application.Common.Abstractions;
 using Nexora.Application.Common.Abstractions.Auth;
 using Nexora.Application.Common.Messaging;
@@ -11,7 +12,7 @@ namespace Nexora.Application.Features.V1.SystemManagements.Auth.Command;
 public sealed record RefreshTokenCommand(string RefreshToken)
     : ITransactionalCommand<Result<AuthResponse>>;
 
-public sealed class RefreshTokenCommandHandler(IAuthTokenService authTokenService, IIdentityService identityService, IHttpRequestMetadata requestMetadata)
+public sealed class RefreshTokenCommandHandler(IAuthTokenService authTokenService, IUnitOfWork unitOfWork, IHttpRequestMetadata requestMetadata)
     : IRequestHandler<RefreshTokenCommand, Result<AuthResponse>>
 {
     public async Task<Result<AuthResponse>> Handle(RefreshTokenCommand request, CancellationToken cancellationToken)
@@ -21,14 +22,25 @@ public sealed class RefreshTokenCommandHandler(IAuthTokenService authTokenServic
         if (tokenSet is null)
         {
             return Result<AuthResponse>.Failure(
-                new Error("auth.invalid_refresh_token", "Refresh token không hợp lệ hoặc đã hết hạn."));
+                new Error(CommonMessages.ErrorCodes.InvalidRefreshToken, CommonMessages.Auth.InvalidRefreshToken));
         }
 
-        var user = await identityService.GetByIdAsync(tokenSet.UserId, cancellationToken);
+        var userEntity = await unitOfWork.UserRepository.GetAsync(
+            user => user.Id == tokenSet.UserId && user.IsActive,
+            asNoTracking: true,
+            cancellationToken: cancellationToken);
+        var user = userEntity is null
+            ? null
+            : new IdentityUserSnapshot(
+                userEntity.Id,
+                userEntity.Email ?? userEntity.UserName ?? string.Empty,
+                userEntity.UserName ?? userEntity.Email ?? string.Empty,
+                userEntity.PhoneNumber,
+                userEntity.IsActive);
         if (user is null)
         {
             return Result<AuthResponse>.Failure(
-                new Error("auth.user_not_found", "Tài khoản không còn tồn tại hoặc đã bị vô hiệu hóa."));
+                new Error(CommonMessages.ErrorCodes.UserNotFound, CommonMessages.Auth.UserNotFound));
         }
 
         return Result<AuthResponse>.Success(AuthMapper.ToResponse(user, tokenSet));

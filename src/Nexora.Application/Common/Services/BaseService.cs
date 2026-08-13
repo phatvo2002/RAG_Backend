@@ -1,3 +1,4 @@
+using Nexora.Application.Common.Constants;
 using Nexora.Application.Common.Abstractions;
 
 namespace Nexora.Application.Common.Services;
@@ -19,11 +20,11 @@ public abstract class BaseService
 
     protected Guid CurrentUserId =>
         UserContext.UserId
-        ?? throw new InvalidOperationException("Authenticated user context is required.");
+        ?? throw new InvalidOperationException(CommonMessages.Infrastructure.AuthenticatedUserContextRequired);
 
     protected Guid CurrentOrganizationId =>
         TenantContext.OrganizationId
-        ?? throw new InvalidOperationException("Organization context is required.");
+        ?? throw new InvalidOperationException(CommonMessages.Infrastructure.OrganizationContextRequired);
 
     protected DateTimeOffset UtcNow => Clock.UtcNow;
 }

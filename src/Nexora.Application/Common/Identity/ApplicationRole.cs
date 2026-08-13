@@ -4,7 +4,5 @@ namespace Nexora.Infrastructure.Identity;
 
 public class ApplicationRole : IdentityRole<Guid>
 {
-    protected ApplicationRole()
-    {
-    }
+    public bool IsActive { get; set; } = true;
 }

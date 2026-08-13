@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.Extensions.Configuration;
+using Nexora.Application.Common.Constants;
 
 namespace Nexora.Infrastructure.Persistence;
 
@@ -24,7 +25,7 @@ public sealed class DesignTimeNexoraDbContextFactory
         if (string.IsNullOrWhiteSpace(connectionString))
         {
             throw new InvalidOperationException(
-                "Connection string 'Postgres' is required for EF Core design-time operations.");
+                CommonMessages.Infrastructure.DesignTimeConnectionStringRequired);
         }
 
         var options = new DbContextOptionsBuilder<NexoraDbContext>()
@@ -44,6 +45,6 @@ public sealed class DesignTimeNexoraDbContextFactory
         };
 
         return candidates.FirstOrDefault(Directory.Exists)
-            ?? throw new DirectoryNotFoundException("Could not locate the Nexora.WebApi configuration directory.");
+            ?? throw new DirectoryNotFoundException(CommonMessages.Infrastructure.WebApiConfigurationDirectoryNotFound);
     }
 }
