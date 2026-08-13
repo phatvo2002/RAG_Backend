@@ -28,12 +28,6 @@ public class BaseRepository<TEntity> : IBaseRepository<TEntity>
     protected IQueryable<TEntity> Query(bool asTracking = false) =>
         asTracking ? Entities : Entities.AsNoTracking();
 
-    protected async Task AddEntityAsync(TEntity entity, CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(entity);
-        await Entities.AddAsync(entity, cancellationToken);
-    }
-
     public async Task<TEntity?> GetAsync(
         Expression<Func<TEntity, bool>>? filter = null,
         Expression<Func<TEntity, object>>[]? includes = null,

@@ -17,5 +17,4 @@ internal sealed class RoleApiFunctionRepository(NexoraDbContext dbContext, IUser
     public Task<List<RoleApiFunction>> GetByRoleAsync(Guid organizationId, Guid roleId, CancellationToken cancellationToken) =>
         DbContext.RoleApiFunctions.IgnoreQueryFilters().Where(grant => grant.OrganizationId == organizationId && grant.RoleId == roleId).AsNoTracking().ToListAsync(cancellationToken);
 
-    public Task AddAsync(RoleApiFunction grant, CancellationToken cancellationToken) => base.AddEntityAsync(grant, cancellationToken);
 }

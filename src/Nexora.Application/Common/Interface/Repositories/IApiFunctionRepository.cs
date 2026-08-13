@@ -1,4 +1,5 @@
 using Nexora.Domain.Authorization;
+using Nexora.Domain.Authorization.Enums;
 
 namespace Nexora.Application.Common.Abstractions.Repositories;
 
@@ -8,7 +9,10 @@ public interface IApiFunctionRepository : IBaseRepository<ApiFunction>
         string code,
         CancellationToken cancellationToken);
 
-    Task AddAsync(
-        ApiFunction function,
+    Task<ApiFunction?> GetActiveByHttpMethodAndRouteAsync(
+        ApiHttpMethod httpMethod,
+        string routeTemplate,
+        Guid? excludingId,
         CancellationToken cancellationToken);
+
 }

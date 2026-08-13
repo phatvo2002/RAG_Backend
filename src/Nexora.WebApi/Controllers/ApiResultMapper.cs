@@ -48,8 +48,6 @@ internal static class ApiResultMapper
             CommonMessages.ErrorCodes.NotFound => StatusCodes.Status404NotFound,
             CommonMessages.ErrorCodes.Conflict => StatusCodes.Status409Conflict,
             CommonMessages.ErrorCodes.ConcurrencyConflict => StatusCodes.Status409Conflict,
-            CommonMessages.ErrorCodes.OrganizationAccessDenied => StatusCodes.Status403Forbidden,
-            CommonMessages.ErrorCodes.OrganizationRequired => StatusCodes.Status409Conflict,
             CommonMessages.ErrorCodes.Server => StatusCodes.Status500InternalServerError,
             _ when error.Code.StartsWith(CommonMessages.ErrorCodes.AuthPrefix, StringComparison.Ordinal) => StatusCodes.Status401Unauthorized,
             _ => StatusCodes.Status400BadRequest

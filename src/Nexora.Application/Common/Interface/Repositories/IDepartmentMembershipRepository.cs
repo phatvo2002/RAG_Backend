@@ -8,5 +8,4 @@ public interface IDepartmentMembershipRepository : IBaseRepository<DepartmentMem
 
     Task<List<DepartmentMembership>> GetByDepartmentAsync(Guid organizationId, Guid departmentId, CancellationToken cancellationToken);
 
-    Task AddAsync(DepartmentMembership membership, CancellationToken cancellationToken);
 }

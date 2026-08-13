@@ -15,8 +15,6 @@ public static class CommonMessages
         public const string AuthPrefix = "auth.";
         public const string InvalidCredentials = "auth.invalid_credentials";
         public const string InvalidRefreshToken = "auth.invalid_refresh_token";
-        public const string OrganizationAccessDenied = "auth.organization_access_denied";
-        public const string OrganizationRequired = "auth.organization_required";
         public const string UserNotFound = "auth.user_not_found";
     }
 
@@ -24,10 +22,7 @@ public static class CommonMessages
     {
         public const string InvalidCredentials = "Email hoặc mật khẩu không đúng.";
         public const string InvalidRefreshToken = "Refresh token không hợp lệ hoặc đã hết hạn.";
-        public const string OrganizationAccessDenied = "Tài khoản không thuộc Organization được chọn.";
-        public const string OrganizationRequired = "JWT chưa có Organization context.";
         public const string UserNotFound = "Tài khoản không còn tồn tại hoặc đã bị vô hiệu hóa.";
-        public const string LoginRequiredToSelectOrganization = "Cần đăng nhập để chọn Organization.";
         public const string LoginRequiredToViewCurrentUser = "Cần đăng nhập để xem thông tin tài khoản.";
         public const string UserNotValid = "Tài khoản không còn hợp lệ.";
     }
@@ -58,6 +53,14 @@ public static class CommonMessages
         public const string PermissionAlreadyGranted = "Role đã được cấp permission này.";
         public const string PermissionCannotBeGrantedAgain = "Permission đã từng được cấp và không thể cấp lại trong cùng assignment.";
         public const string PermissionNotFound = "Role permission không tồn tại.";
+    }
+
+    public static class ApiFunction
+    {
+        public const string NotFound = "ApiFunction không tồn tại.";
+        public const string CodeAlreadyExists = "ApiFunction code đã tồn tại.";
+        public const string RouteAlreadyExists = "HTTP method và route template của ApiFunction đã tồn tại.";
+        public const string CannotUpdate = "Không thể cập nhật ApiFunction.";
     }
 
     public static class Department

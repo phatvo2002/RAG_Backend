@@ -1,4 +1,4 @@
-using System.Security.Claims;
+using System.IdentityModel.Tokens.Jwt;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -21,6 +21,7 @@ using Nexora.Infrastructure.Authorization;
 using Nexora.Infrastructure.Identity;
 using Nexora.Infrastructure.Persistence;
 using Nexora.Infrastructure.Persistence.Repositories;
+using Nexora.Infrastructure.Persistence.Repositories.Identity;
 using Nexora.Infrastructure.Options;
 
 namespace Nexora.Infrastructure;
@@ -89,7 +90,7 @@ public static class DependencyInjection
                     ValidIssuer = jwtOptions.Issuer,
                     ValidAudience = jwtOptions.Audience,
                     IssuerSigningKey = new SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(jwtOptions.SigningKey)),
-                    NameClaimType = ClaimTypes.NameIdentifier,
+                    NameClaimType = JwtRegisteredClaimNames.Sub,
                     ClockSkew = TimeSpan.FromSeconds(30)
                 };
             });
@@ -100,8 +101,10 @@ public static class DependencyInjection
         services.AddScoped<IDefaultOrganizationProvider, DefaultOrganizationProvider>();
         services.AddScoped<IHttpRequestMetadata, HttpRequestMetadata>();
         services.AddScoped<IUnitOfWork, UnitOfWork>();
-        services.AddScoped<IIdentityService, IdentityService>();
         services.AddScoped<IAuthTokenService, AuthTokenService>();
+
+        services.AddScoped<IUserRepository, IdentityUserRepository>();
+        services.AddScoped<IRoleRepository, IdentityRoleRepository>();
 
         services.AddScoped<IOrganizationRepository, OrganizationRepository>();
         services.AddScoped<IUserProfileRepository, UserProfileRepository>();

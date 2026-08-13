@@ -12,5 +12,4 @@ public interface IDepartmentRepository : IBaseRepository<Department>
 
     Task<List<Department>> GetAllForOrganizationAsync(Guid organizationId, CancellationToken cancellationToken);
 
-    Task AddAsync(Department department, CancellationToken cancellationToken);
 }
