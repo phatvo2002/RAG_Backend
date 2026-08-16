@@ -26,4 +26,5 @@ public sealed record AuthTokenSet(
     DateTimeOffset AccessTokenExpiresAt,
     string RefreshToken,
     DateTimeOffset RefreshTokenExpiresAt,
-    Guid UserId);
+    Guid UserId,
+    Guid OrganizationId);

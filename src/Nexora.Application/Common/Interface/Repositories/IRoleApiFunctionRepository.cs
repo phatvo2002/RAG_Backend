@@ -8,4 +8,6 @@ public interface IRoleApiFunctionRepository : IBaseRepository<RoleApiFunction>
 
     Task<List<RoleApiFunction>> GetByRoleAsync(Guid organizationId, Guid roleId, CancellationToken cancellationToken);
 
+    Task<List<RoleApiFunction>> GetByRoleAsync(Guid organizationId, Guid roleId, bool asTracking, CancellationToken cancellationToken);
+
 }

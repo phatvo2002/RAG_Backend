@@ -60,7 +60,7 @@ internal sealed class AuthTokenService(
             now,
             accessTokenExpiresAt);
 
-        return new AuthTokenSet(accessToken, accessTokenExpiresAt, rawRefreshToken, refreshTokenExpiresAt, user.UserId);
+        return new AuthTokenSet(accessToken, accessTokenExpiresAt, rawRefreshToken, refreshTokenExpiresAt, user.UserId, organizationId);
     }
 
     public async Task<AuthTokenSet?> RotateRefreshTokenAsync(string refreshToken, string? ipAddress, string? userAgent, CancellationToken cancellationToken)

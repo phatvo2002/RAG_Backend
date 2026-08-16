@@ -9,11 +9,9 @@ using Nexora.Application.Features.V1.SystemManagements.Auth.Model;
 
 namespace Nexora.Application.Features.V1.SystemManagements.Auth.Command;
 
-public sealed record RefreshTokenCommand(string RefreshToken)
-    : ITransactionalCommand<Result<AuthResponse>>;
+public sealed record RefreshTokenCommand(string RefreshToken) : ITransactionalCommand<Result<AuthResponse>>;
 
-public sealed class RefreshTokenCommandHandler(IAuthTokenService authTokenService, IUnitOfWork unitOfWork, IHttpRequestMetadata requestMetadata)
-    : IRequestHandler<RefreshTokenCommand, Result<AuthResponse>>
+public sealed class RefreshTokenCommandHandler(IAuthTokenService authTokenService, IUnitOfWork unitOfWork, IHttpRequestMetadata requestMetadata, IClock clock) : IRequestHandler<RefreshTokenCommand, Result<AuthResponse>>
 {
     public async Task<Result<AuthResponse>> Handle(RefreshTokenCommand request, CancellationToken cancellationToken)
     {
@@ -43,6 +41,8 @@ public sealed class RefreshTokenCommandHandler(IAuthTokenService authTokenServic
                 new Error(CommonMessages.ErrorCodes.UserNotFound, CommonMessages.Auth.UserNotFound));
         }
 
-        return Result<AuthResponse>.Success(AuthMapper.ToResponse(user, tokenSet));
+        var apiFunctions = await unitOfWork.ApiFunctionRepository.GetEffectiveByUserAsync(tokenSet.OrganizationId, user.UserId, clock.UtcNow, cancellationToken);
+
+        return Result<AuthResponse>.Success(AuthMapper.ToResponse(user, tokenSet, apiFunctions));
     }
 }

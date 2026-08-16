@@ -19,9 +19,7 @@ public sealed class ApiFunctionController(ISender sender) : BaseController
             "Lấy danh sách ApiFunction thành công.");
 
     [HttpPost]
-    public async Task<IActionResult> CreateApiFunction(
-        [FromBody] CreateApiFunctionRequest request,
-        CancellationToken cancellationToken) =>
+    public async Task<IActionResult> CreateApiFunction([FromBody] CreateApiFunctionRequest request, CancellationToken cancellationToken) =>
         this.ToActionResult(
             await sender.Send(
                 new CreateApiFunctionCommand(

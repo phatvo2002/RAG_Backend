@@ -58,7 +58,7 @@ public sealed class ApiFunction : AuditableEntityBase
 
     public IReadOnlyCollection<RoleApiFunction> RoleApiFunctions => _roleApiFunctions;
 
-    public static ApiFunction Create( string code, string module, string name, ApiHttpMethod httpMethod, string routeTemplate,
+    public static ApiFunction Create(string code, string module, string name, ApiHttpMethod httpMethod, string routeTemplate,
         ApiActionType actionType, ApiRiskLevel riskLevel, DateTimeOffset now,
         bool requiresConfirmation = false, string? description = null)
     {

@@ -26,3 +26,13 @@ public sealed class GrantRolePermissionCommandValidator : AbstractValidator<Gran
         RuleFor(x => x.ExpiresAt).GreaterThan(x => x.ValidFrom).When(x => x.ExpiresAt.HasValue && x.ValidFrom.HasValue);
     }
 }
+
+public sealed class SyncRolePermissionsCommandValidator : AbstractValidator<SyncRolePermissionsCommand>
+{
+    public SyncRolePermissionsCommandValidator()
+    {
+        RuleFor(x => x.RoleId).NotEmpty();
+        RuleFor(x => x.FunctionIds).NotNull().Must(functionIds => functionIds is not null && functionIds.Count <= 1000);
+        RuleForEach(x => x.FunctionIds).NotEmpty();
+    }
+}

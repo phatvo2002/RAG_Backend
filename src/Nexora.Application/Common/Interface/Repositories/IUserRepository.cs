@@ -6,10 +6,7 @@ namespace Nexora.Application.Common.Abstractions.Repositories;
 
 public interface IUserRepository : IBaseRepository<ApplicationUser>
 {
-    Task<IdentityUserSnapshot?> ValidateCredentialsAsync(
-        string email,
-        string password,
-        CancellationToken cancellationToken);
+    Task<IdentityUserSnapshot?> ValidateCredentialsAsync(string email, string password, CancellationToken cancellationToken);
 
     Task<Result<IdentityUserSnapshot>> CreateWithPasswordAsync(
         string email,

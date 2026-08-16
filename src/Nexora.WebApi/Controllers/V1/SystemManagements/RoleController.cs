@@ -36,4 +36,7 @@ public class RoleController(ISender sender) : ControllerBase
 
     [HttpGet("{roleId:guid}/permissions")]
     public async Task<IActionResult> GetPermissions(Guid roleId, CancellationToken cancellationToken) => this.ToSuccessResponse(await sender.Send(new GetRolePermissionsQuery(roleId), cancellationToken), "Lấy danh sách permission của Role thành công.");
+
+    [HttpPut("{roleId:guid}/permissions")]
+    public async Task<IActionResult> SyncPermissions(Guid roleId, [FromBody] SetRolePermissionsRequest request, CancellationToken cancellationToken) => this.ToActionResult(await sender.Send(new SyncRolePermissionsCommand(roleId, request.FunctionIds), cancellationToken));
 }
