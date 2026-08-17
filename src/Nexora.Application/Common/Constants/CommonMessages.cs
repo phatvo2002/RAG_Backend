@@ -11,6 +11,7 @@ public static class CommonMessages
         public const string Conflict = "conflict";
         public const string Server = "server.error";
         public const string ConcurrencyConflict = "concurrency.conflict";
+        public const string RateLimitExceeded = "rate_limit.exceeded";
         public const string IdentityOperationFailed = "identity.operation_failed";
         public const string AuthPrefix = "auth.";
         public const string InvalidCredentials = "auth.invalid_credentials";
@@ -105,6 +106,7 @@ public static class CommonMessages
         public const string AuthenticationRequired = "Cần đăng nhập để truy cập API này.";
         public const string EndpointNotFound = "Không tìm thấy API được yêu cầu.";
         public const string MethodNotAllowed = "HTTP method không được hỗ trợ cho API này.";
+        public const string TooManyRequests = "Quá nhiều yêu cầu. Vui lòng thử lại sau.";
         public const string RequestValidationFailed = "Request validation failed.";
         public const string Forbidden = "The requested operation is not permitted.";
         public const string ConcurrencyConflict = "The resource was changed by another operation.";

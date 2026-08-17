@@ -5,10 +5,7 @@ namespace Nexora.Application.Common.Abstractions.Repositories;
 
 public interface IOrganizationRepository : IBaseRepository<Organization>
 {
-    Task<Organization?> GetByIdAsync(
-        Guid organizationId,  
-        CancellationToken cancellationToken,
-        bool asTracking = false);
+    Task<Organization?> GetByIdAsync(Guid organizationId, CancellationToken cancellationToken, bool asTracking = false);
 
     Task<bool> SlugExistsAsync(
         OrganizationSlug slug,

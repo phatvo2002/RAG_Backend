@@ -87,3 +87,10 @@ public class GrantRolePermissionRequest
     public DateTimeOffset? ValidFrom { get; set; }
     public DateTimeOffset? ExpiresAt { get; set; }
 }
+
+public sealed class SetRolePermissionsRequest
+{
+    public IReadOnlyCollection<Guid> FunctionIds { get; set; } = Array.Empty<Guid>();
+}
+
+public sealed record RolePermissionsResponse(Guid RoleId, IReadOnlyCollection<Guid> FunctionIds);

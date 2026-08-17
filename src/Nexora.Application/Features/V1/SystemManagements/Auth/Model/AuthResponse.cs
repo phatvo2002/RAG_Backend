@@ -1,3 +1,5 @@
+using Nexora.Application.Features.V1.SystemManagements.ApiFunction.Model;
+
 namespace Nexora.Application.Features.V1.SystemManagements.Auth.Model;
 
 public class AuthResponse
@@ -13,7 +15,8 @@ public class AuthResponse
         string accessToken,
         DateTimeOffset accessTokenExpiresAt,
         string refreshToken,
-        DateTimeOffset refreshTokenExpiresAt)
+        DateTimeOffset refreshTokenExpiresAt,
+        IReadOnlyList<ApiFunctionResponse>? apiFunctions = null)
     {
         UserId = userId;
         Email = email;
@@ -22,6 +25,7 @@ public class AuthResponse
         AccessTokenExpiresAt = accessTokenExpiresAt;
         RefreshToken = refreshToken;
         RefreshTokenExpiresAt = refreshTokenExpiresAt;
+        ApiFunctions = apiFunctions ?? Array.Empty<ApiFunctionResponse>();
     }
 
     public Guid UserId { get; set; }
@@ -31,6 +35,7 @@ public class AuthResponse
     public DateTimeOffset AccessTokenExpiresAt { get; set; }
     public string RefreshToken { get; set; } = string.Empty;
     public DateTimeOffset RefreshTokenExpiresAt { get; set; }
+    public IReadOnlyList<ApiFunctionResponse> ApiFunctions { get; set; } = Array.Empty<ApiFunctionResponse>();
 }
 
 public class CurrentUserResponse
