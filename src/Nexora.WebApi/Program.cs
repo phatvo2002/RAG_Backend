@@ -6,6 +6,7 @@ using Nexora.Infrastructure;
 using Nexora.WebApi;
 using Nexora.WebApi.Middleware;
 using Nexora.WebApi.Responses;
+using Nexora.WebApi.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -63,6 +64,7 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddNexoraRateLimiting();
 
 var app = builder.Build();
 
@@ -103,6 +105,7 @@ app.UseSwagger();
 app.UseSwaggerUI(options => { options.SwaggerEndpoint("/swagger/v1/swagger.json", "Nexora AI API v1"); options.RoutePrefix = "swagger"; });
 app.UseRouting();
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseMiddleware<JwtAuthenticationMiddleware>();
 app.UseMiddleware<ApiPermissionMiddleware>();
 

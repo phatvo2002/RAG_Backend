@@ -3,6 +3,7 @@ using Nexora.Application.Common.Abstractions;
 using Nexora.Application.Common.Behaviors;
 using Nexora.Application.Common.Messaging;
 using Nexora.Application.Common.Results;
+using Nexora.Application.Common.Abstractions.Repositories;
 
 namespace Nexora.Tests.Application;
 
@@ -40,6 +41,18 @@ public sealed class TransactionBehaviorTests
     private sealed class TestUnitOfWork : IUnitOfWork
     {
         public int SaveChangesCalls { get; private set; }
+
+        public IUserRepository UserRepository => null!;
+        public IRoleRepository RoleRepository => null!;
+        public IOrganizationRepository OrganizationRepository => null!;
+        public IUserProfileRepository UserProfileRepository => null!;
+        public IOrganizationMembershipRepository OrganizationMembershipRepository => null!;
+        public IOrganizationRoleAssignmentRepository OrganizationRoleAssignmentRepository => null!;
+        public IDepartmentRepository DepartmentRepository => null!;
+        public IDepartmentMembershipRepository DepartmentMembershipRepository => null!;
+        public IApiFunctionRepository ApiFunctionRepository => null!;
+        public IRoleApiFunctionRepository RoleApiFunctionRepository => null!;
+        public IAccessTokenRepository AccessTokenRepository => null!;
 
         public Task<int> SaveChangesAsync(CancellationToken cancellationToken)
         {

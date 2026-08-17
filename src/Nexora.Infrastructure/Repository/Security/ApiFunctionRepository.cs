@@ -42,13 +42,7 @@ internal sealed class ApiFunctionRepository(NexoraDbContext dbContext, IUserCont
                 assignment.UserId == userId &&
                 assignment.Status == OrganizationRoleAssignmentStatus.Active &&
                 assignment.ValidFrom <= at &&
-                (assignment.ExpiresAt == null || assignment.ExpiresAt > at) &&
-                DbContext.OrganizationMemberships
-                    .IgnoreQueryFilters()
-                    .Any(membership =>
-                        membership.OrganizationId == organizationId &&
-                        membership.UserId == userId &&
-                        membership.Status == OrganizationMembershipStatus.Active))
+                (assignment.ExpiresAt == null || assignment.ExpiresAt > at))
             .Select(assignment => assignment.RoleId);
 
         var effectiveGrants = DbContext.RoleApiFunctions
