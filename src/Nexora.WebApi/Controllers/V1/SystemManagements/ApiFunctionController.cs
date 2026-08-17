@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Nexora.Application.Features.V1.SystemManagements.ApiFunction.Command;
 using Nexora.Application.Features.V1.SystemManagements.ApiFunction.Model;
 using Nexora.Application.Features.V1.SystemManagements.ApiFunction.Query;
@@ -19,9 +20,8 @@ public sealed class ApiFunctionController(ISender sender) : BaseController
             "Lấy danh sách ApiFunction thành công.");
 
     [HttpPost]
-    public async Task<IActionResult> CreateApiFunction(
-        [FromBody] CreateApiFunctionRequest request,
-        CancellationToken cancellationToken) =>
+    [EnableRateLimiting("write")]
+    public async Task<IActionResult> CreateApiFunction([FromBody] CreateApiFunctionRequest request, CancellationToken cancellationToken) =>
         this.ToActionResult(
             await sender.Send(
                 new CreateApiFunctionCommand(
@@ -41,6 +41,7 @@ public sealed class ApiFunctionController(ISender sender) : BaseController
         this.ToActionResult(await sender.Send(new GetApiFunctionQuery(apiFunctionId), cancellationToken));
 
     [HttpPut("{apiFunctionId:guid}")]
+    [EnableRateLimiting("write")]
     public async Task<IActionResult> UpdateApiFunction(
         Guid apiFunctionId,
         [FromBody] UpdateApiFunctionRequest request,
@@ -60,10 +61,12 @@ public sealed class ApiFunctionController(ISender sender) : BaseController
                 cancellationToken));
 
     [HttpPost("{apiFunctionId:guid}/deactivate")]
+    [EnableRateLimiting("write")]
     public async Task<IActionResult> DeactivateApiFunction(Guid apiFunctionId, CancellationToken cancellationToken) =>
         this.ToActionResult(await sender.Send(new DeactivateApiFunctionCommand(apiFunctionId), cancellationToken));
 
     [HttpPost("{apiFunctionId:guid}/reactivate")]
+    [EnableRateLimiting("write")]
     public async Task<IActionResult> ReactivateApiFunction(Guid apiFunctionId, CancellationToken cancellationToken) =>
         this.ToActionResult(await sender.Send(new ReactivateApiFunctionCommand(apiFunctionId), cancellationToken));
 }

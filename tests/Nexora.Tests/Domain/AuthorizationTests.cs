@@ -79,6 +79,20 @@ public sealed class AuthorizationTests
     }
 
     [Fact]
+    public void RoleApiFunction_Regrant_ShouldRestoreAllowPermission()
+    {
+        var permission = RoleApiFunction.Create(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), PermissionEffect.Deny, Guid.NewGuid(), Now);
+        permission.Revoke(Guid.NewGuid(), Now.AddMinutes(1));
+
+        permission.Regrant(PermissionEffect.Allow, Guid.NewGuid(), Now.AddMinutes(2));
+
+        Assert.Equal(PermissionEffect.Allow, permission.Effect);
+        Assert.Null(permission.RevokedAt);
+        Assert.Null(permission.RevokedByUserId);
+        Assert.True(permission.IsEffectiveAt(Now.AddMinutes(3)));
+    }
+
+    [Fact]
     public void PermissionPolicy_DenyGrantShouldWinOverAllowGrant()
     {
         var grants = new[]

@@ -1,0 +1,68 @@
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS'
+      when: never
+    - if: '$CI_COMMIT_BRANCH'
+    - if: '$CI_COMMIT_TAG'
+
+stages:
+  - verify
+  - image
+
+variables:
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+  DOTNET_NOLOGO: "true"
+  NUGET_PACKAGES: "$CI_PROJECT_DIR/.nuget/packages"
+  DOCKERHUB_REPOSITORY: "nexora-webapi"
+
+cache:
+  key: "nuget-$CI_COMMIT_REF_SLUG"
+  paths:
+    - .nuget/packages/
+
+verify:
+  stage: verify
+  image: mcr.microsoft.com/dotnet/sdk:10.0
+  script:
+    - dotnet --info
+    - dotnet restore Nexora.sln -m:1
+    - dotnet build Nexora.sln --configuration Release --no-restore -m:1 --verbosity minimal
+    - dotnet test tests/Nexora.Tests/Nexora.Tests.csproj --configuration Release --no-build --no-restore -m:1 --logger "console;verbosity=minimal"
+
+build_and_push_image:
+  stage: image
+  image: docker:24.0.5-cli
+  services:
+    - name: docker:24.0.5-dind
+      alias: docker
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+    DOCKER_DRIVER: overlay2
+  needs:
+    - job: verify
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+$/'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  script:
+    - test -n "$DOCKERHUB_USERNAME" || (echo "DOCKERHUB_USERNAME is required" && exit 1)
+    - test -n "$DOCKERHUB_TOKEN" || (echo "DOCKERHUB_TOKEN is required" && exit 1)
+    - docker info
+    - echo "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
+    - IMAGE_REPOSITORY="$DOCKERHUB_USERNAME/$DOCKERHUB_REPOSITORY"
+    - IMAGE_SHA="$IMAGE_REPOSITORY:$CI_COMMIT_SHORT_SHA"
+    - docker build --pull --tag "$IMAGE_SHA" .
+    - docker push "$IMAGE_SHA"
+    - |
+      if [ -n "$CI_COMMIT_TAG" ]; then
+        IMAGE_REF="$IMAGE_REPOSITORY:$CI_COMMIT_TAG"
+        docker tag "$IMAGE_SHA" "$IMAGE_REF"
+        docker push "$IMAGE_REF"
+      fi
+
+      if [ "$CI_COMMIT_BRANCH" = "$CI_DEFAULT_BRANCH" ]; then
+        IMAGE_LATEST="$IMAGE_REPOSITORY:latest"
+        docker tag "$IMAGE_SHA" "$IMAGE_LATEST"
+        docker push "$IMAGE_LATEST"
+      fi

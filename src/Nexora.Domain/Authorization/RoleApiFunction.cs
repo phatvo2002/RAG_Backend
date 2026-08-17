@@ -76,6 +76,25 @@ public sealed class RoleApiFunction : AuditableEntityBase
         RevokedByUserId = revokedByUserId;
     }
 
+    public void Regrant(PermissionEffect effect, Guid grantedByUserId, DateTimeOffset validFrom, DateTimeOffset? expiresAt = null)
+    {
+        DomainGuard.RequiredId(grantedByUserId, nameof(grantedByUserId));
+
+        var utcValidFrom = DomainGuard.Utc(validFrom, nameof(validFrom));
+        DateTimeOffset? utcExpiresAt = expiresAt is null ? null : DomainGuard.Utc(expiresAt.Value, nameof(expiresAt));
+        if (utcExpiresAt is not null)
+        {
+            DomainGuard.EnsureBefore(utcValidFrom, utcExpiresAt.Value, "role_api_function.invalid_validity_range", DomainMessages.InvalidValidityRange);
+        }
+
+        Effect = effect;
+        GrantedByUserId = grantedByUserId;
+        ValidFrom = utcValidFrom;
+        ExpiresAt = utcExpiresAt;
+        RevokedAt = null;
+        RevokedByUserId = null;
+    }
+
     public bool IsEffectiveAt(DateTimeOffset at)
     {
         var utcAt = DomainGuard.Utc(at, nameof(at));

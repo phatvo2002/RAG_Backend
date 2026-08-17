@@ -11,11 +11,7 @@ namespace Nexora.Application.Features.V1.SystemManagements.Auth.Command;
 
 public sealed record LoginCommand(string Email, string Password) : ITransactionalCommand<Result<AuthResponse>>;
 
-public sealed class LoginCommandHandler(
-    IUnitOfWork unitOfWork,
-    IAuthTokenService authTokenService,
-    IHttpRequestMetadata requestMetadata)
-    : IRequestHandler<LoginCommand, Result<AuthResponse>>
+public sealed class LoginCommandHandler(IUnitOfWork unitOfWork, IAuthTokenService authTokenService, IHttpRequestMetadata requestMetadata, IClock clock) : IRequestHandler<LoginCommand, Result<AuthResponse>>
 {
     public async Task<Result<AuthResponse>> Handle(LoginCommand request, CancellationToken cancellationToken)
     {
@@ -28,7 +24,8 @@ public sealed class LoginCommandHandler(
         }
 
         var tokenSet = await authTokenService.IssueAsync(user, requestMetadata.IpAddress, requestMetadata.UserAgent, cancellationToken);
+        var apiFunctions = await unitOfWork.ApiFunctionRepository.GetEffectiveByUserAsync(tokenSet.OrganizationId, user.UserId, clock.UtcNow, cancellationToken);
 
-        return Result<AuthResponse>.Success(AuthMapper.ToResponse(user, tokenSet));
+        return Result<AuthResponse>.Success(AuthMapper.ToResponse(user, tokenSet, apiFunctions));
     }
 }

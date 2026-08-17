@@ -38,7 +38,7 @@ public sealed class CreateUserCommandHandler(IUnitOfWork unitOfWork, IClock cloc
         var profile = UserProfile.Create(userResult.Value.UserId, request.DisplayName, LanguageCode.Create(request.PreferredLanguage), request.TimeZone is null ? null : TimeZoneId.Create(request.TimeZone), now);
         unitOfWork.UserProfileRepository.Insert(profile);
 
-    //    var membership = OrganizationMembership.Create(organizationId.Value, userResult.Value.UserId, userContext.UserId.Value, now);
+        //    var membership = OrganizationMembership.Create(organizationId.Value, userResult.Value.UserId, userContext.UserId.Value, now);
         //membership.Activate(now);
         //membershipRepository.Insert(membership);
 

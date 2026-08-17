@@ -4,9 +4,7 @@ namespace Nexora.Application.Common.Abstractions.Repositories;
 
 public interface IAccessTokenRepository : IBaseRepository<AccessToken>
 {
-    Task<AccessToken?> GetRefreshTokenAsync(
-        byte[] tokenHash,
-        CancellationToken cancellationToken);
+    Task<AccessToken?> GetRefreshTokenAsync(byte[] tokenHash, CancellationToken cancellationToken);
 
     Task RevokeRefreshTokensAsync(
         Guid userId,
