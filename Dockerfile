@@ -9,16 +9,16 @@ WORKDIR /src
 COPY . .
 
 RUN echo "===== DOMAIN =====" && \
-    dotnet restore "src/Nexora.Domain/Nexora.Domain.csproj" --verbosity normal
+    dotnet restore "src/Nexora.Domain/Nexora.Domain.csproj" -p:NuGetAudit=false
 
 RUN echo "===== APPLICATION =====" && \
-    dotnet restore "src/Nexora.Application/Nexora.Application.csproj" --verbosity normal
+    dotnet restore "src/Nexora.Application/Nexora.Application.csproj" -p:NuGetAudit=false
 
 RUN echo "===== INFRASTRUCTURE =====" && \
-    dotnet restore "src/Nexora.Infrastructure/Nexora.Infrastructure.csproj" --verbosity normal
+    dotnet restore "src/Nexora.Infrastructure/Nexora.Infrastructure.csproj" -p:NuGetAudit=false
 
 RUN echo "===== WEBAPI =====" && \
-    dotnet restore "src/Nexora.WebApi/Nexora.WebApi.csproj" --verbosity normal
+    dotnet restore "src/Nexora.WebApi/Nexora.WebApi.csproj" -p:NuGetAudit=false
 
 RUN dotnet publish "src/Nexora.WebApi/Nexora.WebApi.csproj" -c $BUILD_CONFIGURATION -o /app/publish --no-restore /p:UseAppHost=false
 
