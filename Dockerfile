@@ -8,19 +8,21 @@ ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 COPY . .
 
-RUN dotnet restore "src/Nexora.WebApi/Nexora.WebApi.csproj"
+RUN echo "===== DOMAIN =====" && \
+    dotnet restore "src/Nexora.Domain/Nexora.Domain.csproj" --verbosity normal
 
-WORKDIR "/src/src/Nexora.WebApi"
-RUN dotnet build "Nexora.WebApi.csproj" -c $BUILD_CONFIGURATION -o /app/build --no-restore
+RUN echo "===== APPLICATION =====" && \
+    dotnet restore "src/Nexora.Application/Nexora.Application.csproj" --verbosity normal
 
-FROM build AS publish
-ARG BUILD_CONFIGURATION=Release
+RUN echo "===== INFRASTRUCTURE =====" && \
+    dotnet restore "src/Nexora.Infrastructure/Nexora.Infrastructure.csproj" --verbosity normal
 
-RUN dotnet publish "Nexora.WebApi.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false --no-build
+RUN echo "===== WEBAPI =====" && \
+    dotnet restore "src/Nexora.WebApi/Nexora.WebApi.csproj" --verbosity normal
+
+RUN dotnet publish "src/Nexora.WebApi/Nexora.WebApi.csproj" -c $BUILD_CONFIGURATION -o /app/publish --no-restore /p:UseAppHost=false
 
 FROM base AS final
 WORKDIR /app
-
-COPY --from=publish /app/publish .
-
+COPY --from=build /app/publish .
 ENTRYPOINT ["dotnet", "Nexora.WebApi.dll"]
