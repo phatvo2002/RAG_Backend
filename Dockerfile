@@ -1,34 +1,36 @@
-# See https://aka.ms/customizecontainer to learn how to customize your debug container
-# and how Visual Studio uses this Dockerfile to build your images for faster debugging.
-
-# This stage is used when running from VS in fast mode (Default for Debug configuration)
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
 USER $APP_UID
 WORKDIR /app
 EXPOSE 8080
 EXPOSE 8081
 
-# This stage is used to build the service project
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 ARG BUILD_CONFIGURATION=Release
 WORKDIR /src
 
+# Tắt telemetry và tối ưu MSBuild trong container để tránh treo tiến trình
+ENV DOTNET_CLI_TELEMETRY_OPTOUT=1 \
+    DOTNET_NOLOGO=true \
+    MSBUILDDISABLENODEREUSE=1 \
+    DOTNET_NUGET_SIGNATURE_VERIFICATION=false
+
+# Copy project files
 COPY ["src/Nexora.Domain/Nexora.Domain.csproj", "src/Nexora.Domain/"]
 COPY ["src/Nexora.Application/Nexora.Application.csproj", "src/Nexora.Application/"]
 COPY ["src/Nexora.Infrastructure/Nexora.Infrastructure.csproj", "src/Nexora.Infrastructure/"]
 COPY ["src/Nexora.WebApi/Nexora.WebApi.csproj", "src/Nexora.WebApi/"]
-RUN dotnet restore "./src/Nexora.WebApi/Nexora.WebApi.csproj"
+
+# Thêm --disable-parallel và -m:1 để ổn định kết nối tải package
+RUN dotnet restore "./src/Nexora.WebApi/Nexora.WebApi.csproj" --disable-parallel -m:1
 
 COPY . .
 WORKDIR "/src/src/Nexora.WebApi"
-RUN dotnet build "./Nexora.WebApi.csproj" -c $BUILD_CONFIGURATION -o /app/build
+RUN dotnet build "./Nexora.WebApi.csproj" -c $BUILD_CONFIGURATION -o /app/build --no-restore -m:1
 
-# This stage is used to publish the service project to be copied to the final stage
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
-RUN dotnet publish "./Nexora.WebApi.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
+RUN dotnet publish "./Nexora.WebApi.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false --no-build
 
-# This stage is used in production or when running from VS in regular mode (Default when not using the Debug configuration)
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
