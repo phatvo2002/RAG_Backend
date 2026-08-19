@@ -36,6 +36,7 @@ build_and_push_image:
   services:
     - name: docker:24.0.5-dind
       alias: docker
+      command: ["--mtu=1400"]
   variables:
     DOCKER_HOST: tcp://docker:2375
     DOCKER_TLS_CERTDIR: ""
