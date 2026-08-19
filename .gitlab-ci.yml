@@ -14,6 +14,7 @@ variables:
   DOTNET_CLI_TELEMETRY_OPTOUT: "1"
   DOTNET_NOLOGO: "true"
   NUGET_PACKAGES: "$CI_PROJECT_DIR/.nuget/packages"
+
   DOCKERHUB_REPOSITORY: "nexora-webapi"
 
 cache:
@@ -24,46 +25,123 @@ cache:
 verify:
   stage: verify
   image: mcr.microsoft.com/dotnet/sdk:10.0
+
   script:
     - dotnet --info
-    - dotnet restore Nexora.sln -m:1
-    - dotnet build Nexora.sln --configuration Release --no-restore -m:1 --verbosity minimal
-    - dotnet test tests/Nexora.Tests/Nexora.Tests.csproj --configuration Release --no-build --no-restore -m:1 --logger "console;verbosity=minimal"
+
+    - dotnet restore Nexora.sln
+
+    - dotnet build Nexora.sln \
+        --configuration Release \
+        --no-restore \
+        --verbosity minimal
+
+    - dotnet test tests/Nexora.Tests/Nexora.Tests.csproj \
+        --configuration Release \
+        --no-build \
+        --no-restore \
+        --logger "console;verbosity=minimal"
 
 build_and_push_image:
   stage: image
+
   image: docker:24.0.5-cli
+
   services:
     - name: docker:24.0.5-dind
       alias: docker
-      command: ["--mtu=1400"]
+      command:
+        - "--mtu=1400"
+
   variables:
     DOCKER_HOST: tcp://docker:2375
     DOCKER_TLS_CERTDIR: ""
     DOCKER_DRIVER: overlay2
+
   needs:
     - job: verify
+
   rules:
+    # Build image khi push version tag: v1.0.0, v1.2.3...
     - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+$/'
+
+    # Hoặc khi push lên default branch, ví dụ main
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
-  script:
-    - test -n "$DOCKERHUB_USERNAME" || (echo "DOCKERHUB_USERNAME is required" && exit 1)
-    - test -n "$DOCKERHUB_TOKEN" || (echo "DOCKERHUB_TOKEN is required" && exit 1)
+
+  before_script:
+    # Kiểm tra Docker Hub variables
+    - test -n "$DOCKERHUB_USERNAME" || (echo "ERROR: DOCKERHUB_USERNAME is required" && exit 1)
+    - test -n "$DOCKERHUB_TOKEN" || (echo "ERROR: DOCKERHUB_TOKEN is required" && exit 1)
+    - test -n "$DOCKERHUB_REPOSITORY" || (echo "ERROR: DOCKERHUB_REPOSITORY is required" && exit 1)
+
+    # Kiểm tra Docker daemon
     - docker info
-    - echo "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
+
+    # Login Docker Hub
+    - echo "$DOCKERHUB_TOKEN" | docker login \
+        --username "$DOCKERHUB_USERNAME" \
+        --password-stdin
+
+  script:
+    # ------------------------------------------------
+    # Chuẩn bị tên image
+    # ------------------------------------------------
     - IMAGE_REPOSITORY="$DOCKERHUB_USERNAME/$DOCKERHUB_REPOSITORY"
     - IMAGE_SHA="$IMAGE_REPOSITORY:$CI_COMMIT_SHORT_SHA"
-    - docker build --pull --tag "$IMAGE_SHA" .
+
+    # Debug an toàn, không in token
+    - echo "DockerHub username   = $DOCKERHUB_USERNAME"
+    - echo "DockerHub repository = $DOCKERHUB_REPOSITORY"
+    - echo "Image repository     = $IMAGE_REPOSITORY"
+    - echo "Image SHA            = $IMAGE_SHA"
+
+    # ------------------------------------------------
+    # Build Docker image
+    # ------------------------------------------------
+    - docker build \
+        --pull \
+        --tag "$IMAGE_SHA" \
+        .
+
+    # ------------------------------------------------
+    # Push SHA image
+    # ------------------------------------------------
     - docker push "$IMAGE_SHA"
+
+    # ------------------------------------------------
+    # Nếu chạy từ Git tag
+    #
+    # Ví dụ:
+    # v1.0.0
+    #
+    # Push:
+    # username/nexora-webapi:v1.0.0
+    # ------------------------------------------------
     - |
       if [ -n "$CI_COMMIT_TAG" ]; then
-        IMAGE_REF="$IMAGE_REPOSITORY:$CI_COMMIT_TAG"
-        docker tag "$IMAGE_SHA" "$IMAGE_REF"
-        docker push "$IMAGE_REF"
+        IMAGE_VERSION="$IMAGE_REPOSITORY:$CI_COMMIT_TAG"
+
+        echo "Push version image: $IMAGE_VERSION"
+
+        docker tag "$IMAGE_SHA" "$IMAGE_VERSION"
+        docker push "$IMAGE_VERSION"
       fi
 
+    # ------------------------------------------------
+    # Nếu là default branch
+    #
+    # Push thêm:
+    # username/nexora-webapi:latest
+    # ------------------------------------------------
+    - |
       if [ "$CI_COMMIT_BRANCH" = "$CI_DEFAULT_BRANCH" ]; then
         IMAGE_LATEST="$IMAGE_REPOSITORY:latest"
+
+        echo "Push latest image: $IMAGE_LATEST"
+
         docker tag "$IMAGE_SHA" "$IMAGE_LATEST"
         docker push "$IMAGE_LATEST"
       fi
+
+  after_script:
+    - docker logout || true
