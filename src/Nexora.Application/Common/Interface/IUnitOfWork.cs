@@ -27,6 +27,7 @@ public interface IAuthorizationUnitOfWork
 public interface ISecurityUnitOfWork
 {
     IAccessTokenRepository AccessTokenRepository { get; }
+    IActivityLogRepository ActivityLogRepository { get; }
 }
 
 public interface IUnitOfWork : IIdentityUnitOfWork, IOrganizationUnitOfWork, IAuthorizationUnitOfWork, ISecurityUnitOfWork

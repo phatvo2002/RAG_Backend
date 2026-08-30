@@ -7,6 +7,7 @@ using Nexora.WebApi;
 using Nexora.WebApi.Middleware;
 using Nexora.WebApi.Responses;
 using Nexora.WebApi.RateLimiting;
+using Nexora.Infrastructure.Seed;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -70,6 +71,8 @@ builder.Services.AddNexoraRateLimiting();
 
 var app = builder.Build();
 
+await app.SeedApiFunctionsAsync();
+
 app.UseExceptionHandler(exceptionHandlerApp =>
 {
     exceptionHandlerApp.Run(async httpContext =>
@@ -85,6 +88,7 @@ app.UseExceptionHandler(exceptionHandlerApp =>
             httpContext.RequestAborted);
     });
 });
+app.UseMiddleware<RequestActivityLogMiddleware>();
 app.UseStatusCodePages(async statusCodeContext =>
 {
     var httpContext = statusCodeContext.HttpContext;

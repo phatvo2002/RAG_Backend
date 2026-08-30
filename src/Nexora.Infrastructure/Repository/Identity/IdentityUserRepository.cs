@@ -1,9 +1,12 @@
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Nexora.Application.Common.Abstractions;
 using Nexora.Application.Common.Abstractions.Auth;
 using Nexora.Application.Common.Abstractions.Repositories;
 using Nexora.Application.Common.Constants;
+using Nexora.Application.Common.Helpers;
 using Nexora.Application.Common.Results;
+using Nexora.Domain.Organizations.Enums;
 using Nexora.Infrastructure.Identity;
 
 namespace Nexora.Infrastructure.Persistence.Repositories.Identity;
@@ -16,6 +19,13 @@ internal sealed class IdentityUserRepository(
     SignInManager<ApplicationUser> signInManager)
     : BaseRepository<ApplicationUser>(dbContext, userContext, clock), IUserRepository
 {
+    public Task<List<ApplicationUser>> GetByRoleAsync(Guid organizationId, Guid roleId, DateTimeOffset utcNow, CancellationToken cancellationToken) =>
+        (from assignment in DbContext.OrganizationRoleAssignments.IgnoreQueryFilters()
+         join user in DbContext.Users on assignment.UserId equals user.Id
+         where assignment.OrganizationId == organizationId && assignment.RoleId == roleId && assignment.Status == OrganizationRoleAssignmentStatus.Active && assignment.ValidFrom <= utcNow && (assignment.ExpiresAt == null || assignment.ExpiresAt > utcNow) && assignment.RevokedAt == null
+         orderby user.Email
+         select user).AsNoTracking().ToListAsync(cancellationToken);
+
     public async Task<IdentityUserSnapshot?> ValidateCredentialsAsync(
         string email,
         string password,
@@ -52,7 +62,7 @@ internal sealed class IdentityUserRepository(
         {
             Id = Guid.NewGuid(),
             Email = email.Trim(),
-            UserName = userName.Trim(),
+            UserName = UserHelper.NormalizeUserName(userName),
             PhoneNumber = phoneNumber?.Trim(),
             IsActive = true
         };

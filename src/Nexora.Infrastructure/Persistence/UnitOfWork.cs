@@ -17,7 +17,8 @@ internal sealed class UnitOfWork(
     IDepartmentMembershipRepository departmentMembershipRepository,
     IApiFunctionRepository apiFunctionRepository,
     IRoleApiFunctionRepository roleApiFunctionRepository,
-    IAccessTokenRepository accessTokenRepository) : IUnitOfWork
+    IAccessTokenRepository accessTokenRepository,
+    IActivityLogRepository activityLogRepository) : IUnitOfWork
 {
     public IUserRepository UserRepository { get; } = userRepository;
     public IRoleRepository RoleRepository { get; } = roleRepository;
@@ -30,6 +31,7 @@ internal sealed class UnitOfWork(
     public IApiFunctionRepository ApiFunctionRepository { get; } = apiFunctionRepository;
     public IRoleApiFunctionRepository RoleApiFunctionRepository { get; } = roleApiFunctionRepository;
     public IAccessTokenRepository AccessTokenRepository { get; } = accessTokenRepository;
+    public IActivityLogRepository ActivityLogRepository { get; } = activityLogRepository;
 
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken) =>
         dbContext.SaveChangesAsync(cancellationToken);

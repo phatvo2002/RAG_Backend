@@ -2590,7 +2590,7 @@ namespace Nexora.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(100)")
                         .HasColumnName("action");
 
-                    b.Property<Guid>("ActorUserId")
+                    b.Property<Guid?>("ActorUserId")
                         .HasColumnType("uuid")
                         .HasColumnName("actorUserId");
 
@@ -2599,7 +2599,6 @@ namespace Nexora.Infrastructure.Persistence.Migrations
                         .HasColumnName("apiFunctionId");
 
                     b.Property<string>("CorrelationId")
-                        .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)")
                         .HasColumnName("correlationId");
@@ -2614,7 +2613,6 @@ namespace Nexora.Infrastructure.Persistence.Migrations
                         .HasColumnName("ipAddress");
 
                     b.Property<string>("LogHash")
-                        .IsRequired()
                         .HasMaxLength(64)
                         .HasColumnType("char(64)")
                         .HasColumnName("logHash");
@@ -2633,7 +2631,7 @@ namespace Nexora.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamptz")
                         .HasColumnName("occurredAt");
 
-                    b.Property<Guid>("OrganizationId")
+                    b.Property<Guid?>("OrganizationId")
                         .HasColumnType("uuid")
                         .HasColumnName("organizationId");
 
@@ -3746,8 +3744,7 @@ namespace Nexora.Infrastructure.Persistence.Migrations
                     b.HasOne("Nexora.Infrastructure.Identity.ApplicationUser", null)
                         .WithMany()
                         .HasForeignKey("ActorUserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Nexora.Domain.Authorization.ApiFunction", null)
                         .WithMany()
@@ -3757,8 +3754,7 @@ namespace Nexora.Infrastructure.Persistence.Migrations
                     b.HasOne("Nexora.Domain.Organizations.Organization", null)
                         .WithMany()
                         .HasForeignKey("OrganizationId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Nexora.Domain.Projects.Project", null)
                         .WithMany()

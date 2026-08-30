@@ -60,7 +60,7 @@ public class CreateDepartmentRequest
 
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
-    public Guid? ParentDepartmentId { get; set; }
+    public Guid? ParentDepartmentId { get; set; } = null;
     public Guid? ManagerUserId { get; set; }
 }
 
