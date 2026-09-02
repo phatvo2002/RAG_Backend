@@ -14,23 +14,18 @@ public sealed class UserController(ISender sender) : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetUsers([FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken cancellationToken = default) => this.ToSuccessResponse(await sender.Send(new GetUsersQuery(page, pageSize), cancellationToken), "Lấy danh sách User thành công.");
 
+    [HttpGet("{userId:guid}")]
+    public async Task<IActionResult> GetUser(Guid userId, CancellationToken cancellationToken) => this.ToActionResult(await sender.Send(new GetUserQuery(userId), cancellationToken));
+
+    [HttpGet("{userId:guid}/roles")]
+    public async Task<IActionResult> GetRoles(Guid userId, CancellationToken cancellationToken) => this.ToSuccessResponse(await sender.Send(new GetUserRolesQuery(userId), cancellationToken), "Lấy danh sách Role của User thành công.");
+
     [HttpPost]
     [EnableRateLimiting("write")]
     public async Task<IActionResult> CreateUser([FromBody] CreateUserRequest request, CancellationToken cancellationToken)
     {
         var result = await sender.Send(new CreateUserCommand(request.Email, request.UserName, request.Password, request.PhoneNumber, request.DisplayName, request.PreferredLanguage, request.TimeZone), cancellationToken);
         return this.ToActionResult(result, "Tạo User thành công.");
-    }
-
-    [HttpGet("{userId:guid}")]
-    public async Task<IActionResult> GetUser(Guid userId, CancellationToken cancellationToken) => this.ToActionResult(await sender.Send(new GetUserQuery(userId), cancellationToken));
-
-    [HttpPut("{userId:guid}")]
-    [EnableRateLimiting("write")]
-    public async Task<IActionResult> UpdateUser(Guid userId, [FromBody] UpdateUserRequest request, CancellationToken cancellationToken)
-    {
-        var result = await sender.Send(new UpdateUserCommand(userId, request.Email, request.UserName, request.PhoneNumber, request.DisplayName, request.PreferredLanguage, request.TimeZone), cancellationToken);
-        return this.ToActionResult(result);
     }
 
     [HttpPost("{userId:guid}/deactivate")]
@@ -49,10 +44,16 @@ public sealed class UserController(ISender sender) : ControllerBase
     [EnableRateLimiting("write")]
     public async Task<IActionResult> AssignRole(Guid userId, Guid roleId, CancellationToken cancellationToken) => this.ToActionResult(await sender.Send(new AssignUserRoleCommand(userId, roleId), cancellationToken));
 
+    [HttpPut("{userId:guid}")]
+    [EnableRateLimiting("write")]
+    public async Task<IActionResult> UpdateUser(Guid userId, [FromBody] UpdateUserRequest request, CancellationToken cancellationToken)
+    {
+        var result = await sender.Send(new UpdateUserCommand(userId, request.Email, request.UserName, request.PhoneNumber, request.DisplayName, request.PreferredLanguage, request.TimeZone), cancellationToken);
+        return this.ToActionResult(result);
+    }
+
     [HttpDelete("{userId:guid}/roles/{roleId:guid}")]
     [EnableRateLimiting("write")]
     public async Task<IActionResult> RevokeRole(Guid userId, Guid roleId, CancellationToken cancellationToken) => this.ToActionResult(await sender.Send(new RevokeUserRoleCommand(userId, roleId), cancellationToken));
 
-    [HttpGet("{userId:guid}/roles")]
-    public async Task<IActionResult> GetRoles(Guid userId, CancellationToken cancellationToken) => this.ToSuccessResponse(await sender.Send(new GetUserRolesQuery(userId), cancellationToken), "Lấy danh sách Role của User thành công.");
 }

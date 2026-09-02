@@ -21,12 +21,23 @@ internal sealed class DocumentIngestionService(
     IDocumentProcessingQueue processingQueue,
     IOptions<StorageOptions> storageOptions) : IDocumentIngestionService
 {
-    public async Task<Result<DocumentUploadReceipt>> UploadAsync(Guid userId, string fileName, string contentType, long sizeBytes, Stream content, CancellationToken cancellationToken)
+    public async Task<Result<DocumentUploadReceipt>> UploadAsync(Guid userId, Guid folderId, string fileName, string contentType, long sizeBytes, Stream content, CancellationToken cancellationToken)
     {
         var organizationId = await organizationProvider.GetOrganizationIdAsync(cancellationToken);
         if (!organizationId.HasValue)
         {
             return Result<DocumentUploadReceipt>.Failure(Error.Conflict(CommonMessages.User.DefaultOrganizationNotConfigured));
+        }
+
+        var folder = await store.GetFolderAsync(folderId, false, cancellationToken);
+        if (folder is null || folder.OrganizationId != organizationId.Value)
+        {
+            return Result<DocumentUploadReceipt>.Failure(Error.NotFound("Không tìm thấy thư mục tài liệu."));
+        }
+
+        if (!folder.DepartmentId.HasValue || !await store.IsActiveDepartmentMemberAsync(folder.DepartmentId.Value, userId, cancellationToken))
+        {
+            return Result<DocumentUploadReceipt>.Failure(Error.Forbidden("Bạn không thuộc phòng ban của thư mục tài liệu."));
         }
 
         var safeFileName = Path.GetFileName(fileName);
@@ -37,7 +48,8 @@ internal sealed class DocumentIngestionService(
         bufferedContent.Position = 0;
 
         var now = clock.UtcNow;
-        var document = Document.Create(organizationId.Value, userId, string.IsNullOrWhiteSpace(title) ? "Untitled" : title, now);
+        var document = Document.Create(organizationId.Value, folder.DepartmentId.Value, userId, string.IsNullOrWhiteSpace(title) ? "Untitled" : title, now);
+        document.SetFolder(folder.Id);
         var versionNo = await store.GetNextVersionNoAsync(document.Id, cancellationToken);
         var objectKey = $"documents/{document.Id:D}/{versionNo:D}-{safeFileName}";
         var version = DocumentVersion.Create(organizationId.Value, document.Id, versionNo, safeFileName, contentType, sizeBytes, "minio", storageOptions.Value.Bucket, objectKey, fileHash, userId, now);

@@ -7,7 +7,7 @@ using Nexora.Application.Features.V1.Documents.Model;
 
 namespace Nexora.Application.Features.V1.Documents.Command;
 
-public sealed record UploadDocumentCommand(string FileName, string ContentType, long SizeBytes, Stream Content) : IRequest<Result<DocumentUploadResponse>>;
+public sealed record UploadDocumentCommand(Guid FolderId, string FileName, string ContentType, long SizeBytes, Stream Content) : IRequest<Result<DocumentUploadResponse>>;
 
 public sealed class UploadDocumentCommandHandler(IDocumentIngestionService ingestionService, IUserContext userContext) : IRequestHandler<UploadDocumentCommand, Result<DocumentUploadResponse>>
 {
@@ -18,7 +18,7 @@ public sealed class UploadDocumentCommandHandler(IDocumentIngestionService inges
             return Result<DocumentUploadResponse>.Failure(Error.Unauthorized(CommonMessages.Api.AuthenticationRequired));
         }
 
-        var result = await ingestionService.UploadAsync(userContext.UserId.Value, request.FileName, request.ContentType, request.SizeBytes, request.Content, cancellationToken);
+        var result = await ingestionService.UploadAsync(userContext.UserId.Value, request.FolderId, request.FileName, request.ContentType, request.SizeBytes, request.Content, cancellationToken);
         return result.IsSuccess
             ? Result<DocumentUploadResponse>.Success(new DocumentUploadResponse(result.Value!.DocumentId, result.Value.VersionId, result.Value.ProcessingStatus))
             : Result<DocumentUploadResponse>.Failure(result.Error!);

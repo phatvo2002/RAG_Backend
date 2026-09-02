@@ -4,6 +4,7 @@ namespace Nexora.Application.Features.V1.Documents.Model;
 
 public sealed class UploadDocumentRequest
 {
+    public Guid FolderId { get; set; }
     public IFormFile File { get; set; } = null!;
 }
 

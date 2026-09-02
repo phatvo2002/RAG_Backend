@@ -8,6 +8,8 @@ public interface IDocumentProcessingStore
     Task<Document?> GetDocumentAsync(Guid userId, Guid documentId, bool asTracking, CancellationToken cancellationToken);
 
     Task<Document?> GetDocumentByIdAsync(Guid documentId, bool asTracking, CancellationToken cancellationToken);
+    Task<DocumentFolder?> GetFolderAsync(Guid folderId, bool asTracking, CancellationToken cancellationToken);
+    Task<bool> IsActiveDepartmentMemberAsync(Guid departmentId, Guid userId, CancellationToken cancellationToken);
 
     Task<DocumentVersion?> GetVersionAsync(Guid versionId, bool asTracking, CancellationToken cancellationToken);
 

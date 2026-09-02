@@ -20,6 +20,15 @@ internal sealed class DocumentProcessingStore(NexoraDbContext dbContext) : IDocu
         return (asTracking ? query : query.AsNoTracking()).SingleOrDefaultAsync(cancellationToken);
     }
 
+    public Task<DocumentFolder?> GetFolderAsync(Guid folderId, bool asTracking, CancellationToken cancellationToken)
+    {
+        var query = dbContext.DocumentFolders.Where(folder => folder.Id == folderId);
+        return (asTracking ? query : query.AsNoTracking()).SingleOrDefaultAsync(cancellationToken);
+    }
+
+    public Task<bool> IsActiveDepartmentMemberAsync(Guid departmentId, Guid userId, CancellationToken cancellationToken) =>
+        dbContext.DepartmentMemberships.AnyAsync(x => x.DepartmentId == departmentId && x.UserId == userId && x.LeftAt == null, cancellationToken);
+
     public Task<DocumentVersion?> GetVersionAsync(Guid versionId, bool asTracking, CancellationToken cancellationToken)
     {
         var query = dbContext.DocumentVersions.IgnoreQueryFilters().Where(version => version.Id == versionId);

@@ -26,6 +26,7 @@ using Nexora.Infrastructure.Persistence.Repositories;
 using Nexora.Infrastructure.Persistence.Repositories.Identity;
 using Nexora.Infrastructure.Options;
 using Nexora.Application.Common.Abstractions.Rag;
+using Nexora.Application.Common.Abstractions.Documents;
 using Nexora.Application.Common.Abstractions.Logging;
 using Nexora.Infrastructure.Audit;
 using Nexora.Infrastructure.Rag;
@@ -133,6 +134,7 @@ public static class DependencyInjection
         services.AddScoped<IActivityLogWriter, ActivityLogWriter>();
         services.AddScoped<ApiFunctionSeeder>();
         services.AddScoped<IDocumentProcessingStore, DocumentProcessingStore>();
+        services.AddScoped<IDocumentFolderService, DocumentFolderService>();
         services.AddScoped<IDocumentIngestionService, DocumentIngestionService>();
         services.AddScoped<DocumentProcessingService>();
         services.AddScoped<IDocumentTextExtractor, DocumentTextExtractor>();

@@ -8,7 +8,7 @@ public sealed record DocumentStatusSnapshot(Guid DocumentId, Guid VersionId, str
 
 public interface IDocumentIngestionService
 {
-    Task<Result<DocumentUploadReceipt>> UploadAsync(Guid userId, string fileName, string contentType, long sizeBytes, Stream content, CancellationToken cancellationToken);
+    Task<Result<DocumentUploadReceipt>> UploadAsync(Guid userId, Guid folderId, string fileName, string contentType, long sizeBytes, Stream content, CancellationToken cancellationToken);
 
     Task<DocumentStatusSnapshot?> GetStatusAsync(Guid userId, Guid documentId, CancellationToken cancellationToken);
 }

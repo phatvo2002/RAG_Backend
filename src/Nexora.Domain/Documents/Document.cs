@@ -18,6 +18,8 @@ public class Document : SoftDeletableEntityBase
 
     public Guid OwnerUserId { get; private set; }
 
+    public Guid? DepartmentId { get; private set; }
+
     public Guid? FolderId { get; private set; }
 
     public string Title { get; set; } = string.Empty;
@@ -26,11 +28,12 @@ public class Document : SoftDeletableEntityBase
 
     public string Status { get; set; } = string.Empty;
 
-    public static Document Create(Guid organizationId, Guid ownerUserId, string title, DateTimeOffset now)
+    public static Document Create(Guid organizationId, Guid departmentId, Guid ownerUserId, string title, DateTimeOffset now)
     {
         var document = new Document(Guid.NewGuid(), now)
         {
             OrganizationId = DomainGuard.RequiredId(organizationId, nameof(organizationId)),
+            DepartmentId = DomainGuard.RequiredId(departmentId, nameof(departmentId)),
             OwnerUserId = DomainGuard.RequiredId(ownerUserId, nameof(ownerUserId)),
             Title = DomainGuard.RequiredText(title, nameof(title), 300),
             Status = "UPLOADING"
@@ -41,6 +44,11 @@ public class Document : SoftDeletableEntityBase
     public void SetCurrentVersion(Guid versionId)
     {
         CurrentVersionId = DomainGuard.RequiredId(versionId, nameof(versionId));
+    }
+
+    public void SetFolder(Guid folderId)
+    {
+        FolderId = DomainGuard.RequiredId(folderId, nameof(folderId));
     }
 
     public void SetStatus(string status)

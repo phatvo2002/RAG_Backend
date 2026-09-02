@@ -41,6 +41,20 @@ builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new OpenApiInfo { Title = "Nexora AI API", Version = "v1", Description = "Nexora AI backend API" });
 
+    options.OrderActionsBy(apiDescription =>
+    {
+        var methodOrder = apiDescription.HttpMethod?.ToUpperInvariant() switch
+        {
+            "GET" => 0,
+            "POST" => 1,
+            "PUT" => 2,
+            "DELETE" => 3,
+            _ => 4
+        };
+
+        return $"{methodOrder:D2}_{apiDescription.RelativePath ?? string.Empty}";
+    });
+
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Name = "Authorization",

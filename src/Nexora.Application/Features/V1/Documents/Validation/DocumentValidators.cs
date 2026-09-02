@@ -9,6 +9,7 @@ public sealed class UploadDocumentCommandValidator : AbstractValidator<UploadDoc
 
     public UploadDocumentCommandValidator()
     {
+        RuleFor(x => x.FolderId).NotEmpty();
         RuleFor(x => x.FileName).NotEmpty().MaximumLength(500).Must(HasAllowedExtension).WithMessage("Chỉ hỗ trợ file PDF, TXT, MD hoặc DOCX.");
         RuleFor(x => x.ContentType).NotEmpty().MaximumLength(150);
         RuleFor(x => x.SizeBytes).GreaterThan(0).LessThanOrEqualTo(25 * 1024 * 1024);

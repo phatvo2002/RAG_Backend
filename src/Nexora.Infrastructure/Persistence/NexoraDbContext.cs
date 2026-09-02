@@ -66,6 +66,7 @@ public sealed class NexoraDbContext : IdentityDbContext<ApplicationUser, Applica
     public DbSet<DocumentVersion> DocumentVersions => Set<DocumentVersion>();
 
     public DbSet<DocumentAccessGrant> DocumentAccessGrants => Set<DocumentAccessGrant>();
+    public DbSet<DocumentFolderAccessGrant> DocumentFolderAccessGrants => Set<DocumentFolderAccessGrant>();
 
     public DbSet<DocumentChunk> DocumentChunks => Set<DocumentChunk>();
 
@@ -129,6 +130,7 @@ public sealed class NexoraDbContext : IdentityDbContext<ApplicationUser, Applica
         builder.Entity<Document>().HasQueryFilter(x => x.OrganizationId == TenantOrganizationId && x.DeletedAt == null);
         builder.Entity<DocumentVersion>().HasQueryFilter(x => x.OrganizationId == TenantOrganizationId);
         builder.Entity<DocumentAccessGrant>().HasQueryFilter(x => x.OrganizationId == TenantOrganizationId);
+        builder.Entity<DocumentFolderAccessGrant>().HasQueryFilter(x => x.OrganizationId == TenantOrganizationId);
         builder.Entity<DocumentChunk>().HasQueryFilter(x => x.OrganizationId == TenantOrganizationId);
         builder.Entity<RagIndex>().HasQueryFilter(x => x.OrganizationId == TenantOrganizationId);
         builder.Entity<RagIndexRecord>().HasQueryFilter(x => x.OrganizationId == TenantOrganizationId);

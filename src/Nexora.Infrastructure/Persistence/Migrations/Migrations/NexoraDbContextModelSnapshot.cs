@@ -814,6 +814,10 @@ namespace Nexora.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamptz")
                         .HasColumnName("deletedAt");
 
+                    b.Property<Guid?>("DepartmentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("departmentId");
+
                     b.Property<Guid?>("FolderId")
                         .HasColumnType("uuid")
                         .HasColumnName("folderId");
@@ -859,11 +863,15 @@ namespace Nexora.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("DeleteBy");
 
+                    b.HasIndex("DepartmentId");
+
                     b.HasIndex("FolderId");
 
                     b.HasIndex("OwnerUserId");
 
                     b.HasIndex("UpdatedByUserId");
+
+                    b.HasIndex("OrganizationId", "DepartmentId");
 
                     b.HasIndex("OrganizationId", "FolderId");
 
@@ -1139,6 +1147,10 @@ namespace Nexora.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamptz")
                         .HasColumnName("deletedAt");
 
+                    b.Property<Guid?>("DepartmentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("departmentId");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -1176,11 +1188,15 @@ namespace Nexora.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("DeleteBy");
 
+                    b.HasIndex("DepartmentId");
+
                     b.HasIndex("OwnerUserId");
 
                     b.HasIndex("ParentFolderId");
 
                     b.HasIndex("UpdatedByUserId");
+
+                    b.HasIndex("OrganizationId", "DepartmentId");
 
                     b.HasIndex("OrganizationId", "Id")
                         .IsUnique()
@@ -1191,6 +1207,81 @@ namespace Nexora.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ux_folder_parent_name");
 
                     b.ToTable("DocumentFolders", "document");
+                });
+
+            modelBuilder.Entity("Nexora.Domain.Documents.DocumentFolderAccessGrant", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("AccessLevel")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("accessLevel");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("createdAt");
+
+                    b.Property<Guid?>("DepartmentId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("departmentId");
+
+                    b.Property<DateTimeOffset?>("ExpiresAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("expiresAt");
+
+                    b.Property<Guid>("FolderId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("folderId");
+
+                    b.Property<Guid>("GrantedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("grantedByUserId");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("organizationId");
+
+                    b.Property<DateTimeOffset?>("RevokedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("revokedAt");
+
+                    b.Property<Guid?>("RevokedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("revokedByUserId");
+
+                    b.Property<long>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasDefaultValue(1L)
+                        .HasColumnName("rowVersion");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("userId");
+
+                    b.Property<DateTimeOffset>("ValidFrom")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("validFrom");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DepartmentId");
+
+                    b.HasIndex("FolderId");
+
+                    b.HasIndex("OrganizationId", "DepartmentId");
+
+                    b.HasIndex("OrganizationId", "FolderId");
+
+                    b.HasIndex("OrganizationId", "UserId");
+
+                    b.ToTable("DocumentFolderAccessGrants", "document");
                 });
 
             modelBuilder.Entity("Nexora.Domain.Documents.DocumentVersion", b =>
@@ -3172,6 +3263,11 @@ namespace Nexora.Infrastructure.Persistence.Migrations
                         .HasForeignKey("DeleteBy")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("Nexora.Domain.Organizations.Department", null)
+                        .WithMany()
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Nexora.Domain.Documents.DocumentFolder", null)
                         .WithMany()
                         .HasForeignKey("FolderId")
@@ -3267,6 +3363,11 @@ namespace Nexora.Infrastructure.Persistence.Migrations
                         .HasForeignKey("DeleteBy")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("Nexora.Domain.Organizations.Department", null)
+                        .WithMany()
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Nexora.Domain.Organizations.Organization", null)
                         .WithMany()
                         .HasForeignKey("OrganizationId")
@@ -3288,6 +3389,20 @@ namespace Nexora.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("UpdatedByUserId")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Nexora.Domain.Documents.DocumentFolderAccessGrant", b =>
+                {
+                    b.HasOne("Nexora.Domain.Organizations.Department", null)
+                        .WithMany()
+                        .HasForeignKey("DepartmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Nexora.Domain.Documents.DocumentFolder", null)
+                        .WithMany()
+                        .HasForeignKey("FolderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Nexora.Domain.Documents.DocumentVersion", b =>

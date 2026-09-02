@@ -12,19 +12,19 @@ namespace Nexora.WebApi.Controllers.V1.Documents;
 [Route("api/documents")]
 public sealed class DocumentController(ISender sender) : BaseController
 {
+    [HttpGet("{documentId:guid}")]
+    public async Task<IActionResult> Get(Guid documentId, CancellationToken cancellationToken) => this.ToActionResult(await sender.Send(new GetDocumentStatusQuery(documentId), cancellationToken));
+
+    [HttpGet("{documentId:guid}/status")]
+    public async Task<IActionResult> GetStatus(Guid documentId, CancellationToken cancellationToken) => this.ToActionResult(await sender.Send(new GetDocumentStatusQuery(documentId), cancellationToken));
+
     [HttpPost]
     [EnableRateLimiting("write")]
     [RequestSizeLimit(26 * 1024 * 1024)]
     public async Task<IActionResult> Upload([FromForm] UploadDocumentRequest request, CancellationToken cancellationToken)
     {
         await using var content = request.File?.OpenReadStream() ?? Stream.Null;
-        var result = await sender.Send(new UploadDocumentCommand(request.File?.FileName ?? string.Empty, request.File?.ContentType ?? string.Empty, request.File?.Length ?? 0, content), cancellationToken);
+        var result = await sender.Send(new UploadDocumentCommand(request.FolderId, request.File?.FileName ?? string.Empty, request.File?.ContentType ?? string.Empty, request.File?.Length ?? 0, content), cancellationToken);
         return this.ToActionResult(result);
     }
-
-    [HttpGet("{documentId:guid}/status")]
-    public async Task<IActionResult> GetStatus(Guid documentId, CancellationToken cancellationToken) => this.ToActionResult(await sender.Send(new GetDocumentStatusQuery(documentId), cancellationToken));
-
-    [HttpGet("{documentId:guid}")]
-    public async Task<IActionResult> Get(Guid documentId, CancellationToken cancellationToken) => this.ToActionResult(await sender.Send(new GetDocumentStatusQuery(documentId), cancellationToken));
 }
