@@ -53,6 +53,7 @@ public sealed class TransactionBehaviorTests
         public IApiFunctionRepository ApiFunctionRepository => null!;
         public IRoleApiFunctionRepository RoleApiFunctionRepository => null!;
         public IAccessTokenRepository AccessTokenRepository => null!;
+        public IActivityLogRepository ActivityLogRepository => null!;
 
         public Task<int> SaveChangesAsync(CancellationToken cancellationToken)
         {
