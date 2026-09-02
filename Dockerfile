@@ -3,6 +3,10 @@
 
 # This stage is used when running from VS in fast mode (Default for Debug configuration)
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
+USER root
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends poppler-utils ocrmypdf tesseract-ocr tesseract-ocr-vie tesseract-ocr-eng \
+    && rm -rf /var/lib/apt/lists/*
 USER $APP_UID
 WORKDIR /app
 EXPOSE 8080

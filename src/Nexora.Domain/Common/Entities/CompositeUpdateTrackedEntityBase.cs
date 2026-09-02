@@ -6,9 +6,9 @@ public abstract class CompositeUpdateTrackedEntityBase
     {
     }
 
-    public Guid? UpdatedByUserId { get; private set; }
+    public Guid? UpdatedByUserId { get; protected set; }
 
-    public DateTimeOffset UpdatedAt { get; private set; }
+    public DateTimeOffset UpdatedAt { get; protected set; }
 
-    public long RowVersion { get; private set; }
+    public long RowVersion { get; protected set; }
 }

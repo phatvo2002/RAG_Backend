@@ -6,7 +6,7 @@ public class UserResponse
     {
     }
 
-    public UserResponse(Guid userId, string email, string userName, string? phoneNumber, bool isActive, string? displayName, string? preferredLanguage, string? timeZone)
+    public UserResponse(Guid userId, string email, string userName, string? phoneNumber, bool isActive, string? displayName, string? preferredLanguage, string? timeZone, IReadOnlyCollection<UserRoleResponse>? roles = null)
     {
         UserId = userId;
         Email = email;
@@ -16,6 +16,7 @@ public class UserResponse
         DisplayName = displayName;
         PreferredLanguage = preferredLanguage;
         TimeZone = timeZone;
+        Roles = roles ?? Array.Empty<UserRoleResponse>();
     }
 
     public Guid UserId { get; set; }
@@ -26,6 +27,7 @@ public class UserResponse
     public string? DisplayName { get; set; }
     public string? PreferredLanguage { get; set; }
     public string? TimeZone { get; set; }
+    public IReadOnlyCollection<UserRoleResponse> Roles { get; set; } = Array.Empty<UserRoleResponse>();
 }
 
 public class UserRoleResponse
@@ -34,15 +36,17 @@ public class UserRoleResponse
     {
     }
 
-    public UserRoleResponse(Guid roleId, string status, DateTimeOffset validFrom, DateTimeOffset? expiresAt)
+    public UserRoleResponse(Guid roleId, string roleName, string status, DateTimeOffset validFrom, DateTimeOffset? expiresAt)
     {
         RoleId = roleId;
+        RoleName = roleName;
         Status = status;
         ValidFrom = validFrom;
         ExpiresAt = expiresAt;
     }
 
     public Guid RoleId { get; set; }
+    public string RoleName { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
     public DateTimeOffset ValidFrom { get; set; }
     public DateTimeOffset? ExpiresAt { get; set; }
@@ -66,7 +70,7 @@ public class CreateUserRequest
     }
 
     public string Email { get; set; } = string.Empty;
-    public string UserName { get; set; } = string.Empty;
+    public string? UserName { get; set; } = string.Empty;
     public string Password { get; set; } = string.Empty;
     public string? PhoneNumber { get; set; }
     public string DisplayName { get; set; } = string.Empty;

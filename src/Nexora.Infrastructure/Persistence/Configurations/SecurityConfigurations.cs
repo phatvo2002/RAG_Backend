@@ -155,9 +155,9 @@ internal sealed class ActivityLogConfiguration : IEntityTypeConfiguration<Activi
         builder.ToTable("ActivityLogs", SchemaNames.Security);
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Id).HasColumnName("id");
-        builder.Property(x => x.OrganizationId).HasColumnName("organizationId").IsRequired();
+        builder.Property(x => x.OrganizationId).HasColumnName("organizationId");
         builder.Property(x => x.ProjectId).HasColumnName("projectId");
-        builder.Property(x => x.ActorUserId).HasColumnName("actorUserId").IsRequired();
+        builder.Property(x => x.ActorUserId).HasColumnName("actorUserId");
         builder.Property(x => x.ApiFunctionId).HasColumnName("apiFunctionId");
         builder.Property(x => x.Module).HasColumnName("module").HasMaxLength(80).IsRequired();
         builder.Property(x => x.Action).HasColumnName("action").HasMaxLength(100).IsRequired();
@@ -167,10 +167,10 @@ internal sealed class ActivityLogConfiguration : IEntityTypeConfiguration<Activi
         builder.Property(x => x.Description).HasColumnName("description").HasMaxLength(500);
         builder.Property(x => x.IpAddress).HasColumnName("ipAddress").HasColumnType("inet");
         builder.Property(x => x.UserAgent).HasColumnName("userAgent").HasMaxLength(500);
-        builder.Property(x => x.CorrelationId).HasColumnName("correlationId").HasMaxLength(100).IsRequired();
+        builder.Property(x => x.CorrelationId).HasColumnName("correlationId").HasMaxLength(100);
         builder.Property(x => x.MetadataJson).HasColumnName("metadataJson").HasColumnType("jsonb");
         builder.Property(x => x.PreviousLogHash).HasColumnName("previousLogHash").HasColumnType("char(64)").HasMaxLength(64);
-        builder.Property(x => x.LogHash).HasColumnName("logHash").HasColumnType("char(64)").HasMaxLength(64).IsRequired();
+        builder.Property(x => x.LogHash).HasColumnName("logHash").HasColumnType("char(64)").HasMaxLength(64);
         builder.Property(x => x.OccurredAt).HasColumnName("occurredAt").HasColumnType("timestamptz").IsRequired();
 
         builder.HasIndex(x => new { x.OrganizationId, x.ActorUserId, x.OccurredAt });

@@ -122,7 +122,6 @@ public sealed class NexoraDbContext : IdentityDbContext<ApplicationUser, Applica
         builder.Entity<DepartmentMembership>().HasQueryFilter(x => x.OrganizationId == TenantOrganizationId);
         builder.Entity<RoleApiFunction>().HasQueryFilter(x => x.OrganizationId == TenantOrganizationId);
         builder.Entity<AccessToken>().HasQueryFilter(x => x.OrganizationId == TenantOrganizationId);
-        builder.Entity<ActivityLog>().HasQueryFilter(x => x.OrganizationId == TenantOrganizationId);
         builder.Entity<Project>().HasQueryFilter(x => x.OrganizationId == TenantOrganizationId && x.DeletedAt == null);
         builder.Entity<ProjectMember>().HasQueryFilter(x => x.OrganizationId == TenantOrganizationId);
         builder.Entity<ProjectDocument>().HasQueryFilter(x => x.OrganizationId == TenantOrganizationId && x.DeletedAt == null);

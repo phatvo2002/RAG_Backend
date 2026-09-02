@@ -68,6 +68,21 @@ public sealed class ApiFunction : AuditableEntityBase
             requiresConfirmation, now);
     }
 
+    public static ApiFunction Create(Guid id, string code, string module, string name, ApiHttpMethod httpMethod, string routeTemplate,
+        ApiActionType actionType, ApiRiskLevel riskLevel, DateTimeOffset now,
+        bool requiresConfirmation = false, string? description = null)
+    {
+        if (id == Guid.Empty)
+        {
+            throw new ArgumentException("ApiFunction id cannot be empty.", nameof(id));
+        }
+
+        return new ApiFunction(
+            id, ApiFunctionCode.Create(code), module, name, description,
+            httpMethod, RouteTemplate.Create(routeTemplate), actionType, riskLevel,
+            requiresConfirmation, now);
+    }
+
     public void Update(
         string module, string name, ApiHttpMethod httpMethod, string routeTemplate,
         ApiActionType actionType, ApiRiskLevel riskLevel, bool requiresConfirmation,
