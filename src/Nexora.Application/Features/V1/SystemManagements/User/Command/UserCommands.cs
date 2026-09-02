@@ -3,11 +3,13 @@ using Nexora.Application.Common.Abstractions;
 using Nexora.Application.Common.Abstractions.Auth;
 using Nexora.Application.Common.Abstractions.Repositories;
 using Nexora.Application.Common.Constants;
+using Nexora.Application.Common.Helpers;
 using Nexora.Application.Common.Messaging;
 using Nexora.Application.Common.Results;
 using Nexora.Application.Features.V1.SystemManagements.User.Model;
 using Nexora.Domain.Common.ValueObjects;
 using Nexora.Domain.Organizations;
+using Nexora.Domain.Organizations.Enums;
 
 namespace Nexora.Application.Features.V1.SystemManagements.User.Command;
 
@@ -63,7 +65,7 @@ public sealed class UpdateUserCommandHandler(IUnitOfWork unitOfWork, IClock cloc
         }
 
         var email = request.Email.Trim();
-        var userName = request.UserName.Trim();
+        var userName = UserHelper.NormalizeUserName(request.UserName);
         var normalizedEmail = email.ToUpperInvariant();
         var normalizedUserName = userName.ToUpperInvariant();
         var duplicateUser = await unitOfWork.UserRepository.GetAsync(
@@ -181,10 +183,15 @@ public sealed class AssignUserRoleCommandHandler(IUnitOfWork unitOfWork, IDefaul
             return Result.Failure(Error.NotFound(CommonMessages.User.RoleOrOrganizationNotFound));
         }
 
-        var existing = await unitOfWork.OrganizationRoleAssignmentRepository.GetAsync(organizationId.Value, request.UserId, request.RoleId, asTracking: false, cancellationToken: cancellationToken);
-        if (existing is not null)
+        var existing = await unitOfWork.OrganizationRoleAssignmentRepository.GetAsync(organizationId.Value, request.UserId, request.RoleId, asTracking: true, cancellationToken: cancellationToken);
+        if (existing?.Status == OrganizationRoleAssignmentStatus.Active)
         {
             return Result.Failure(Error.Conflict(CommonMessages.User.RoleAlreadyAssigned));
+        }
+
+        if (existing is not null)
+        {
+            unitOfWork.OrganizationRoleAssignmentRepository.Delete(existing);
         }
 
         unitOfWork.OrganizationRoleAssignmentRepository.Insert(OrganizationRoleAssignment.Create(organizationId.Value, request.UserId, request.RoleId, userContext.UserId.Value, clock.UtcNow));
@@ -194,7 +201,7 @@ public sealed class AssignUserRoleCommandHandler(IUnitOfWork unitOfWork, IDefaul
 
 public sealed record RevokeUserRoleCommand(Guid UserId, Guid RoleId) : ITransactionalCommand<Result>;
 
-public sealed class RevokeUserRoleCommandHandler(IUnitOfWork unitOfWork, IDefaultOrganizationProvider organizationProvider, IUserContext userContext, IClock clock) : IRequestHandler<RevokeUserRoleCommand, Result>
+public sealed class RevokeUserRoleCommandHandler(IUnitOfWork unitOfWork, IDefaultOrganizationProvider organizationProvider, IUserContext userContext) : IRequestHandler<RevokeUserRoleCommand, Result>
 {
     public async Task<Result> Handle(RevokeUserRoleCommand request, CancellationToken cancellationToken)
     {
@@ -215,7 +222,7 @@ public sealed class RevokeUserRoleCommandHandler(IUnitOfWork unitOfWork, IDefaul
             return Result.Failure(Error.NotFound(CommonMessages.User.RoleAssignmentNotFound));
         }
 
-        assignment.Revoke(userContext.UserId.Value, clock.UtcNow);
+        unitOfWork.OrganizationRoleAssignmentRepository.Delete(assignment);
         return Result.Success();
     }
 }

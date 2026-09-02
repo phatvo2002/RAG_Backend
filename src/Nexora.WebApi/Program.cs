@@ -7,11 +7,14 @@ using Nexora.WebApi;
 using Nexora.WebApi.Middleware;
 using Nexora.WebApi.Responses;
 using Nexora.WebApi.RateLimiting;
+using Nexora.Infrastructure.Seed;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddControllers();
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
+builder.Services.AddCors(options => options.AddPolicy("Frontend", policy => policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod()));
 builder.Services.Configure<ApiBehaviorOptions>(options =>
 {
     options.InvalidModelStateResponseFactory = context =>
@@ -68,6 +71,8 @@ builder.Services.AddNexoraRateLimiting();
 
 var app = builder.Build();
 
+await app.SeedApiFunctionsAsync();
+
 app.UseExceptionHandler(exceptionHandlerApp =>
 {
     exceptionHandlerApp.Run(async httpContext =>
@@ -83,6 +88,7 @@ app.UseExceptionHandler(exceptionHandlerApp =>
             httpContext.RequestAborted);
     });
 });
+app.UseMiddleware<RequestActivityLogMiddleware>();
 app.UseStatusCodePages(async statusCodeContext =>
 {
     var httpContext = statusCodeContext.HttpContext;
@@ -104,6 +110,7 @@ app.UseHttpsRedirection();
 app.UseSwagger();
 app.UseSwaggerUI(options => { options.SwaggerEndpoint("/swagger/v1/swagger.json", "Nexora AI API v1"); options.RoutePrefix = "swagger"; });
 app.UseRouting();
+app.UseCors("Frontend");
 app.UseAuthentication();
 app.UseRateLimiter();
 app.UseMiddleware<JwtAuthenticationMiddleware>();

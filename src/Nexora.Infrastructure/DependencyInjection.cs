@@ -5,7 +5,9 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.IdentityModel.Tokens;
+using Minio;
 using FluentValidation;
 using MediatR;
 using Nexora.Application;
@@ -23,6 +25,12 @@ using Nexora.Infrastructure.Persistence;
 using Nexora.Infrastructure.Persistence.Repositories;
 using Nexora.Infrastructure.Persistence.Repositories.Identity;
 using Nexora.Infrastructure.Options;
+using Nexora.Application.Common.Abstractions.Rag;
+using Nexora.Application.Common.Abstractions.Logging;
+using Nexora.Infrastructure.Audit;
+using Nexora.Infrastructure.Rag;
+using Nexora.Infrastructure.Storage;
+using Nexora.Infrastructure.Seed;
 
 namespace Nexora.Infrastructure;
 
@@ -51,6 +59,8 @@ public static class DependencyInjection
             })
             .AddRoles<ApplicationRole>()
             .AddEntityFrameworkStores<NexoraDbContext>();
+        services.RemoveAll<IUserValidator<ApplicationUser>>();
+        services.AddScoped<IUserValidator<ApplicationUser>, UnicodeUserNameValidator>();
         services.AddScoped<IUserStore<ApplicationUser>>(serviceProvider =>
         {
             var store = new UserStore<ApplicationUser, ApplicationRole, NexoraDbContext, Guid>(serviceProvider.GetRequiredService<NexoraDbContext>(), serviceProvider.GetRequiredService<IdentityErrorDescriber>());
@@ -75,6 +85,10 @@ public static class DependencyInjection
         jwtOptions.Validate();
 
         services.AddOptions<CompanyOptions>().Bind(configuration.GetSection(CompanyOptions.SectionName));
+        services.AddOptions<StorageOptions>().Bind(configuration.GetSection(StorageOptions.SectionName));
+        services.AddOptions<QdrantOptions>().Bind(configuration.GetSection(QdrantOptions.SectionName));
+        services.AddOptions<EmbeddingOptions>().Bind(configuration.GetSection(EmbeddingOptions.SectionName));
+        services.AddOptions<DocumentProcessingOptions>().Bind(configuration.GetSection(DocumentProcessingOptions.SectionName));
 
         services
             .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -115,6 +129,37 @@ public static class DependencyInjection
         services.AddScoped<IApiFunctionRepository, ApiFunctionRepository>();
         services.AddScoped<IRoleApiFunctionRepository, RoleApiFunctionRepository>();
         services.AddScoped<IAccessTokenRepository, AccessTokenRepository>();
+        services.AddScoped<IActivityLogRepository, ActivityLogRepository>();
+        services.AddScoped<IActivityLogWriter, ActivityLogWriter>();
+        services.AddScoped<ApiFunctionSeeder>();
+        services.AddScoped<IDocumentProcessingStore, DocumentProcessingStore>();
+        services.AddScoped<IDocumentIngestionService, DocumentIngestionService>();
+        services.AddScoped<DocumentProcessingService>();
+        services.AddScoped<IDocumentTextExtractor, DocumentTextExtractor>();
+
+        var storageOptions = configuration.GetSection(StorageOptions.SectionName).Get<StorageOptions>() ?? new StorageOptions();
+        var storageEndpoint = new Uri(storageOptions.Endpoint);
+        var minioBuilder = new MinioClient().WithEndpoint(storageEndpoint.Authority).WithCredentials(storageOptions.AccessKey, storageOptions.SecretKey);
+        if (storageEndpoint.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+        {
+            minioBuilder.WithSSL();
+        }
+
+        services.AddSingleton<IMinioClient>(minioBuilder.Build());
+        services.AddScoped<IObjectStorage, MinioObjectStorage>();
+        services.AddHttpClient<IEmbeddingProvider, OpenAiEmbeddingProvider>();
+        services.AddHttpClient<IVectorStore, QdrantVectorStore>((serviceProvider, client) =>
+        {
+            var options = serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<QdrantOptions>>().Value;
+            client.BaseAddress = new Uri(options.Endpoint.TrimEnd('/') + "/");
+            if (!string.IsNullOrWhiteSpace(options.ApiKey))
+            {
+                client.DefaultRequestHeaders.Add("api-key", options.ApiKey);
+            }
+        });
+        services.AddSingleton<DocumentProcessingQueue>();
+        services.AddSingleton<IDocumentProcessingQueue>(serviceProvider => serviceProvider.GetRequiredService<DocumentProcessingQueue>());
+        services.AddHostedService<DocumentProcessingWorker>();
 
         services.AddScoped<IApiRequestPermissionChecker, ApiPermissionService>();
         services.AddMediatR(config =>
