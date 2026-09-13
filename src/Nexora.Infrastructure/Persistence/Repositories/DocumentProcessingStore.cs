@@ -3,18 +3,19 @@ using Nexora.Application.Common.Abstractions;
 using Nexora.Application.Common.Abstractions.Rag;
 using Nexora.Domain.Documents;
 using Nexora.Domain.Rag;
+using DomainDocument = Nexora.Domain.Documents.Document;
 
 namespace Nexora.Infrastructure.Persistence.Repositories;
 
 internal sealed class DocumentProcessingStore(NexoraDbContext dbContext) : IDocumentProcessingStore
 {
-    public Task<Document?> GetDocumentAsync(Guid userId, Guid documentId, bool asTracking, CancellationToken cancellationToken)
+    public Task<DomainDocument?> GetDocumentAsync(Guid userId, Guid documentId, bool asTracking, CancellationToken cancellationToken)
     {
         var query = dbContext.Documents.IgnoreQueryFilters().Where(document => document.Id == documentId && document.OwnerUserId == userId);
         return (asTracking ? query : query.AsNoTracking()).SingleOrDefaultAsync(cancellationToken);
     }
 
-    public Task<Document?> GetDocumentByIdAsync(Guid documentId, bool asTracking, CancellationToken cancellationToken)
+    public Task<DomainDocument?> GetDocumentByIdAsync(Guid documentId, bool asTracking, CancellationToken cancellationToken)
     {
         var query = dbContext.Documents.IgnoreQueryFilters().Where(document => document.Id == documentId);
         return (asTracking ? query : query.AsNoTracking()).SingleOrDefaultAsync(cancellationToken);
@@ -28,7 +29,7 @@ internal sealed class DocumentProcessingStore(NexoraDbContext dbContext) : IDocu
 
     public Task<bool> IsActiveDepartmentMemberAsync(Guid departmentId, Guid userId, CancellationToken cancellationToken) =>
         dbContext.DepartmentMemberships.AnyAsync(x => x.DepartmentId == departmentId && x.UserId == userId && x.LeftAt == null, cancellationToken);
-
+            
     public Task<DocumentVersion?> GetVersionAsync(Guid versionId, bool asTracking, CancellationToken cancellationToken)
     {
         var query = dbContext.DocumentVersions.IgnoreQueryFilters().Where(version => version.Id == versionId);
@@ -61,7 +62,7 @@ internal sealed class DocumentProcessingStore(NexoraDbContext dbContext) : IDocu
         return (asTracking ? query : query.AsNoTracking()).SingleOrDefaultAsync(cancellationToken);
     }
 
-    public void InsertDocument(Document document) => dbContext.Documents.Add(document);
+    public void InsertDocument(DomainDocument document) => dbContext.Documents.Add(document);
     public void InsertVersion(DocumentVersion version) => dbContext.DocumentVersions.Add(version);
     public void InsertChunk(DocumentChunk chunk) => dbContext.DocumentChunks.Add(chunk);
     public void InsertChunkContent(DocumentChunkContent content) => dbContext.DocumentChunkContents.Add(content);

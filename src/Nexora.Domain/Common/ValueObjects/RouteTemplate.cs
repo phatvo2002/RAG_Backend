@@ -17,6 +17,13 @@ public sealed record RouteTemplate
     {
         var normalized = DomainGuard.RequiredText(value, nameof(value), 300);
 
+        // '#' is reserved for menu-only ApiFunction parent records. It is never
+        // used as an HTTP route by the authorization middleware.
+        if (normalized == "#")
+        {
+            return new RouteTemplate(normalized);
+        }
+
         if (!normalized.StartsWith('/') ||
             normalized.Contains('?') ||
             normalized.Contains('#') ||

@@ -1,5 +1,6 @@
 using MediatR;
 using Nexora.Application.Common.Abstractions;
+using Nexora.Application.Common.Abstractions.Documents;
 using Nexora.Application.Common.Behaviors;
 using Nexora.Application.Common.Messaging;
 using Nexora.Application.Common.Results;
@@ -54,6 +55,8 @@ public sealed class TransactionBehaviorTests
         public IRoleApiFunctionRepository RoleApiFunctionRepository => null!;
         public IAccessTokenRepository AccessTokenRepository => null!;
         public IActivityLogRepository ActivityLogRepository => null!;
+        public IDocumentFolderRepository DocumentFolderRepository => null!;
+        public IDocumentFolderAccessGrantRepository DocumentFolderAccessGrantRepository => null!;
 
         public Task<int> SaveChangesAsync(CancellationToken cancellationToken)
         {

@@ -131,10 +131,11 @@ public static class DependencyInjection
         services.AddScoped<IRoleApiFunctionRepository, RoleApiFunctionRepository>();
         services.AddScoped<IAccessTokenRepository, AccessTokenRepository>();
         services.AddScoped<IActivityLogRepository, ActivityLogRepository>();
+        services.AddScoped<IDocumentFolderRepository, DocumentFolderRepository>();
+        services.AddScoped<IDocumentFolderAccessGrantRepository, DocumentFolderAccessGrantRepository>();
         services.AddScoped<IActivityLogWriter, ActivityLogWriter>();
         services.AddScoped<ApiFunctionSeeder>();
         services.AddScoped<IDocumentProcessingStore, DocumentProcessingStore>();
-        services.AddScoped<IDocumentFolderService, DocumentFolderService>();
         services.AddScoped<IDocumentIngestionService, DocumentIngestionService>();
         services.AddScoped<DocumentProcessingService>();
         services.AddScoped<IDocumentTextExtractor, DocumentTextExtractor>();
@@ -167,6 +168,7 @@ public static class DependencyInjection
         services.AddMediatR(config =>
         {
             config.RegisterServicesFromAssembly(typeof(ApplicationAssemblyMarker).Assembly);
+            config.AddOpenBehavior(typeof(ExceptionHandlingBehavior<,>));
             config.AddOpenBehavior(typeof(ValidationBehavior<,>));
             config.AddOpenBehavior(typeof(TransactionBehavior<,>));
         });

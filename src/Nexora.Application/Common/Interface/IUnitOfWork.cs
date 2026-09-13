@@ -1,5 +1,6 @@
 namespace Nexora.Application.Common.Abstractions;
 
+using Nexora.Application.Common.Abstractions.Documents;
 using Nexora.Application.Common.Abstractions.Repositories;
 
 public interface IIdentityUnitOfWork
@@ -16,6 +17,7 @@ public interface IOrganizationUnitOfWork
     IOrganizationRoleAssignmentRepository OrganizationRoleAssignmentRepository { get; }
     IDepartmentRepository DepartmentRepository { get; }
     IDepartmentMembershipRepository DepartmentMembershipRepository { get; }
+   
 }
 
 public interface IAuthorizationUnitOfWork
@@ -30,7 +32,14 @@ public interface ISecurityUnitOfWork
     IActivityLogRepository ActivityLogRepository { get; }
 }
 
-public interface IUnitOfWork : IIdentityUnitOfWork, IOrganizationUnitOfWork, IAuthorizationUnitOfWork, ISecurityUnitOfWork
+public interface IDocumentUnitOfWork
+{
+    IDocumentFolderRepository DocumentFolderRepository { get; }
+    IDocumentFolderAccessGrantRepository DocumentFolderAccessGrantRepository { get; }
+}
+
+
+public interface IUnitOfWork : IIdentityUnitOfWork, IOrganizationUnitOfWork, IAuthorizationUnitOfWork, ISecurityUnitOfWork, IDocumentUnitOfWork
 {
     Task<int> SaveChangesAsync(CancellationToken cancellationToken);
 

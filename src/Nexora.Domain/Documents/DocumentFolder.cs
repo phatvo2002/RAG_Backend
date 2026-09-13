@@ -34,4 +34,9 @@ public class DocumentFolder : SoftDeletableEntityBase
         return new DocumentFolder(Guid.NewGuid(), now, organizationId, departmentId, ownerUserId, name, parentFolderId);
     }
 
+    public void Rename(string name)
+    {
+        Name = DomainGuard.RequiredText(name, nameof(name), 200);
+    }
+
 }

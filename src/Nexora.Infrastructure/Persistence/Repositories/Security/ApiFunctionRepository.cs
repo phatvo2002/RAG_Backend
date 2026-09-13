@@ -33,6 +33,17 @@ internal sealed class ApiFunctionRepository(NexoraDbContext dbContext, IUserCont
                 (!excludingId.HasValue || function.Id != excludingId.Value),
             cancellationToken);
 
+    public Task<List<ApiFunction>> GetActiveMenuParentsAsync(CancellationToken cancellationToken)
+    {
+        var menuRouteTemplate = RouteTemplate.Create("#");
+        return Query()
+            .AsNoTracking()
+            .Where(function => function.Status == ApiFunctionStatus.Active && function.RouteTemplate == menuRouteTemplate)
+            .OrderBy(function => function.DisplayOrder)
+            .ThenBy(function => function.Name)
+            .ToListAsync(cancellationToken);
+    }
+
     public Task<List<ApiFunction>> GetEffectiveByUserAsync(Guid organizationId, Guid userId, DateTimeOffset at, CancellationToken cancellationToken)
     {
         var effectiveRoleIds = DbContext.OrganizationRoleAssignments
@@ -61,11 +72,13 @@ internal sealed class ApiFunctionRepository(NexoraDbContext dbContext, IUserCont
         var deniedFunctionIds = effectiveGrants
             .Where(grant => grant.Effect == PermissionEffect.Deny)
             .Select(grant => grant.FunctionId);
+        var menuRouteTemplate = RouteTemplate.Create("#");
 
         return DbContext.ApiFunctions
             .AsNoTracking()
             .Where(function =>
                 function.Status == ApiFunctionStatus.Active &&
+                function.RouteTemplate != menuRouteTemplate &&
                 allowedFunctionIds.Contains(function.Id) &&
                 !deniedFunctionIds.Contains(function.Id))
             .OrderBy(function => function.Module)

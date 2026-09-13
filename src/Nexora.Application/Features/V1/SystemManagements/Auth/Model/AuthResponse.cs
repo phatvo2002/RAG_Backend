@@ -44,18 +44,25 @@ public class CurrentUserResponse
     {
     }
 
-    public CurrentUserResponse(Guid userId, string email, string userName, string? displayName)
+    public CurrentUserResponse(
+        Guid userId,
+        string email,
+        string userName,
+        string? displayName,
+        IReadOnlyList<ApiFunctionMenuResponse>? allowMenuTree = null)
     {
         UserId = userId;
         Email = email;
         UserName = userName;
         DisplayName = displayName;
+        AllowMenuTree = allowMenuTree ?? Array.Empty<ApiFunctionMenuResponse>();
     }
 
     public Guid UserId { get; set; }
     public string Email { get; set; } = string.Empty;
     public string UserName { get; set; } = string.Empty;
     public string? DisplayName { get; set; }
+    public IReadOnlyList<ApiFunctionMenuResponse> AllowMenuTree { get; set; } = Array.Empty<ApiFunctionMenuResponse>();
 }
 
 public class LoginRequest

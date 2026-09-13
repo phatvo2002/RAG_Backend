@@ -53,6 +53,11 @@ internal sealed class ApiFunctionConfiguration : IEntityTypeConfiguration<ApiFun
             .HasDefaultValue(ApiFunctionStatus.Active)
             .IsRequired();
         builder.Property(x => x.Version).HasColumnName("version").HasDefaultValue(1).IsRequired();
+        builder.Property(x => x.MenuParentCode).HasColumnName("menuParentCode").HasMaxLength(150);
+        builder.Property(x => x.DisplayOrder).HasColumnName("displayOrder").HasDefaultValue(0).IsRequired();
+        builder.Property(x => x.IsMenuVisible).HasColumnName("isMenuVisible").HasDefaultValue(true).IsRequired();
+        builder.Property(x => x.IsMobile).HasColumnName("isMobile").HasDefaultValue(false).IsRequired();
+        builder.Property(x => x.MenuUrl).HasColumnName("menuUrl").HasMaxLength(300);
         builder.Property(x => x.CreatedAt).HasColumnName("createdAt").HasColumnType("timestamptz").IsRequired();
         builder.Property(x => x.UpdatedByUserId).HasColumnName("updatedByUserId");
         builder.Property(x => x.UpdatedAt).HasColumnName("updatedAt").HasColumnType("timestamptz").IsRequired();
@@ -60,6 +65,8 @@ internal sealed class ApiFunctionConfiguration : IEntityTypeConfiguration<ApiFun
 
         builder.HasIndex(x => x.Code).IsUnique();
         builder.HasIndex(x => new { x.Module, x.Status });
+        builder.HasIndex(x => new { x.MenuParentCode, x.DisplayOrder, x.Status })
+            .HasDatabaseName("ix_api_functions_menu_parent_order_status");
         builder.HasIndex(x => new { x.HttpMethod, x.RouteTemplate, x.Status })
             .HasDatabaseName("ix_api_functions_http_method_route_status");
         builder.HasMany(x => x.RoleApiFunctions).WithOne(x => x.Function).HasForeignKey(x => x.FunctionId).OnDelete(DeleteBehavior.Restrict);

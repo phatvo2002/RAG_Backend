@@ -25,6 +25,14 @@ INSERT INTO "_ApiFunctionCatalog"
     "riskLevel"
 )
 VALUES
+    ('AUTH', 'Auth', 'Auth', 'ANY', '#', 'READ', 'LOW'),
+    ('USER', 'User', 'User', 'ANY', '#', 'READ', 'LOW'),
+    ('ACTIVITY_LOG', 'ActivityLog', 'Activity Log', 'ANY', '#', 'READ', 'LOW'),
+    ('ROLE', 'Role', 'Role', 'ANY', '#', 'READ', 'LOW'),
+    ('DOCUMENT', 'Document', 'Document', 'ANY', '#', 'READ', 'LOW'),
+    ('AUTHORIZATION', 'Authorization', 'Authorization', 'ANY', '#', 'READ', 'LOW'),
+    ('DEPARTMENT', 'Department', 'Department', 'ANY', '#', 'READ', 'LOW'),
+    ('ORGANIZATION', 'Organization', 'Organization', 'ANY', '#', 'READ', 'LOW'),
     ('AUTH.LOGIN', 'Auth', 'Đăng nhập', 'POST', '/api/auth/login', 'WRITE', 'MEDIUM'),
     ('AUTH.REFRESH', 'Auth', 'Làm mới access token', 'POST', '/api/auth/refresh', 'WRITE', 'MEDIUM'),
     ('AUTH.LOGOUT', 'Auth', 'Đăng xuất', 'POST', '/api/auth/logout', 'WRITE', 'MEDIUM'),

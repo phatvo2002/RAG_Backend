@@ -37,7 +37,12 @@ public sealed class ApiFunctionController(ISender sender) : BaseController
                     request.RouteTemplate,
                     request.ActionType,
                     request.RiskLevel,
-                    request.RequiresConfirmation),
+                    request.RequiresConfirmation,
+                    request.MenuParentCode,
+                    request.DisplayOrder,
+                    request.IsMenuVisible,
+                    request.IsMobile,
+                    request.MenuUrl),
                 cancellationToken));
 
     [HttpPost("{apiFunctionId:guid}/deactivate")]
@@ -67,6 +72,11 @@ public sealed class ApiFunctionController(ISender sender) : BaseController
                     request.RouteTemplate,
                     request.ActionType,
                     request.RiskLevel,
-                    request.RequiresConfirmation),
+                    request.RequiresConfirmation,
+                    request.MenuParentCode,
+                    request.DisplayOrder,
+                    request.IsMenuVisible,
+                    request.IsMobile,
+                    request.MenuUrl),
                 cancellationToken));
 }

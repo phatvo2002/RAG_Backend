@@ -18,6 +18,9 @@ public sealed class CreateApiFunctionCommandValidator : AbstractValidator<Create
         RuleFor(x => x.RouteTemplate).NotEmpty().MaximumLength(300);
         RuleFor(x => x.ActionType).IsInEnum();
         RuleFor(x => x.RiskLevel).IsInEnum();
+        RuleFor(x => x.MenuParentCode).MaximumLength(150);
+        RuleFor(x => x.DisplayOrder).GreaterThanOrEqualTo(0);
+        RuleFor(x => x.MenuUrl).MaximumLength(300);
     }
 }
 
@@ -35,6 +38,9 @@ public sealed class UpdateApiFunctionCommandValidator : AbstractValidator<Update
         RuleFor(x => x.RouteTemplate).NotEmpty().MaximumLength(300);
         RuleFor(x => x.ActionType).IsInEnum();
         RuleFor(x => x.RiskLevel).IsInEnum();
+        RuleFor(x => x.MenuParentCode).MaximumLength(150);
+        RuleFor(x => x.DisplayOrder).GreaterThanOrEqualTo(0);
+        RuleFor(x => x.MenuUrl).MaximumLength(300);
     }
 }
 

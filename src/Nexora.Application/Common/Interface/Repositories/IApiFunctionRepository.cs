@@ -15,5 +15,7 @@ public interface IApiFunctionRepository : IBaseRepository<ApiFunction>
         Guid? excludingId,
         CancellationToken cancellationToken);
 
+    Task<List<ApiFunction>> GetActiveMenuParentsAsync(CancellationToken cancellationToken);
+
     Task<List<ApiFunction>> GetEffectiveByUserAsync(Guid organizationId, Guid userId, DateTimeOffset at, CancellationToken cancellationToken);
 }
