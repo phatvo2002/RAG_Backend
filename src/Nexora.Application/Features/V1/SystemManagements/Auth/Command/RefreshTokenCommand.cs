@@ -17,32 +17,42 @@ public sealed class RefreshTokenCommandHandler(IAuthTokenService authTokenServic
     {
         var tokenSet = await authTokenService.RotateRefreshTokenAsync(request.RefreshToken, requestMetadata.IpAddress, requestMetadata.UserAgent, cancellationToken);
 
-        if (tokenSet is null)
+        try
         {
-            return Result<AuthResponse>.Failure(
-                new Error(CommonMessages.ErrorCodes.InvalidRefreshToken, CommonMessages.Auth.InvalidRefreshToken));
-        }
+            if (tokenSet is null)
+            {
+                return Result<AuthResponse>.Failure(
+                    new Error(CommonMessages.ErrorCodes.InvalidRefreshToken, CommonMessages.Auth.InvalidRefreshToken));
+            }
 
-        var userEntity = await unitOfWork.UserRepository.GetAsync(
-            user => user.Id == tokenSet.UserId && user.IsActive,
-            asNoTracking: true,
-            cancellationToken: cancellationToken);
-        var user = userEntity is null
-            ? null
-            : new IdentityUserSnapshot(
-                userEntity.Id,
-                userEntity.Email ?? userEntity.UserName ?? string.Empty,
-                userEntity.UserName ?? userEntity.Email ?? string.Empty,
-                userEntity.PhoneNumber,
-                userEntity.IsActive);
-        if (user is null)
+            var userEntity = await unitOfWork.UserRepository.GetAsync(
+                user => user.Id == tokenSet.UserId && user.IsActive,
+                asNoTracking: true,
+                cancellationToken: cancellationToken);
+            var user = userEntity is null
+                ? null
+                : new IdentityUserSnapshot(
+                    userEntity.Id,
+                    userEntity.Email ?? userEntity.UserName ?? string.Empty,
+                    userEntity.UserName ?? userEntity.Email ?? string.Empty,
+                    userEntity.PhoneNumber,
+                    userEntity.IsActive);
+            if (user is null)
+            {
+                return Result<AuthResponse>.Failure(
+                    new Error(CommonMessages.ErrorCodes.UserNotFound, CommonMessages.Auth.UserNotFound));
+            }
+
+            //  var apiFunctions = await unitOfWork.ApiFunctionRepository.GetEffectiveByUserAsync(tokenSet.OrganizationId, user.UserId, clock.UtcNow, cancellationToken);
+
+            return Result<AuthResponse>.Success(AuthMapper.ToResponse(user, tokenSet));
+        }
+        catch (Exception ex)
         {
+            // Log the exception or handle it as needed
             return Result<AuthResponse>.Failure(
-                new Error(CommonMessages.ErrorCodes.UserNotFound, CommonMessages.Auth.UserNotFound));
+                new Error(CommonMessages.ErrorCodes.Server, "An unexpected error occurred while processing the refresh token."));
         }
-
-        var apiFunctions = await unitOfWork.ApiFunctionRepository.GetEffectiveByUserAsync(tokenSet.OrganizationId, user.UserId, clock.UtcNow, cancellationToken);
-
-        return Result<AuthResponse>.Success(AuthMapper.ToResponse(user, tokenSet, apiFunctions));
+      
     }
 }

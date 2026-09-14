@@ -25,7 +25,7 @@ public class AuthResponse
         AccessTokenExpiresAt = accessTokenExpiresAt;
         RefreshToken = refreshToken;
         RefreshTokenExpiresAt = refreshTokenExpiresAt;
-        ApiFunctions = apiFunctions ?? Array.Empty<ApiFunctionResponse>();
+     //   ApiFunctions = apiFunctions ?? Array.Empty<ApiFunctionResponse>();
     }
 
     public Guid UserId { get; set; }
@@ -35,7 +35,7 @@ public class AuthResponse
     public DateTimeOffset AccessTokenExpiresAt { get; set; }
     public string RefreshToken { get; set; } = string.Empty;
     public DateTimeOffset RefreshTokenExpiresAt { get; set; }
-    public IReadOnlyList<ApiFunctionResponse> ApiFunctions { get; set; } = Array.Empty<ApiFunctionResponse>();
+   // public IReadOnlyList<ApiFunctionResponse> ApiFunctions { get; set; } = Array.Empty<ApiFunctionResponse>();
 }
 
 public class CurrentUserResponse
