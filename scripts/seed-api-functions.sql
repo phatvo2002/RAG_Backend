@@ -62,6 +62,7 @@ VALUES
     ('ROLE.READ.PERMISSIONS', 'Role', 'Xem danh sách quyền của vai trò', 'GET', '/api/roles/{roleId:guid}/permissions', 'READ', 'MEDIUM'),
 
     ('DOCUMENT.UPLOAD', 'Document', 'Tải tài liệu lên', 'POST', '/api/documents', 'WRITE', 'MEDIUM'),
+    ('DOCUMENT.LIST', 'Document', 'Xem danh sách tài liệu', 'GET', '/api/documents', 'READ', 'LOW'),
     ('DOCUMENT.READ', 'Document', 'Xem trạng thái tài liệu', 'GET', '/api/documents/{documentId:guid}', 'READ', 'LOW'),
     ('DOCUMENT.STATUS', 'Document', 'Xem trạng thái xử lý tài liệu', 'GET', '/api/documents/{documentId:guid}/status', 'READ', 'LOW'),
 

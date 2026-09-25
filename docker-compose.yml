@@ -13,7 +13,7 @@ services:
       MINIO_ROOT_PASSWORD: admin123456
 
     volumes:
-      - "E:/project/RAG/My_Project/MinIO:/data"
+      - "D:/RAG/MinIO:/data"
 
     command: server /data --console-address ":9001"
   qdrant:
@@ -26,4 +26,4 @@ services:
       - "6334:6334"
 
     volumes:
-      - "E:/project/RAG/My_Project/Qdrant:/qdrant/storage"
+      - "D:/RAG/Qdrant:/qdrant/storage"

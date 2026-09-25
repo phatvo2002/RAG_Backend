@@ -5,7 +5,7 @@ using Microsoft.Extensions.Options;
 using Nexora.Application.Common.Abstractions.Rag;
 using Nexora.Infrastructure.Options;
 
-namespace Nexora.Infrastructure.Rag;
+namespace Nexora.Infrastructure.Integrations.Embeddings;
 
 internal sealed class OpenAiEmbeddingProvider(HttpClient httpClient, IOptions<EmbeddingOptions> options) : IEmbeddingProvider
 {

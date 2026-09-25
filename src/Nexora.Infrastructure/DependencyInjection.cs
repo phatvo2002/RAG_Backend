@@ -23,14 +23,19 @@ using Nexora.Infrastructure.Authorization;
 using Nexora.Infrastructure.Identity;
 using Nexora.Infrastructure.Persistence;
 using Nexora.Infrastructure.Persistence.Repositories;
+using Nexora.Infrastructure.Persistence.Repositories.Documents;
 using Nexora.Infrastructure.Persistence.Repositories.Identity;
 using Nexora.Infrastructure.Options;
 using Nexora.Application.Common.Abstractions.Rag;
 using Nexora.Application.Common.Abstractions.Documents;
 using Nexora.Application.Common.Abstractions.Logging;
 using Nexora.Infrastructure.Audit;
+using Nexora.Infrastructure.BackgroundProcessing;
+using Nexora.Infrastructure.DocumentProcessing;
+using Nexora.Infrastructure.Integrations.Embeddings;
+using Nexora.Infrastructure.Integrations.Storage;
+using Nexora.Infrastructure.Integrations.VectorStores;
 using Nexora.Infrastructure.Rag;
-using Nexora.Infrastructure.Storage;
 using Nexora.Infrastructure.Seed;
 
 namespace Nexora.Infrastructure;
@@ -133,6 +138,7 @@ public static class DependencyInjection
         services.AddScoped<IActivityLogRepository, ActivityLogRepository>();
         services.AddScoped<IDocumentFolderRepository, DocumentFolderRepository>();
         services.AddScoped<IDocumentFolderAccessGrantRepository, DocumentFolderAccessGrantRepository>();
+        services.AddScoped<IDocumentRepository, DocumentRepository>();
         services.AddScoped<IActivityLogWriter, ActivityLogWriter>();
         services.AddScoped<ApiFunctionSeeder>();
         services.AddScoped<IDocumentProcessingStore, DocumentProcessingStore>();

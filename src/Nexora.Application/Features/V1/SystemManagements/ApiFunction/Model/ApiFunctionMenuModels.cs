@@ -2,7 +2,7 @@ using DomainApiFunction = Nexora.Domain.Authorization.ApiFunction;
 
 namespace Nexora.Application.Features.V1.SystemManagements.ApiFunction.Model;
 
-public sealed class ApiFunctionMenuResponse
+public sealed record ApiFunctionMenuResponse
 {
     public Guid? FunctionId { get; init; }
     public string FunctionCode { get; init; } = string.Empty;

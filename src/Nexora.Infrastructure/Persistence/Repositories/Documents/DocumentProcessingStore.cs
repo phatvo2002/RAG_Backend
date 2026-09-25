@@ -5,7 +5,7 @@ using Nexora.Domain.Documents;
 using Nexora.Domain.Rag;
 using DomainDocument = Nexora.Domain.Documents.Document;
 
-namespace Nexora.Infrastructure.Persistence.Repositories;
+namespace Nexora.Infrastructure.Persistence.Repositories.Documents;
 
 internal sealed class DocumentProcessingStore(NexoraDbContext dbContext) : IDocumentProcessingStore
 {
@@ -27,8 +27,40 @@ internal sealed class DocumentProcessingStore(NexoraDbContext dbContext) : IDocu
         return (asTracking ? query : query.AsNoTracking()).SingleOrDefaultAsync(cancellationToken);
     }
 
-    public Task<bool> IsActiveDepartmentMemberAsync(Guid departmentId, Guid userId, CancellationToken cancellationToken) =>
-        dbContext.DepartmentMemberships.AnyAsync(x => x.DepartmentId == departmentId && x.UserId == userId && x.LeftAt == null, cancellationToken);
+    public async Task<bool> CanUploadToFolderAsync(DocumentFolder folder, Guid userId, DateTimeOffset utcNow, CancellationToken cancellationToken)
+    {
+        if (folder.OwnerUserId == userId)
+        {
+            return true;
+        }
+
+        var departmentMemberships = dbContext.DepartmentMemberships.IgnoreQueryFilters();
+        if (folder.DepartmentId.HasValue && await departmentMemberships.AnyAsync(membership =>
+                membership.OrganizationId == folder.OrganizationId &&
+                membership.DepartmentId == folder.DepartmentId.Value &&
+                membership.UserId == userId &&
+                membership.LeftAt == null,
+            cancellationToken))
+        {
+            return true;
+        }
+
+        var grants = dbContext.DocumentFolderAccessGrants.IgnoreQueryFilters();
+        return await grants.AnyAsync(grant =>
+            grant.OrganizationId == folder.OrganizationId &&
+            grant.FolderId == folder.Id &&
+            grant.RevokedAt == null &&
+            grant.ValidFrom <= utcNow &&
+            (grant.ExpiresAt == null || grant.ExpiresAt > utcNow) &&
+            EF.Functions.ILike(grant.AccessLevel, "WRITE") &&
+            (grant.UserId == userId ||
+             (grant.DepartmentId.HasValue && departmentMemberships.Any(membership =>
+                 membership.OrganizationId == folder.OrganizationId &&
+                 membership.DepartmentId == grant.DepartmentId.Value &&
+                 membership.UserId == userId &&
+                 membership.LeftAt == null))),
+            cancellationToken);
+    }
             
     public Task<DocumentVersion?> GetVersionAsync(Guid versionId, bool asTracking, CancellationToken cancellationToken)
     {

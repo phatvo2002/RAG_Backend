@@ -3,7 +3,7 @@ using DomainApiFunction = Nexora.Domain.Authorization.ApiFunction;
 
 namespace Nexora.Application.Features.V1.SystemManagements.ApiFunction.Model;
 
-public class ApiFunctionResponse
+public sealed record ApiFunctionResponse
 {
     public ApiFunctionResponse()
     {
@@ -95,7 +95,7 @@ public class ApiFunctionResponse
             function.MenuUrl);
 }
 
-public class CreateApiFunctionRequest
+public sealed record CreateApiFunctionRequest
 {
     public CreateApiFunctionRequest()
     {
@@ -149,7 +149,7 @@ public class CreateApiFunctionRequest
     public string? MenuUrl { get; set; }
 }
 
-public class UpdateApiFunctionRequest
+public sealed record UpdateApiFunctionRequest
 {
     public UpdateApiFunctionRequest()
     {

@@ -2,7 +2,7 @@ using Minio;
 using Minio.DataModel.Args;
 using Nexora.Application.Common.Abstractions.Rag;
 
-namespace Nexora.Infrastructure.Storage;
+namespace Nexora.Infrastructure.Integrations.Storage;
 
 internal sealed class MinioObjectStorage(IMinioClient client) : IObjectStorage
 {

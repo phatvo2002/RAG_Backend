@@ -1,6 +1,6 @@
 namespace Nexora.Application.Features.V1.SystemManagements.User.Model;
 
-public class UserResponse
+public sealed record UserResponse
 {
     public UserResponse()
     {
@@ -30,7 +30,7 @@ public class UserResponse
     public IReadOnlyCollection<UserRoleResponse> Roles { get; set; } = Array.Empty<UserRoleResponse>();
 }
 
-public class UserRoleResponse
+public sealed record UserRoleResponse
 {
     public UserRoleResponse()
     {
@@ -52,7 +52,7 @@ public class UserRoleResponse
     public DateTimeOffset? ExpiresAt { get; set; }
 }
 
-public class CreateUserRequest
+public sealed record CreateUserRequest
 {
     public CreateUserRequest()
     {
@@ -78,7 +78,7 @@ public class CreateUserRequest
     public string? TimeZone { get; set; }
 }
 
-public class UpdateUserRequest
+public sealed record UpdateUserRequest
 {
     public UpdateUserRequest()
     {
@@ -102,7 +102,7 @@ public class UpdateUserRequest
     public string? TimeZone { get; set; }
 }
 
-public class ResetPasswordRequest
+public sealed record ResetPasswordRequest
 {
     public ResetPasswordRequest()
     {

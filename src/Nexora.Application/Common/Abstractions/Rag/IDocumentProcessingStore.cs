@@ -9,7 +9,7 @@ public interface IDocumentProcessingStore
 
     Task<Document?> GetDocumentByIdAsync(Guid documentId, bool asTracking, CancellationToken cancellationToken);
     Task<DocumentFolder?> GetFolderAsync(Guid folderId, bool asTracking, CancellationToken cancellationToken);
-    Task<bool> IsActiveDepartmentMemberAsync(Guid departmentId, Guid userId, CancellationToken cancellationToken);
+    Task<bool> CanUploadToFolderAsync(DocumentFolder folder, Guid userId, DateTimeOffset utcNow, CancellationToken cancellationToken);
 
     Task<DocumentVersion?> GetVersionAsync(Guid versionId, bool asTracking, CancellationToken cancellationToken);
 

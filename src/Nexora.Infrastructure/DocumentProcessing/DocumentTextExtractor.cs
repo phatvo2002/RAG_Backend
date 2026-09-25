@@ -6,7 +6,7 @@ using System.Xml.Linq;
 using Microsoft.Extensions.Options;
 using Nexora.Infrastructure.Options;
 
-namespace Nexora.Infrastructure.Rag;
+namespace Nexora.Infrastructure.DocumentProcessing;
 
 internal sealed record ExtractedDocumentText(string Text, string ParserName, string ParserVersion);
 

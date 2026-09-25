@@ -12,6 +12,18 @@ namespace Nexora.WebApi.Controllers.V1.Documents;
 [Route("api/documents")]
 public sealed class DocumentController(ISender sender) : BaseController
 {
+    [HttpGet]
+    public async Task<IActionResult> List(
+        [FromQuery] Guid folderId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 25,
+        [FromQuery] string? search = null,
+        [FromQuery] string? fileType = null,
+        [FromQuery] string? processingStatus = null,
+        [FromQuery] Guid? departmentId = null,
+        CancellationToken cancellationToken = default) =>
+        this.ToSuccessResponse(await sender.Send(new ListDocumentsQuery(folderId, page, pageSize, search, fileType, processingStatus, departmentId), cancellationToken), "Lấy danh sách tài liệu thành công.");
+
     [HttpGet("{documentId:guid}")]
     public async Task<IActionResult> Get(Guid documentId, CancellationToken cancellationToken) => this.ToActionResult(await sender.Send(new GetDocumentStatusQuery(documentId), cancellationToken));
 

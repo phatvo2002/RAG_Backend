@@ -56,9 +56,10 @@ public sealed class CreateFolderCommandHandler(
 
         if (department is null ||
             department.OrganizationId != organizationId.Value ||
-            department.Status != DepartmentStatus.Active ||
-            membership is null ||
-            membership.LeftAt.HasValue)
+            department.Status != DepartmentStatus.Active 
+           // membership is null ||
+           // membership.LeftAt.HasValue
+           )
         {
             return Result<FolderDto>.Failure(Error.Forbidden("Bạn không có quyền với department."));
         }

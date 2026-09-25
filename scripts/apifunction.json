@@ -420,6 +420,18 @@
     "requiresConfirmation": false
   },
   {
+    "id": "a4d92738-1dc3-4d9a-bd38-bf5a8e3356cd",
+    "code": "DOCUMENT.LIST",
+    "module": "Document",
+    "name": "Xem danh sách tài liệu",
+    "description": null,
+    "httpMethod": "GET",
+    "routeTemplate": "/api/documents",
+    "actionType": "READ",
+    "riskLevel": "LOW",
+    "requiresConfirmation": false
+  },
+  {
     "id": "57fd7c26-185f-15ff-e9e0-3b7d372a4c3b",
     "code": "DOCUMENT.READ",
     "module": "Document",

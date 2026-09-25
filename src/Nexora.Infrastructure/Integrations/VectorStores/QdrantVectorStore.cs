@@ -4,7 +4,7 @@ using Microsoft.Extensions.Options;
 using Nexora.Application.Common.Abstractions.Rag;
 using Nexora.Infrastructure.Options;
 
-namespace Nexora.Infrastructure.Rag;
+namespace Nexora.Infrastructure.Integrations.VectorStores;
 
 internal sealed class QdrantVectorStore(HttpClient httpClient) : IVectorStore
 {

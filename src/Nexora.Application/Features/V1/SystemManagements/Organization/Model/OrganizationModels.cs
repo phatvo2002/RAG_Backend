@@ -1,6 +1,6 @@
 namespace Nexora.Application.Features.V1.SystemManagements.Organization.Model;
 
-public class OrganizationResponse
+public sealed record OrganizationResponse
 {
     public OrganizationResponse()
     {
@@ -22,7 +22,7 @@ public class OrganizationResponse
     public string? DataResidency { get; set; }
 }
 
-public class CreateOrganizationRequest
+public sealed record CreateOrganizationRequest
 {
     public CreateOrganizationRequest()
     {
@@ -40,7 +40,7 @@ public class CreateOrganizationRequest
     public string? DataResidency { get; set; }
 }
 
-public class UpdateOrganizationRequest
+public sealed record UpdateOrganizationRequest
 {
     public UpdateOrganizationRequest()
     {
