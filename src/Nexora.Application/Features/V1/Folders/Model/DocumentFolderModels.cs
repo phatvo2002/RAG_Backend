@@ -7,6 +7,21 @@ public sealed record FolderDto(
     string Name,
     Guid OwnerUserId);
 
+public sealed record FolderOverviewDto(
+    Guid Id,
+    Guid? DepartmentId,
+    Guid? ParentFolderId,
+    string Name,
+    Guid OwnerUserId,
+    DateTimeOffset CreatedAt,
+    DateTimeOffset UpdatedAt,
+    int DocumentCount,
+    long TotalSizeBytes,
+    int IndexedCount,
+    int ProcessingCount,
+    int FailedCount,
+    DateTimeOffset? LatestDocumentUpdatedAt);
+
 public sealed record FolderGrantDto(
     Guid Id,
     Guid FolderId,

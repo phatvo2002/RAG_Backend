@@ -49,4 +49,6 @@ public class RagIndexRecord : CreatedEntityBase
         IndexedAt = indexedAt;
     }
 
+    public void MarkDeleted() => Status = "DELETED";
+
 }

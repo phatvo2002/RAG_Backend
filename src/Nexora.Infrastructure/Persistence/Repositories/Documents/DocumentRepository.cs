@@ -1,11 +1,188 @@
 using Microsoft.EntityFrameworkCore;
 using Nexora.Application.Common.Abstractions.Documents;
+using Nexora.Application.Common.Abstractions.Rag;
 using Nexora.Application.Common.Results;
 
 namespace Nexora.Infrastructure.Persistence.Repositories.Documents;
 
-internal sealed class DocumentRepository(NexoraDbContext dbContext) : IDocumentRepository
+internal sealed class DocumentRepository(NexoraDbContext dbContext) : IDocumentRepository, IFolderOverviewRepository, IDocumentRetrievalStore
 {
+    public async Task<IReadOnlyList<Guid>> GetAccessibleIndexedDocumentIdsAsync(
+        Guid organizationId,
+        Guid userId,
+        DateTimeOffset now,
+        CancellationToken cancellationToken)
+    {
+        var documents = dbContext.Documents.IgnoreQueryFilters();
+        var folders = dbContext.DocumentFolders.IgnoreQueryFilters();
+        var versions = dbContext.DocumentVersions.IgnoreQueryFilters();
+        var chunks = dbContext.DocumentChunks.IgnoreQueryFilters();
+        var records = dbContext.RagIndexRecords.IgnoreQueryFilters();
+        var indexes = dbContext.RagIndexes.IgnoreQueryFilters();
+        var grants = dbContext.DocumentFolderAccessGrants.IgnoreQueryFilters();
+        var departmentMemberships = dbContext.DepartmentMemberships.IgnoreQueryFilters();
+
+        var query =
+            from document in documents
+            join folder in folders on document.FolderId equals folder.Id
+            join version in versions on document.CurrentVersionId equals version.Id
+            join chunk in chunks on version.Id equals chunk.DocumentVersionId
+            join record in records on chunk.Id equals record.ChunkId
+            join index in indexes on record.RagIndexId equals index.Id
+            where document.OrganizationId == organizationId &&
+                  folder.OrganizationId == organizationId &&
+                  version.OrganizationId == organizationId &&
+                  record.OrganizationId == organizationId &&
+                  index.OrganizationId == organizationId &&
+                  index.IndexName == "default" &&
+                  document.DeletedAt == null &&
+                  folder.DeletedAt == null &&
+                  version.ProcessingStatus == "READY" &&
+                  chunk.Status == "ACTIVE" &&
+                  record.Status == "INDEXED" &&
+                  index.Status == "ACTIVE" &&
+                  (document.OwnerUserId == userId ||
+                   folder.OwnerUserId == userId ||
+                   (folder.DepartmentId.HasValue && departmentMemberships.Any(membership =>
+                       membership.OrganizationId == organizationId &&
+                       membership.DepartmentId == folder.DepartmentId!.Value &&
+                       membership.UserId == userId &&
+                       membership.LeftAt == null)) ||
+                   grants.Any(grant =>
+                       grant.OrganizationId == organizationId &&
+                       grant.FolderId == folder.Id &&
+                       grant.RevokedAt == null &&
+                       grant.ValidFrom <= now &&
+                       (grant.ExpiresAt == null || grant.ExpiresAt > now) &&
+                       (grant.UserId == userId ||
+                        (grant.DepartmentId.HasValue && departmentMemberships.Any(membership =>
+                            membership.OrganizationId == organizationId &&
+                            membership.DepartmentId == grant.DepartmentId.Value &&
+                            membership.UserId == userId &&
+                            membership.LeftAt == null)))))
+            select document.Id;
+
+        return await query.Distinct().ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<RetrievalChunkSource>> GetAccessibleChunkSourcesAsync(
+        Guid organizationId,
+        Guid userId,
+        DateTimeOffset now,
+        IReadOnlyCollection<Guid> chunkIds,
+        CancellationToken cancellationToken)
+    {
+        if (chunkIds.Count == 0)
+        {
+            return Array.Empty<RetrievalChunkSource>();
+        }
+
+        var documents = dbContext.Documents.IgnoreQueryFilters();
+        var folders = dbContext.DocumentFolders.IgnoreQueryFilters();
+        var versions = dbContext.DocumentVersions.IgnoreQueryFilters();
+        var chunks = dbContext.DocumentChunks.IgnoreQueryFilters();
+        var contents = dbContext.DocumentChunkContents.IgnoreQueryFilters();
+        var records = dbContext.RagIndexRecords.IgnoreQueryFilters();
+        var indexes = dbContext.RagIndexes.IgnoreQueryFilters();
+        var grants = dbContext.DocumentFolderAccessGrants.IgnoreQueryFilters();
+        var departmentMemberships = dbContext.DepartmentMemberships.IgnoreQueryFilters();
+
+        var query =
+            from document in documents
+            join folder in folders on document.FolderId equals folder.Id
+            join version in versions on document.CurrentVersionId equals version.Id
+            join chunk in chunks on version.Id equals chunk.DocumentVersionId
+            join content in contents on chunk.Id equals content.ChunkId
+            join record in records on chunk.Id equals record.ChunkId
+            join index in indexes on record.RagIndexId equals index.Id
+            where chunkIds.Contains(chunk.Id) &&
+                  document.OrganizationId == organizationId &&
+                  folder.OrganizationId == organizationId &&
+                  version.OrganizationId == organizationId &&
+                  record.OrganizationId == organizationId &&
+                  index.OrganizationId == organizationId &&
+                  index.IndexName == "default" &&
+                  document.DeletedAt == null &&
+                  folder.DeletedAt == null &&
+                  version.ProcessingStatus == "READY" &&
+                  chunk.Status == "ACTIVE" &&
+                  record.Status == "INDEXED" &&
+                  index.Status == "ACTIVE" &&
+                  (document.OwnerUserId == userId ||
+                   folder.OwnerUserId == userId ||
+                   (folder.DepartmentId.HasValue && departmentMemberships.Any(membership =>
+                       membership.OrganizationId == organizationId &&
+                       membership.DepartmentId == folder.DepartmentId!.Value &&
+                       membership.UserId == userId &&
+                       membership.LeftAt == null)) ||
+                   grants.Any(grant =>
+                       grant.OrganizationId == organizationId &&
+                       grant.FolderId == folder.Id &&
+                       grant.RevokedAt == null &&
+                       grant.ValidFrom <= now &&
+                       (grant.ExpiresAt == null || grant.ExpiresAt > now) &&
+                       (grant.UserId == userId ||
+                        (grant.DepartmentId.HasValue && departmentMemberships.Any(membership =>
+                            membership.OrganizationId == organizationId &&
+                            membership.DepartmentId == grant.DepartmentId.Value &&
+                            membership.UserId == userId &&
+                            membership.LeftAt == null)))))
+            select new RetrievalChunkSource(
+                document.Id,
+                chunk.Id,
+                version.OriginalFileName,
+                chunk.PageNo,
+                chunk.CharStart,
+                chunk.CharEnd,
+                content.StorageBucket,
+                content.ContentObjectKey);
+
+        return await query.Distinct().ToListAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<FolderDocumentSummary>> GetFolderSummariesAsync(
+        Guid organizationId,
+        IReadOnlyCollection<Guid> folderIds,
+        CancellationToken cancellationToken)
+    {
+        if (folderIds.Count == 0)
+        {
+            return Array.Empty<FolderDocumentSummary>();
+        }
+
+        var documents = dbContext.Documents.IgnoreQueryFilters();
+        var versions = dbContext.DocumentVersions.IgnoreQueryFilters();
+
+        var currentDocuments =
+            from document in documents
+            join version in versions on document.CurrentVersionId equals version.Id into versionGroup
+            from version in versionGroup.DefaultIfEmpty()
+            where document.OrganizationId == organizationId &&
+                  document.FolderId.HasValue &&
+                  folderIds.Contains(document.FolderId.Value) &&
+                  document.DeletedAt == null &&
+                  (version == null || version.OrganizationId == organizationId)
+            select new
+            {
+                FolderId = document.FolderId!.Value,
+                SizeBytes = version == null ? 0L : version.SizeBytes,
+                ProcessingStatus = version == null ? string.Empty : version.ProcessingStatus,
+                document.UpdatedAt
+            };
+
+        return await currentDocuments
+            .GroupBy(item => item.FolderId)
+            .Select(group => new FolderDocumentSummary(
+                group.Key,
+                group.Count(),
+                group.Sum(item => item.SizeBytes),
+                group.Count(item => item.ProcessingStatus == "READY"),
+                group.Count(item => item.ProcessingStatus != "READY" && item.ProcessingStatus != "FAILED"),
+                group.Count(item => item.ProcessingStatus == "FAILED"),
+                group.Max(item => (DateTimeOffset?)item.UpdatedAt)))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<PagedResult<DocumentListRecord>> ListAsync(DocumentListFilter filter, CancellationToken cancellationToken)
     {
         var documents = dbContext.Documents.IgnoreQueryFilters();

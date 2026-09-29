@@ -95,6 +95,8 @@ public static class DependencyInjection
         services.AddOptions<QdrantOptions>().Bind(configuration.GetSection(QdrantOptions.SectionName));
         services.AddOptions<EmbeddingOptions>().Bind(configuration.GetSection(EmbeddingOptions.SectionName));
         services.AddOptions<DocumentProcessingOptions>().Bind(configuration.GetSection(DocumentProcessingOptions.SectionName));
+        services.AddOptions<ChatOptions>().Bind(configuration.GetSection(ChatOptions.SectionName));
+        services.AddOptions<ProviderKeyOptions>().Bind(configuration.GetSection(ProviderKeyOptions.SectionName));
 
         services
             .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -139,11 +141,20 @@ public static class DependencyInjection
         services.AddScoped<IDocumentFolderRepository, DocumentFolderRepository>();
         services.AddScoped<IDocumentFolderAccessGrantRepository, DocumentFolderAccessGrantRepository>();
         services.AddScoped<IDocumentRepository, DocumentRepository>();
+        services.AddScoped<IDocumentRetrievalStore, DocumentRepository>();
+        services.AddScoped<IFolderOverviewRepository, DocumentRepository>();
         services.AddScoped<IActivityLogWriter, ActivityLogWriter>();
         services.AddScoped<ApiFunctionSeeder>();
         services.AddScoped<IDocumentProcessingStore, DocumentProcessingStore>();
         services.AddScoped<IDocumentIngestionService, DocumentIngestionService>();
+        services.AddScoped<IDocumentDeletionService, DocumentDeletionService>();
+        services.AddScoped<IPdfOcrEngine, TesseractOcrEngine>();
         services.AddScoped<DocumentProcessingService>();
+        services.AddScoped<ChatCipher>();
+        services.AddScoped<ProviderKeyCipher>();
+        services.AddScoped<AccountSettingsService>();
+        services.AddScoped<ChatService>();
+        services.AddHttpClient<ChatModelStreamer>();
         services.AddScoped<IDocumentTextExtractor, DocumentTextExtractor>();
 
         var storageOptions = configuration.GetSection(StorageOptions.SectionName).Get<StorageOptions>() ?? new StorageOptions();
@@ -156,7 +167,7 @@ public static class DependencyInjection
 
         services.AddSingleton<IMinioClient>(minioBuilder.Build());
         services.AddScoped<IObjectStorage, MinioObjectStorage>();
-        services.AddHttpClient<IEmbeddingProvider, OpenAiEmbeddingProvider>();
+        services.AddHttpClient<IEmbeddingProvider, GeminiEmbeddingProvider>();
         services.AddHttpClient<IVectorStore, QdrantVectorStore>((serviceProvider, client) =>
         {
             var options = serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<QdrantOptions>>().Value;

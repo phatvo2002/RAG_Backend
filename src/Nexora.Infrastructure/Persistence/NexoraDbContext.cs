@@ -50,6 +50,7 @@ public sealed class NexoraDbContext : IdentityDbContext<ApplicationUser, Applica
     public DbSet<RoleApiFunction> RoleApiFunctions => Set<RoleApiFunction>();
 
     public DbSet<AccessToken> AccessTokens => Set<AccessToken>();
+    public DbSet<UserProviderKey> UserProviderKeys => Set<UserProviderKey>();
 
     public DbSet<ActivityLog> ActivityLogs => Set<ActivityLog>();
 

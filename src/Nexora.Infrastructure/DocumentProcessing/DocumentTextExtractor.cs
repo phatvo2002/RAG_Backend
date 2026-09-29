@@ -1,10 +1,13 @@
-using System.Diagnostics;
-using System.ComponentModel;
 using System.IO.Compression;
 using System.Text;
 using System.Xml.Linq;
+using Docnet.Core;
+using Docnet.Core.Converters;
+using Docnet.Core.Models;
 using Microsoft.Extensions.Options;
 using Nexora.Infrastructure.Options;
+using UglyToad.PdfPig;
+using UglyToad.PdfPig.DocumentLayoutAnalysis.TextExtractor;
 
 namespace Nexora.Infrastructure.DocumentProcessing;
 
@@ -15,7 +18,9 @@ internal interface IDocumentTextExtractor
     Task<ExtractedDocumentText> ExtractAsync(string fileName, Stream content, CancellationToken cancellationToken);
 }
 
-internal sealed class DocumentTextExtractor(IOptions<DocumentProcessingOptions> options) : IDocumentTextExtractor
+internal sealed class DocumentTextExtractor(
+    IOptions<DocumentProcessingOptions> options,
+    IPdfOcrEngine ocrEngine) : IDocumentTextExtractor
 {
     public async Task<ExtractedDocumentText> ExtractAsync(string fileName, Stream content, CancellationToken cancellationToken)
     {
@@ -47,79 +52,115 @@ internal sealed class DocumentTextExtractor(IOptions<DocumentProcessingOptions> 
 
     private async Task<ExtractedDocumentText> ExtractPdfAsync(Stream content, CancellationToken cancellationToken)
     {
-        var inputPath = Path.GetTempFileName() + ".pdf";
-        var textPath = Path.GetTempFileName() + ".txt";
-        var ocrPath = Path.GetTempFileName() + ".pdf";
+        using var pdfBuffer = new MemoryStream();
+        await content.CopyToAsync(pdfBuffer, cancellationToken);
+        var pdfBytes = pdfBuffer.ToArray();
+
+        using var document = PdfDocument.Open(pdfBytes);
+        var text = string.Join(
+            Environment.NewLine,
+            document.GetPages().Select(page => ContentOrderTextExtractor.GetText(page)));
+        if (!string.IsNullOrWhiteSpace(text))
+        {
+            return new ExtractedDocumentText(text, "pdfpig", "0.1.16");
+        }
+
+        var dpi = options.Value.PdfOcrDpi;
+        if (dpi <= 0)
+        {
+            throw new InvalidOperationException("DocumentProcessing:PdfOcrDpi phải lớn hơn 0.");
+        }
+
+        var tempDirectory = Path.Combine(Path.GetTempPath(), $"nexora-pdf-ocr-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDirectory);
         try
         {
-            await using (var file = File.Create(inputPath))
+            using var docReader = DocLib.Instance.GetDocReader(pdfBytes, new PageDimensions(dpi / 72d));
+            var pageTexts = new List<string>(docReader.GetPageCount());
+            for (var pageIndex = 0; pageIndex < docReader.GetPageCount(); pageIndex++)
             {
-                await content.CopyToAsync(file, cancellationToken);
+                cancellationToken.ThrowIfCancellationRequested();
+                using var pageReader = docReader.GetPageReader(pageIndex);
+                var image = pageReader.GetImage(new NaiveTransparencyRemover(255, 255, 255));
+                var imagePath = Path.Combine(tempDirectory, $"page-{pageIndex + 1:D5}.bmp");
+                await WriteBitmapAsync(imagePath, image, pageReader.GetPageWidth(), pageReader.GetPageHeight(), dpi, cancellationToken);
+                pageTexts.Add(await ocrEngine.RecognizeAsync(imagePath, options.Value.TesseractPath, options.Value.OcrLanguage, dpi, cancellationToken));
             }
 
-            await RunProcessAsync(options.Value.PdfToTextPath, ["-layout", inputPath, textPath], cancellationToken);
-            var text = await File.ReadAllTextAsync(textPath, cancellationToken);
-            if (!string.IsNullOrWhiteSpace(text))
-            {
-                return new ExtractedDocumentText(text, "pdftotext", "1");
-            }
-
-            await RunProcessAsync(options.Value.OcrmyPdfPath, ["--skip-text", "--deskew", "--language", options.Value.OcrLanguage, inputPath, ocrPath], cancellationToken);
-            await RunProcessAsync(options.Value.PdfToTextPath, ["-layout", ocrPath, textPath], cancellationToken);
-            text = await File.ReadAllTextAsync(textPath, cancellationToken);
-            return new ExtractedDocumentText(text, "ocrmypdf+tesseract", "1");
+            return new ExtractedDocumentText(string.Join(Environment.NewLine, pageTexts), "pdfpig+docnet.core+tesseract", "1");
         }
         finally
         {
-            DeleteIfExists(inputPath);
-            DeleteIfExists(textPath);
-            DeleteIfExists(ocrPath);
+            TryDeleteDirectory(tempDirectory);
         }
     }
 
-    private static async Task RunProcessAsync(string fileName, IReadOnlyCollection<string> arguments, CancellationToken cancellationToken)
+    private static async Task WriteBitmapAsync(string path, byte[] bgra, int width, int height, int dpi, CancellationToken cancellationToken)
     {
-        using var process = new Process
+        if (width <= 0 || height <= 0 || bgra.Length != checked(width * height * 4))
         {
-            StartInfo = new ProcessStartInfo
-            {
-                FileName = fileName,
-                RedirectStandardError = true,
-                RedirectStandardOutput = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            }
-        };
-        foreach (var argument in arguments)
-        {
-            process.StartInfo.ArgumentList.Add(argument);
+            throw new InvalidOperationException("Docnet.Core đã trả về dữ liệu ảnh PDF không hợp lệ.");
         }
 
+        var rowLength = checked(width * 3);
+        var paddedRowLength = (rowLength + 3) & ~3;
+        var pixelDataLength = checked(paddedRowLength * height);
+
+        await using var stream = File.Create(path);
+        using var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true);
+        writer.Write((byte)'B');
+        writer.Write((byte)'M');
+        writer.Write(checked(54 + pixelDataLength));
+        writer.Write(0);
+        writer.Write(54);
+        writer.Write(40);
+        writer.Write(width);
+        writer.Write(-height);
+        writer.Write((short)1);
+        writer.Write((short)24);
+        writer.Write(0);
+        writer.Write(pixelDataLength);
+        var pixelsPerMeter = (int)Math.Round(dpi / 0.0254d);
+        writer.Write(pixelsPerMeter);
+        writer.Write(pixelsPerMeter);
+        writer.Write(0);
+        writer.Write(0);
+
+        var padding = new byte[paddedRowLength - rowLength];
+        for (var y = 0; y < height; y++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var rowOffset = checked(y * width * 4);
+            for (var x = 0; x < width; x++)
+            {
+                var pixelOffset = rowOffset + (x * 4);
+                writer.Write(bgra[pixelOffset]);
+                writer.Write(bgra[pixelOffset + 1]);
+                writer.Write(bgra[pixelOffset + 2]);
+            }
+
+            writer.Write(padding);
+        }
+
+        await stream.FlushAsync(cancellationToken);
+    }
+
+    private static void TryDeleteDirectory(string path)
+    {
         try
         {
-            if (!process.Start())
+            if (Directory.Exists(path))
             {
-                throw new InvalidOperationException($"Không thể khởi chạy công cụ xử lý tài liệu: {fileName}.");
+                Directory.Delete(path, recursive: true);
             }
         }
-        catch (Exception exception) when (exception is Win32Exception or InvalidOperationException)
+        catch (IOException)
         {
-            throw new InvalidOperationException($"Không tìm thấy công cụ xử lý tài liệu '{fileName}'. Hãy cài pdftotext và OCRmyPDF/Tesseract.", exception);
+            // Keep the original extraction/OCR error as the processing failure.
         }
-
-        await process.WaitForExitAsync(cancellationToken);
-        if (process.ExitCode != 0)
+        catch (UnauthorizedAccessException)
         {
-            var error = await process.StandardError.ReadToEndAsync(cancellationToken);
-            throw new InvalidOperationException($"Công cụ '{fileName}' xử lý thất bại: {error}");
-        }
-    }
-
-    private static void DeleteIfExists(string path)
-    {
-        if (File.Exists(path))
-        {
-            File.Delete(path);
+            // Keep the original extraction/OCR error as the processing failure.
         }
     }
 }

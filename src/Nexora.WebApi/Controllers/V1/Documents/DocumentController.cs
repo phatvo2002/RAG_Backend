@@ -39,4 +39,9 @@ public sealed class DocumentController(ISender sender) : BaseController
         var result = await sender.Send(new UploadDocumentCommand(request.FolderId, request.File?.FileName ?? string.Empty, request.File?.ContentType ?? string.Empty, request.File?.Length ?? 0, content), cancellationToken);
         return this.ToActionResult(result);
     }
+
+    [HttpDelete("{documentId:guid}")]
+    [EnableRateLimiting("write")]
+    public async Task<IActionResult> Delete(Guid documentId, CancellationToken cancellationToken) =>
+        this.ToActionResult(await sender.Send(new DeleteDocumentCommand(documentId), cancellationToken));
 }
