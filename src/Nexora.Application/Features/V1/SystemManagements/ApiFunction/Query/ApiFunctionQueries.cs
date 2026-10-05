@@ -31,6 +31,26 @@ public sealed class GetApiFunctionsQueryHandler(IUnitOfWork unitOfWork) : IReque
     }
 }
 
+public sealed record GetApiFunctionTreeQuery : IQuery<IReadOnlyList<ApiFunctionTreeResponse>>;
+
+public sealed class GetApiFunctionTreeQueryHandler(IUnitOfWork unitOfWork)
+    : IRequestHandler<GetApiFunctionTreeQuery, IReadOnlyList<ApiFunctionTreeResponse>>
+{
+    public async Task<IReadOnlyList<ApiFunctionTreeResponse>> Handle(
+        GetApiFunctionTreeQuery request,
+        CancellationToken cancellationToken)
+    {
+        var functions = await unitOfWork.ApiFunctionRepository.GetAllAsync(
+            orderBy: query => query.OrderBy(function => function.Module)
+                .ThenBy(function => function.DisplayOrder)
+                .ThenBy(function => function.Name),
+            asNoTracking: true,
+            cancellationToken: cancellationToken);
+
+        return ApiFunctionTreeBuilder.Build(functions);
+    }
+}
+
 public sealed record GetApiFunctionQuery(Guid ApiFunctionId) : IQuery<Result<ApiFunctionResponse>>;
 
 public sealed class GetApiFunctionQueryHandler(IUnitOfWork unitOfWork) : IRequestHandler<GetApiFunctionQuery, Result<ApiFunctionResponse>>

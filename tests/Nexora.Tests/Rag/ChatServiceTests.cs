@@ -51,11 +51,13 @@ public sealed class ChatServiceTests
     }
 
     [Fact]
-    public async Task User_without_active_organization_membership_cannot_start_chat()
+    public async Task User_without_active_organization_membership_can_start_chat()
     {
         using var db = CreateDatabase();
         var service = CreateService(db, Guid.NewGuid(), new FakeAccess());
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.StartTurnAsync(null, "Question", "gemini", Guid.NewGuid(), default));
+        var turn = await service.StartTurnAsync(null, "Question", "gemini", Guid.NewGuid(), default);
+
+        Assert.NotEqual(Guid.Empty, turn.ConversationId);
     }
 
     [Fact]

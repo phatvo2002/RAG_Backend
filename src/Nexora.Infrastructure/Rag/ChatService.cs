@@ -5,7 +5,6 @@ using Nexora.Application.Common.Abstractions.Rag;
 using Nexora.Application.Features.V1.Chat.Model;
 using Nexora.Application.Features.V1.Rag.Retrieval.Model;
 using Nexora.Domain.Chat;
-using Nexora.Domain.Organizations.Enums;
 using Nexora.Infrastructure.Persistence;
 
 namespace Nexora.Infrastructure.Rag;
@@ -24,10 +23,6 @@ public sealed class ChatService(
         var organizationId = await organizationProvider.GetOrganizationIdAsync(ct);
         if (!organizationId.HasValue || !userContext.UserId.HasValue)
             throw new UnauthorizedAccessException("An organization and signed-in user are required.");
-        var isMember = await db.OrganizationMemberships.IgnoreQueryFilters().AsNoTracking().AnyAsync(x =>
-            x.OrganizationId == organizationId.Value && x.UserId == userContext.UserId.Value &&
-            x.Status == OrganizationMembershipStatus.Active, ct);
-        // if (!isMember) throw new UnauthorizedAccessException("Active organization membership is required for chat.");
         return (organizationId.Value, userContext.UserId.Value);
     }
 

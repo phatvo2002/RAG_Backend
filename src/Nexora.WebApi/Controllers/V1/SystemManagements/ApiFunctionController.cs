@@ -14,10 +14,15 @@ public sealed class ApiFunctionController(ISender sender) : BaseController
     public async Task<IActionResult> GetApiFunctions(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
+        [FromQuery] bool tree = false,
         CancellationToken cancellationToken = default) =>
-        this.ToSuccessResponse(
-            await sender.Send(new GetApiFunctionsQuery(page, pageSize), cancellationToken),
-            "Lấy danh sách ApiFunction thành công.");
+        tree
+            ? this.ToSuccessResponse(
+                await sender.Send(new GetApiFunctionTreeQuery(), cancellationToken),
+                "Lấy cây ApiFunction thành công.")
+            : this.ToSuccessResponse(
+                await sender.Send(new GetApiFunctionsQuery(page, pageSize), cancellationToken),
+                "Lấy danh sách ApiFunction thành công.");
 
     [HttpGet("{apiFunctionId:guid}")]
     public async Task<IActionResult> GetApiFunction(Guid apiFunctionId, CancellationToken cancellationToken) =>
