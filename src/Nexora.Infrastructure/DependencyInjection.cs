@@ -27,6 +27,7 @@ using Nexora.Infrastructure.Persistence.Repositories.Documents;
 using Nexora.Infrastructure.Persistence.Repositories.Identity;
 using Nexora.Infrastructure.Options;
 using Nexora.Application.Common.Abstractions.Rag;
+using Nexora.Application.Common.Abstractions.Chat;
 using Nexora.Application.Common.Abstractions.Documents;
 using Nexora.Application.Common.Abstractions.Logging;
 using Nexora.Infrastructure.Audit;
@@ -95,7 +96,14 @@ public static class DependencyInjection
         services.AddOptions<QdrantOptions>().Bind(configuration.GetSection(QdrantOptions.SectionName));
         services.AddOptions<EmbeddingOptions>().Bind(configuration.GetSection(EmbeddingOptions.SectionName));
         services.AddOptions<DocumentProcessingOptions>().Bind(configuration.GetSection(DocumentProcessingOptions.SectionName));
-        services.AddOptions<ChatOptions>().Bind(configuration.GetSection(ChatOptions.SectionName));
+        services.AddOptions<ChatOptions>()
+            .Bind(configuration.GetSection(ChatOptions.SectionName))
+            .Validate(options => float.IsFinite(options.DepartmentMatchThreshold) &&
+                options.DepartmentMatchThreshold is >= 0f and <= 1f,
+                "Chat:DepartmentMatchThreshold must be a finite value between 0 and 1.")
+            .ValidateOnStart();
+        services.AddSingleton<IDepartmentScopeOptions>(serviceProvider =>
+            serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<ChatOptions>>().Value);
         services.AddOptions<ProviderKeyOptions>().Bind(configuration.GetSection(ProviderKeyOptions.SectionName));
 
         services
@@ -154,6 +162,8 @@ public static class DependencyInjection
         services.AddScoped<ProviderKeyCipher>();
         services.AddScoped<AccountSettingsService>();
         services.AddScoped<ChatService>();
+        services.AddScoped<IChatService>(serviceProvider => serviceProvider.GetRequiredService<ChatService>());
+        services.AddScoped<IChatProviderService, ChatProviderService>();
         services.AddHttpClient<ChatModelStreamer>();
         services.AddScoped<IDocumentTextExtractor, DocumentTextExtractor>();
 

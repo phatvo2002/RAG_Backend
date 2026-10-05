@@ -7,6 +7,47 @@ namespace Nexora.Infrastructure.Persistence.Repositories.Documents;
 
 internal sealed class DocumentRepository(NexoraDbContext dbContext) : IDocumentRepository, IFolderOverviewRepository, IDocumentRetrievalStore
 {
+    public Task<string?> GetOrganizationNameAsync(Guid organizationId, CancellationToken cancellationToken) =>
+        dbContext.Organizations.IgnoreQueryFilters().AsNoTracking()
+            .Where(organization => organization.Id == organizationId)
+            .Select(organization => organization.Name)
+            .SingleOrDefaultAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<IndexedDocumentReference>> GetIndexedDocumentsAsync(
+        Guid organizationId,
+        CancellationToken cancellationToken)
+    {
+        var documents = dbContext.Documents.IgnoreQueryFilters();
+        var folders = dbContext.DocumentFolders.IgnoreQueryFilters();
+        var versions = dbContext.DocumentVersions.IgnoreQueryFilters();
+        var chunks = dbContext.DocumentChunks.IgnoreQueryFilters();
+        var records = dbContext.RagIndexRecords.IgnoreQueryFilters();
+        var indexes = dbContext.RagIndexes.IgnoreQueryFilters();
+
+        var query =
+            from document in documents
+            join folder in folders on document.FolderId equals folder.Id
+            join version in versions on document.CurrentVersionId equals version.Id
+            join chunk in chunks on version.Id equals chunk.DocumentVersionId
+            join record in records on chunk.Id equals record.ChunkId
+            join index in indexes on record.RagIndexId equals index.Id
+            where document.OrganizationId == organizationId &&
+                  folder.OrganizationId == organizationId &&
+                  version.OrganizationId == organizationId &&
+                  record.OrganizationId == organizationId &&
+                  index.OrganizationId == organizationId &&
+                  index.IndexName == "default" &&
+                  document.DeletedAt == null &&
+                  folder.DeletedAt == null &&
+                  version.ProcessingStatus == "READY" &&
+                  chunk.Status == "ACTIVE" &&
+                  record.Status == "INDEXED" &&
+                  index.Status == "ACTIVE"
+            select new IndexedDocumentReference(document.Id, folder.DepartmentId.HasValue);
+
+        return await query.Distinct().ToListAsync(cancellationToken);
+    }
+
     public async Task<IReadOnlyList<Guid>> GetAccessibleIndexedDocumentIdsAsync(
         Guid organizationId,
         Guid userId,
@@ -86,6 +127,7 @@ internal sealed class DocumentRepository(NexoraDbContext dbContext) : IDocumentR
         var indexes = dbContext.RagIndexes.IgnoreQueryFilters();
         var grants = dbContext.DocumentFolderAccessGrants.IgnoreQueryFilters();
         var departmentMemberships = dbContext.DepartmentMemberships.IgnoreQueryFilters();
+        var departments = dbContext.Departments.IgnoreQueryFilters();
 
         var query =
             from document in documents
@@ -95,6 +137,8 @@ internal sealed class DocumentRepository(NexoraDbContext dbContext) : IDocumentR
             join content in contents on chunk.Id equals content.ChunkId
             join record in records on chunk.Id equals record.ChunkId
             join index in indexes on record.RagIndexId equals index.Id
+            join department in departments on folder.DepartmentId equals (Guid?)department.Id into departmentGroup
+            from department in departmentGroup.DefaultIfEmpty()
             where chunkIds.Contains(chunk.Id) &&
                   document.OrganizationId == organizationId &&
                   folder.OrganizationId == organizationId &&
@@ -104,6 +148,7 @@ internal sealed class DocumentRepository(NexoraDbContext dbContext) : IDocumentR
                   index.IndexName == "default" &&
                   document.DeletedAt == null &&
                   folder.DeletedAt == null &&
+                  (department == null || department.OrganizationId == organizationId) &&
                   version.ProcessingStatus == "READY" &&
                   chunk.Status == "ACTIVE" &&
                   record.Status == "INDEXED" &&
@@ -131,6 +176,7 @@ internal sealed class DocumentRepository(NexoraDbContext dbContext) : IDocumentR
                 document.Id,
                 chunk.Id,
                 version.OriginalFileName,
+                department == null ? null : department.Name,
                 chunk.PageNo,
                 chunk.CharStart,
                 chunk.CharEnd,

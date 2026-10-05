@@ -3,6 +3,7 @@ using System.Text;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Nexora.Application.Common.Abstractions;
+using Nexora.Application.Features.V1.Chat.Model;
 using Nexora.Domain.Common.ValueObjects;
 using Nexora.Domain.Organizations;
 using Nexora.Domain.Security;
@@ -17,8 +18,6 @@ public sealed record ProviderKeyStatusDto(string Provider, string EndpointId, st
 public sealed record ProviderEndpointDto(string Id, string Name);
 public sealed record ProviderKeySettingsDto(IReadOnlyList<ProviderKeyStatusDto> Keys,
     IReadOnlyList<ProviderEndpointDto> ClaudeEndpoints, string? ConfigurationError);
-public sealed record ProviderCredential(string ApiKey, string EndpointId, string BaseUrl);
-
 public sealed class AccountSettingsService(
     NexoraDbContext db, IUserContext userContext, IClock clock,
     ProviderKeyCipher cipher, IOptions<ProviderKeyOptions> providerOptions)

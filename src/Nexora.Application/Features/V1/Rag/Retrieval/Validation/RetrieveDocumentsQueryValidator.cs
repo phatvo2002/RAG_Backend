@@ -1,6 +1,8 @@
 using FluentValidation;
 
-namespace Nexora.Application.Features.V1.Rag;
+using Nexora.Application.Features.V1.Rag.Retrieval.Query;
+
+namespace Nexora.Application.Features.V1.Rag.Retrieval.Validation;
 
 public sealed class RetrieveDocumentsQueryValidator : AbstractValidator<RetrieveDocumentsQuery>
 {

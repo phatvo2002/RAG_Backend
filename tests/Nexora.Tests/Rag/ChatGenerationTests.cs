@@ -2,6 +2,7 @@ using System.Net;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Options;
+using Nexora.Application.Features.V1.Chat.Model;
 using Nexora.Infrastructure.Options;
 using Nexora.Infrastructure.Rag;
 
@@ -9,6 +10,24 @@ namespace Nexora.Tests.Rag;
 
 public sealed class ChatGenerationTests
 {
+    [Fact]
+    public void Available_model_order_uses_configured_gemini_first_and_claude_when_gemini_is_unavailable()
+    {
+        var streamer = new ChatModelStreamer(new HttpClient(), Options.Create(new ChatOptions
+        {
+            GeminiModel = "gemini-3.6-flash",
+            ClaudeModel = "claude-test-model",
+        }));
+
+        var bothProviders = streamer.AvailableModels(hasGemini: true, hasClaude: true);
+        var claudeOnly = streamer.AvailableModels(hasGemini: false, hasClaude: true);
+
+        Assert.Equal("gemini", bothProviders[0].Id);
+        Assert.Equal("gemini-3.6-flash", bothProviders[0].Model);
+        Assert.Equal("claude", claudeOnly[0].Id);
+        Assert.Equal("claude-test-model", claudeOnly[0].Model);
+    }
+
     [Fact]
     public void Cipher_encrypts_and_decrypts_with_a_durable_key()
     {
@@ -45,6 +64,10 @@ public sealed class ChatGenerationTests
         using var body = JsonDocument.Parse(handler.Body!);
         Assert.Equal("test-gemini-model", body.RootElement.GetProperty("model").GetString());
         Assert.Equal("Question and sources", body.RootElement.GetProperty("input").GetString());
+        var systemInstruction = body.RootElement.GetProperty("system_instruction").GetString();
+        Assert.Contains("configured company's scope", systemInstruction);
+        Assert.Contains("Be concise and direct", systemInstruction);
+        Assert.Contains("inaccessible departments", systemInstruction);
         Assert.True(body.RootElement.GetProperty("stream").GetBoolean());
         Assert.False(body.RootElement.GetProperty("store").GetBoolean());
     }
@@ -64,6 +87,8 @@ public sealed class ChatGenerationTests
         Assert.Equal("2023-06-01", handler.Version);
         Assert.Null(handler.Authorization);
         Assert.Contains("test-claude-model", handler.Body);
+        using var body = JsonDocument.Parse(handler.Body!);
+        Assert.Contains("Be concise and direct", body.RootElement.GetProperty("system").GetString());
     }
 
     [Fact]

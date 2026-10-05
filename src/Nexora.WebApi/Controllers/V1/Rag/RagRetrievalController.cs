@@ -1,6 +1,6 @@
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
-using Nexora.Application.Features.V1.Rag;
+using Nexora.Application.Features.V1.Rag.Retrieval.Query;
 using Nexora.WebApi.Controllers;
 
 namespace Nexora.WebApi.Controllers.V1.Rag;

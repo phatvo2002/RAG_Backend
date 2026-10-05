@@ -1,18 +1,14 @@
 using Microsoft.EntityFrameworkCore;
 using Nexora.Application.Common.Abstractions;
+using Nexora.Application.Common.Abstractions.Chat;
 using Nexora.Application.Common.Abstractions.Rag;
-using Nexora.Application.Features.V1.Rag;
+using Nexora.Application.Features.V1.Chat.Model;
+using Nexora.Application.Features.V1.Rag.Retrieval.Model;
 using Nexora.Domain.Chat;
 using Nexora.Domain.Organizations.Enums;
 using Nexora.Infrastructure.Persistence;
 
 namespace Nexora.Infrastructure.Rag;
-
-public sealed record ChatConversationDto(Guid Id, string Title, DateTimeOffset UpdatedAt);
-public sealed record ChatSourceDto(Guid DocumentId, Guid ChunkId, string FileName, float Score, int? PageNo, int? CharStart, int? CharEnd);
-public sealed record ChatMessageDto(Guid Id, Guid ConversationId, string Role, string Content, int SequenceNo,
-    DateTimeOffset CreatedAt, string? Status, string? ModelProvider, string? ModelName, IReadOnlyList<ChatSourceDto> Sources);
-public sealed record ChatTurnStart(Guid ConversationId, Guid RequestMessageId, Guid TurnId, ChatModelChoice Model);
 
 public sealed class ChatService(
     NexoraDbContext db,
@@ -21,7 +17,7 @@ public sealed class ChatService(
     IDocumentRetrievalStore retrievalStore,
     IClock clock,
     ChatCipher cipher,
-    ChatModelStreamer models)
+    ChatModelStreamer models) : IChatService
 {
     private async Task<(Guid OrganizationId, Guid UserId)> IdentityAsync(CancellationToken ct)
     {
@@ -142,6 +138,8 @@ public sealed class ChatService(
         foreach (var source in sources.Select((value, index) => (value, index)))
             db.Citations.Add(Citation.Create(Guid.NewGuid(), organizationId, message.Id, source.value.ChunkId,
                 source.index + 1, source.value.PageNo, source.value.CharStart, source.value.CharEnd, source.value.Score, clock.UtcNow));
+        turn.ModelProvider = start.Model.Provider;
+        turn.ModelName = start.Model.Model;
         if (noSource) turn.NoSourceReason = "NO_AUTHORIZED_SOURCE";
         turn.Complete(message.Id, clock.UtcNow);
         db.Entry(conversation).Property(x => x.UpdatedAt).CurrentValue = clock.UtcNow;

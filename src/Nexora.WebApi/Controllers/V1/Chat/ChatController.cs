@@ -2,54 +2,53 @@ using System.Text.Json;
 using System.Net;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
-using Nexora.Application.Features.V1.Rag;
-using Nexora.Infrastructure.Rag;
+using Nexora.Application.Features.V1.Chat.Command;
+using Nexora.Application.Features.V1.Chat.Model;
+using Nexora.Application.Features.V1.Chat.Query;
+using Nexora.Application.Features.V1.Rag.Retrieval.Query;
 using Nexora.WebApi.Controllers;
 
 namespace Nexora.WebApi.Controllers.V1.Chat;
 
 [ApiController]
 [Route("api/chat")]
-public sealed class ChatController(ChatService chat, ChatCipher cipher, ProviderKeyCipher providerCipher, ChatModelStreamer models, AccountSettingsService settings, ISender sender, ILogger<ChatController> logger) : BaseController
+public sealed class ChatController(ISender sender, ILogger<ChatController> logger) : BaseController
 {
     [HttpGet("models")]
     public async Task<IActionResult> Models(CancellationToken cancellationToken)
     {
-        var keys = await settings.ListKeysAsync(cancellationToken);
-        var choices = cipher.IsConfigured && providerCipher.IsConfigured ? models.AvailableModels(keys.Keys.Any(x => x.Provider == "gemini"),
-            keys.Keys.Any(x => x.Provider == "claude" && keys.ClaudeEndpoints.Any(e => e.Id == x.EndpointId))) : [];
+        var configuration = await sender.Send(new GetChatConfigurationQuery(), cancellationToken);
         return Ok(new
         {
-            defaultModel = choices.FirstOrDefault()?.Id ?? "",
-            models = choices,
-            configurationError = !cipher.IsConfigured ? "Chưa cấu hình khóa mã hóa lịch sử chat trên máy chủ." :
-                !providerCipher.IsConfigured ? "Chưa cấu hình khóa mã hóa API của người dùng trên máy chủ." :
-                choices.Count == 0 ? "Hãy thêm khóa Gemini hoặc Claude trong Thông tin cá nhân để bắt đầu chat." : null
+            defaultModel = configuration.Models.FirstOrDefault()?.Id ?? "",
+            models = configuration.Models,
+            configurationError = configuration.ConfigurationError
         });
     }
 
     [HttpGet("conversations")]
     public async Task<IActionResult> Conversations([FromQuery] int skip = 0, CancellationToken cancellationToken = default) =>
-        Ok(await chat.ListConversationsAsync(skip, cancellationToken));
+        Ok(await sender.Send(new ListChatConversationsQuery(skip), cancellationToken));
 
     [HttpGet("conversations/{conversationId:guid}/messages")]
     public async Task<IActionResult> Messages(Guid conversationId, [FromQuery] int? beforeSequenceNo, CancellationToken cancellationToken)
     {
-        try { return Ok(await chat.ListMessagesAsync(conversationId, beforeSequenceNo, cancellationToken)); }
+        try { return Ok(await sender.Send(new ListChatMessagesQuery(conversationId, beforeSequenceNo), cancellationToken)); }
         catch (KeyNotFoundException) { return NotFound(); }
     }
 
     [HttpDelete("conversations/{conversationId:guid}/messages/{messageId:guid}")]
     public async Task<IActionResult> DeleteMessage(Guid conversationId, Guid messageId, CancellationToken cancellationToken)
     {
-        try { return await chat.DeleteMessageAsync(conversationId, messageId, cancellationToken) ? NoContent() : NotFound(); }
+        try { return await sender.Send(new DeleteChatMessageCommand(conversationId, messageId), cancellationToken) ? NoContent() : NotFound(); }
         catch (KeyNotFoundException) { return NotFound(); }
     }
 
     [HttpPost("turns/stream")]
     public async Task Stream([FromBody] ChatTurnRequest request, CancellationToken cancellationToken)
     {
-        if (!cipher.IsConfigured || !providerCipher.IsConfigured)
+        var configuration = await sender.Send(new GetChatConfigurationQuery(), cancellationToken);
+        if (!configuration.ChatEncryptionConfigured || !configuration.ProviderKeyEncryptionConfigured)
         {
             Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
             return;
@@ -59,22 +58,19 @@ public sealed class ChatController(ChatService chat, ChatCipher cipher, Provider
             Response.StatusCode = StatusCodes.Status400BadRequest;
             return;
         }
-        var keys = await settings.ListKeysAsync(cancellationToken);
-        var available = models.AvailableModels(keys.Keys.Any(x => x.Provider == "gemini"),
-            keys.Keys.Any(x => x.Provider == "claude" && keys.ClaudeEndpoints.Any(e => e.Id == x.EndpointId)));
-        var chosen = available.FirstOrDefault(x => x.Id == request.ModelId);
+        var chosen = configuration.Models.FirstOrDefault();
         if (chosen is null)
         {
-            Response.StatusCode = StatusCodes.Status400BadRequest;
+            Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
             return;
         }
-        var credential = await settings.GetCredentialAsync(chosen.Provider, cancellationToken);
+        var credential = await sender.Send(new GetChatCredentialQuery(chosen.Provider), cancellationToken);
         if (credential is null) { Response.StatusCode = StatusCodes.Status400BadRequest; return; }
 
         ChatTurnStart start;
         try
         {
-            start = await chat.StartTurnAsync(request.ConversationId, request.Question, request.ModelId, request.ClientRequestId, cancellationToken);
+            start = await sender.Send(new StartChatTurnCommand(request.ConversationId, request.Question, chosen.Id, request.ClientRequestId), cancellationToken);
         }
         catch (InvalidOperationException)
         {
@@ -96,39 +92,47 @@ public sealed class ChatController(ChatService chat, ChatCipher cipher, Provider
             var retrieval = await sender.Send(new RetrieveDocumentsQuery(request.Question), cancellationToken);
             await EmitAsync("sources", retrieval.Results, cancellationToken);
             string answer;
+            var completedTurn = start;
             if (retrieval.Results.Count == 0)
             {
-                answer = "Không tìm thấy tài liệu được phép truy cập hỗ trợ câu hỏi này.";
+                answer = retrieval.DepartmentAccessDenied
+                    ? "No access"
+                    : "Không tìm thấy tài liệu được phép truy cập hỗ trợ câu hỏi này.";
                 await EmitAsync("delta", new { text = answer }, cancellationToken);
             }
             else
             {
-                var history = await chat.PromptHistoryAsync(start.ConversationId, start.RequestMessageId, cancellationToken);
-                var output = new System.Text.StringBuilder();
-                await foreach (var delta in models.StreamAsync(start.Model, history, retrieval.AugmentedContext, credential, cancellationToken))
-                {
-                    output.Append(delta);
-                    await EmitAsync("delta", new { text = delta }, cancellationToken);
-                }
-                answer = output.ToString().Trim();
-                if (answer.Length == 0) throw new InvalidOperationException("The generation provider returned an empty answer.");
+                var history = await sender.Send(new GetChatPromptHistoryQuery(start.ConversationId, start.RequestMessageId), cancellationToken);
+                var candidates = configuration.Models
+                    .Where(model => string.Equals(model.Provider, chosen.Provider, StringComparison.OrdinalIgnoreCase))
+                    .ToArray();
+                var result = await ChatModelFallbackRunner.RunAsync(
+                    candidates,
+                    (model, token) => sender.Send(new StreamChatGenerationQuery(model, history, retrieval.AugmentedContext, credential), token),
+                    (delta, token) => EmitAsync("delta", new { text = delta }, token),
+                    (model, token) => EmitAsync("reset", new { modelName = model.Name }, token),
+                    (failedModel, nextModel, exception) => logger.LogWarning(exception,
+                        "Chat model {FailedModel} failed; retrying with {NextModel} from the same provider.", failedModel.Model, nextModel.Model),
+                    cancellationToken);
+                answer = result.Answer;
+                completedTurn = start with { Model = result.Model };
             }
 
-            var message = await chat.CompleteTurnAsync(start, answer, retrieval.Results, retrieval.Results.Count == 0, cancellationToken);
+            var message = await sender.Send(new CompleteChatTurnCommand(completedTurn, answer, retrieval.Results, retrieval.Results.Count == 0), cancellationToken);
             await EmitAsync("completed", message, cancellationToken);
         }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {
-                    await chat.FailTurnAsync(start, "CANCELLED");
+                    await sender.Send(new FailChatTurnCommand(start, "CANCELLED"), CancellationToken.None);
                 }
         catch (Exception exception)
         {
             logger.LogError(exception, "Chat turn {TurnId} failed.", start.TurnId);
-            await chat.FailTurnAsync(start, "GENERATION_FAILED");
+            await sender.Send(new FailChatTurnCommand(start, "GENERATION_FAILED"), CancellationToken.None);
             if (!cancellationToken.IsCancellationRequested)
             {
                 var message = exception is HttpRequestException { StatusCode: HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden }
-                    ? "Khóa API của mô hình đã chọn không hợp lệ hoặc không có quyền truy cập. Hãy cập nhật khóa trong Thông tin cá nhân."
+                    ? "Khóa API của mô hình hiện tại không hợp lệ hoặc không có quyền truy cập. Hãy cập nhật khóa trong Thông tin cá nhân."
                     : "Không thể tạo câu trả lời lúc này. Vui lòng thử lại.";
                 await EmitAsync("error", new { message }, cancellationToken);
             }
@@ -142,4 +146,4 @@ public sealed class ChatController(ChatService chat, ChatCipher cipher, Provider
     }
 }
 
-public sealed record ChatTurnRequest(Guid? ConversationId, string Question, string ModelId, Guid ClientRequestId);
+public sealed record ChatTurnRequest(Guid? ConversationId, string Question, Guid ClientRequestId, string? ModelId = null);

@@ -1,9 +1,12 @@
+using Nexora.Application.Common.Abstractions.Rag;
+
 namespace Nexora.Infrastructure.Options;
 
-public sealed class ChatOptions
+public sealed class ChatOptions : IDepartmentScopeOptions
 {
     public const string SectionName = "Chat";
     public string EncryptionKeyBase64 { get; set; } = string.Empty;
     public string GeminiModel { get; set; } = "gemini-3.8-flash";
     public string ClaudeModel { get; set; } = "claude-sonnet-5";
+    public float DepartmentMatchThreshold { get; set; } = 0.70f;
 }

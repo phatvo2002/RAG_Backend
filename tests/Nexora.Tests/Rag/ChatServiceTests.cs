@@ -3,7 +3,8 @@ using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Options;
 using Nexora.Application.Common.Abstractions;
 using Nexora.Application.Common.Abstractions.Rag;
-using Nexora.Application.Features.V1.Rag;
+using Nexora.Application.Features.V1.Chat.Model;
+using Nexora.Application.Features.V1.Rag.Retrieval.Model;
 using Nexora.Infrastructure.Options;
 using Nexora.Infrastructure.Persistence;
 using Nexora.Infrastructure.Rag;
@@ -79,7 +80,7 @@ public sealed class ChatServiceTests
         var service = CreateService(db, OwnerId, access);
         var first = await service.StartTurnAsync(null, "Who is the director?", "gemini", Guid.NewGuid(), default);
         var source = new RetrievedChunkResponse(Guid.NewGuid(), Guid.NewGuid(), "report.pdf", "excerpt", 0.83f, 2, null, null);
-        access.Allowed[source.ChunkId] = new RetrievalChunkSource(source.DocumentId, source.ChunkId, source.FileName, 2, null, null, "bucket", "key");
+        access.Allowed[source.ChunkId] = new RetrievalChunkSource(source.DocumentId, source.ChunkId, source.FileName, null, 2, null, null, "bucket", "key");
         await service.CompleteTurnAsync(first, "The director is named in the report.", [source], false, default);
         Assert.Equal(2, (await service.ListMessagesAsync(first.ConversationId, null, default)).Count);
 
@@ -114,6 +115,23 @@ public sealed class ChatServiceTests
         await service.StartTurnAsync(null, "Question", "gemini", requestId, default);
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.StartTurnAsync(null, "Question", "gemini", requestId, default));
         Assert.Single(db.Messages.IgnoreQueryFilters());
+    }
+
+    [Fact]
+    public async Task Completed_turn_records_the_model_version_that_succeeded()
+    {
+        using var db = CreateDatabase();
+        var service = CreateService(db, OwnerId, new FakeAccess());
+        var turn = await service.StartTurnAsync(null, "Question", "gemini", Guid.NewGuid(), default);
+        var fallbackModel = new ChatModelChoice("gemini-3.6-flash", "Gemini 3.6 Flash", "Gemini", "gemini-3.6-flash");
+
+        var message = await service.CompleteTurnAsync(turn with { Model = fallbackModel }, "Answer", [], true, default);
+
+        var savedTurn = db.AiTurns.IgnoreQueryFilters().Single(x => x.Id == turn.TurnId);
+        Assert.Equal("gemini-3.6-flash", savedTurn.ModelName);
+        Assert.Equal("Gemini", savedTurn.ModelProvider);
+        Assert.Equal("gemini-3.6-flash", message.ModelName);
+        Assert.Equal("Gemini", message.ModelProvider);
     }
 
     private static NexoraDbContext CreateDatabase()
@@ -164,6 +182,9 @@ public sealed class ChatServiceTests
     private sealed class FakeAccess : IDocumentRetrievalStore
     {
         public Dictionary<Guid, RetrievalChunkSource> Allowed { get; } = [];
+        public Task<string?> GetOrganizationNameAsync(Guid organizationId, CancellationToken ct) => Task.FromResult<string?>("Nexora");
+        public Task<IReadOnlyList<IndexedDocumentReference>> GetIndexedDocumentsAsync(Guid organizationId, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<IndexedDocumentReference>>(Allowed.Values.Select(x => new IndexedDocumentReference(x.DocumentId, x.DepartmentName is not null)).Distinct().ToArray());
         public Task<IReadOnlyList<Guid>> GetAccessibleIndexedDocumentIdsAsync(Guid organizationId, Guid userId, DateTimeOffset now, CancellationToken ct) =>
             Task.FromResult<IReadOnlyList<Guid>>(Allowed.Values.Select(x => x.DocumentId).Distinct().ToArray());
         public Task<IReadOnlyList<RetrievalChunkSource>> GetAccessibleChunkSourcesAsync(Guid organizationId, Guid userId, DateTimeOffset now,
