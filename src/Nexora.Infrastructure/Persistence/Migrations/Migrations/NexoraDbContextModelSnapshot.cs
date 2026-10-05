@@ -155,11 +155,39 @@ namespace Nexora.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(500)")
                         .HasColumnName("description");
 
+                    b.Property<int>("DisplayOrder")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("displayOrder");
+
                     b.Property<string>("HttpMethod")
                         .IsRequired()
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)")
                         .HasColumnName("httpMethod");
+
+                    b.Property<bool>("IsMenuVisible")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("isMenuVisible");
+
+                    b.Property<bool>("IsMobile")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("isMobile");
+
+                    b.Property<string>("MenuParentCode")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)")
+                        .HasColumnName("menuParentCode");
+
+                    b.Property<string>("MenuUrl")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)")
+                        .HasColumnName("menuUrl");
 
                     b.Property<string>("Module")
                         .IsRequired()
@@ -231,6 +259,9 @@ namespace Nexora.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("HttpMethod", "RouteTemplate", "Status")
                         .HasDatabaseName("ix_api_functions_http_method_route_status");
+
+                    b.HasIndex("MenuParentCode", "DisplayOrder", "Status")
+                        .HasDatabaseName("ix_api_functions_menu_parent_order_status");
 
                     b.ToTable("ApiFunctions", "security");
                 });
@@ -528,6 +559,9 @@ namespace Nexora.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ResponseMessageId");
 
+                    b.HasIndex("OrganizationId", "CorrelationId")
+                        .IsUnique();
+
                     b.HasIndex("OrganizationId", "Id")
                         .IsUnique()
                         .HasDatabaseName("ux_ai_turn_tenant_id");
@@ -582,6 +616,10 @@ namespace Nexora.Infrastructure.Persistence.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("char(64)")
                         .HasColumnName("quoteHash");
+
+                    b.Property<float?>("Score")
+                        .HasColumnType("real")
+                        .HasColumnName("score");
 
                     b.HasKey("Id");
 
@@ -752,6 +790,14 @@ namespace Nexora.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamptz")
                         .HasColumnName("createdAt");
 
+                    b.Property<DateTimeOffset?>("DeletedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("deletedAt");
+
+                    b.Property<Guid?>("DeletedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("deletedByUserId");
+
                     b.Property<string>("LanguageCode")
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)")
@@ -778,6 +824,8 @@ namespace Nexora.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("ConversationId");
+
+                    b.HasIndex("DeletedByUserId");
 
                     b.HasIndex("SenderUserId");
 
@@ -2778,6 +2826,65 @@ namespace Nexora.Infrastructure.Persistence.Migrations
                     b.ToTable("ActivityLogs", "security");
                 });
 
+            modelBuilder.Entity("Nexora.Domain.Security.UserProviderKey", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<byte[]>("Ciphertext")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("ciphertext");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("createdAt");
+
+                    b.Property<string>("EndpointId")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("endpointId");
+
+                    b.Property<DateTimeOffset?>("LastUsedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("lastUsedAt");
+
+                    b.Property<string>("MaskedSuffix")
+                        .IsRequired()
+                        .HasMaxLength(4)
+                        .HasColumnType("character varying(4)")
+                        .HasColumnName("maskedSuffix");
+
+                    b.Property<string>("Provider")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("provider");
+
+                    b.Property<byte[]>("Sha256")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("sha256");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("updatedAt");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("userId");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "Provider")
+                        .IsUnique();
+
+                    b.ToTable("UserProviderKeys", "security");
+                });
+
             modelBuilder.Entity("Nexora.Domain.Tasks.Task", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3238,6 +3345,11 @@ namespace Nexora.Infrastructure.Persistence.Migrations
                         .HasForeignKey("ConversationId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("Nexora.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("DeletedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Nexora.Domain.Organizations.Organization", null)
                         .WithMany()
@@ -3875,6 +3987,15 @@ namespace Nexora.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("ProjectId")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Nexora.Domain.Security.UserProviderKey", b =>
+                {
+                    b.HasOne("Nexora.Infrastructure.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Nexora.Domain.Tasks.Task", b =>

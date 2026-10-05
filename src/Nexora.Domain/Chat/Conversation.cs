@@ -16,4 +16,14 @@ public class Conversation : SoftDeletableEntityBase
 
     public string Status { get; set; } = string.Empty;
 
+    public static Conversation Create(Guid id, Guid organizationId, Guid ownerUserId, byte[] title, DateTimeOffset now) => new(id, now)
+    {
+        OrganizationId = organizationId,
+        OwnerUserId = ownerUserId,
+        TitleCiphertext = title,
+        Status = "ACTIVE"
+    };
+
+    private Conversation(Guid id, DateTimeOffset now) : base(id, now) { }
+
 }

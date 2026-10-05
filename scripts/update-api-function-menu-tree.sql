@@ -79,6 +79,11 @@ FROM (
         ('auth.logout', 'auth', 3, false),
         ('auth.select_organization', 'auth', 4, false),
         ('auth.me', 'auth', 5, false),
+        ('account.profile.read', NULL, 86, false),
+        ('account.profile.update', NULL, 87, false),
+        ('account.keys.read', NULL, 88, false),
+        ('account.keys.save', NULL, 89, false),
+        ('account.keys.delete', NULL, 90, false),
         ('user.read', 'user', 10, true),
         ('user.create', 'user', 20, true),
         ('user.read.by_id', 'user', 21, true),
@@ -103,6 +108,7 @@ FROM (
         ('document.upload', 'document', 1, true),
         ('document.read', 'document', 2, true),
         ('document.status', 'document', 3, true),
+        ('document.delete', 'document', 5, true),
         ('document.folder.read', 'document', 10, true),
         ('document.folder.read.by_id', 'document', 11, true),
         ('document.folder.create', 'document', 20, true),
@@ -141,6 +147,8 @@ SELECT v.code AS missing_catalog_code
 FROM (
     VALUES
         ('auth.login'), ('auth.refresh'), ('auth.logout'), ('auth.select_organization'), ('auth.me'),
+        ('account.profile.read'), ('account.profile.update'), ('account.keys.read'),
+        ('account.keys.save'), ('account.keys.delete'),
         ('user.read'), ('user.create'), ('user.read.by_id'), ('user.update'), ('user.deactivate'),
         ('user.reactivate'), ('user.reset_password'), ('user.role.assign'), ('user.role.revoke'),
         ('user.read.roles'), ('activity_log.read'), ('role.read'), ('role.create'), ('role.read.by_id'),

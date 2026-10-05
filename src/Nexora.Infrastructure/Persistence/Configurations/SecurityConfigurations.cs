@@ -10,6 +10,27 @@ using Nexora.Infrastructure.Identity;
 
 namespace Nexora.Infrastructure.Persistence.Configurations;
 
+internal sealed class UserProviderKeyConfiguration : IEntityTypeConfiguration<UserProviderKey>
+{
+    public void Configure(EntityTypeBuilder<UserProviderKey> builder)
+    {
+        builder.ToTable("UserProviderKeys", SchemaNames.Security);
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.Id).HasColumnName("id");
+        builder.Property(x => x.UserId).HasColumnName("userId").IsRequired();
+        builder.Property(x => x.Provider).HasColumnName("provider").HasMaxLength(20).IsRequired();
+        builder.Property(x => x.Ciphertext).HasColumnName("ciphertext").HasColumnType("bytea").IsRequired();
+        builder.Property(x => x.Sha256).HasColumnName("sha256").HasColumnType("bytea").IsRequired();
+        builder.Property(x => x.EndpointId).HasColumnName("endpointId").HasMaxLength(80).IsRequired();
+        builder.Property(x => x.MaskedSuffix).HasColumnName("maskedSuffix").HasMaxLength(4).IsRequired();
+        builder.Property(x => x.CreatedAt).HasColumnName("createdAt").HasColumnType("timestamptz").IsRequired();
+        builder.Property(x => x.UpdatedAt).HasColumnName("updatedAt").HasColumnType("timestamptz").IsRequired();
+        builder.Property(x => x.LastUsedAt).HasColumnName("lastUsedAt").HasColumnType("timestamptz");
+        builder.HasIndex(x => new { x.UserId, x.Provider }).IsUnique();
+        builder.HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
 internal sealed class ApiFunctionConfiguration : IEntityTypeConfiguration<ApiFunction>
 {
     public void Configure(EntityTypeBuilder<ApiFunction> builder)

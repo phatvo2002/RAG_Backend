@@ -7,24 +7,33 @@ using Nexora.Application.Features.V1.Folders.Model;
 
 namespace Nexora.Application.Features.V1.Folders.Queries;
 
-public sealed record ListDocumentFoldersQuery(Guid? DepartmentId) : IQuery<IReadOnlyList<FolderDto>>;
+public sealed record ListDocumentFoldersQuery(Guid? DepartmentId) : IQuery<IReadOnlyList<FolderOverviewDto>>;
 
 public sealed class ListDocumentFoldersQueryHandler(
     IUnitOfWork unitOfWork,
-    IDefaultOrganizationProvider organizationProvider) : IRequestHandler<ListDocumentFoldersQuery, IReadOnlyList<FolderDto>>
+    IFolderOverviewRepository folderOverviewRepository,
+    IDefaultOrganizationProvider organizationProvider) : IRequestHandler<ListDocumentFoldersQuery, IReadOnlyList<FolderOverviewDto>>
 {
-    public async Task<IReadOnlyList<FolderDto>> Handle(ListDocumentFoldersQuery request, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<FolderOverviewDto>> Handle(ListDocumentFoldersQuery request, CancellationToken cancellationToken)
     {
         var organizationId = await organizationProvider.GetOrganizationIdAsync(cancellationToken);
         if (!organizationId.HasValue)
         {
-            return Array.Empty<FolderDto>();
+            return Array.Empty<FolderOverviewDto>();
         }
 
         var folders = await unitOfWork.DocumentFolderRepository.GetForOrganizationAsync(
             organizationId.Value,
             request.DepartmentId,
             cancellationToken);
-        return folders.Select(folder => folder.ToDto()).ToArray();
+        var summaries = await folderOverviewRepository.GetFolderSummariesAsync(
+            organizationId.Value,
+            folders.Select(folder => folder.Id).ToArray(),
+            cancellationToken);
+        var summariesByFolderId = summaries.ToDictionary(summary => summary.FolderId);
+
+        return folders
+            .Select(folder => folder.ToOverviewDto(summariesByFolderId.GetValueOrDefault(folder.Id)))
+            .ToArray();
     }
 }

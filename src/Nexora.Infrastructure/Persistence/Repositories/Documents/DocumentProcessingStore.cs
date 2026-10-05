@@ -11,7 +11,7 @@ internal sealed class DocumentProcessingStore(NexoraDbContext dbContext) : IDocu
 {
     public Task<DomainDocument?> GetDocumentAsync(Guid userId, Guid documentId, bool asTracking, CancellationToken cancellationToken)
     {
-        var query = dbContext.Documents.IgnoreQueryFilters().Where(document => document.Id == documentId && document.OwnerUserId == userId);
+        var query = dbContext.Documents.IgnoreQueryFilters().Where(document => document.Id == documentId && document.OwnerUserId == userId && document.DeletedAt == null);
         return (asTracking ? query : query.AsNoTracking()).SingleOrDefaultAsync(cancellationToken);
     }
 
@@ -25,6 +25,50 @@ internal sealed class DocumentProcessingStore(NexoraDbContext dbContext) : IDocu
     {
         var query = dbContext.DocumentFolders.Where(folder => folder.Id == folderId);
         return (asTracking ? query : query.AsNoTracking()).SingleOrDefaultAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<DocumentVersion>> GetDocumentVersionsAsync(Guid organizationId, Guid documentId, CancellationToken cancellationToken) =>
+        await dbContext.DocumentVersions.IgnoreQueryFilters()
+            .Where(version => version.OrganizationId == organizationId && version.DocumentId == documentId)
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<StoredObjectReference>> GetChunkStorageObjectsAsync(Guid organizationId, Guid documentId, CancellationToken cancellationToken) =>
+        await (from content in dbContext.DocumentChunkContents.IgnoreQueryFilters()
+               join chunk in dbContext.DocumentChunks.IgnoreQueryFilters() on content.ChunkId equals chunk.Id
+               join version in dbContext.DocumentVersions.IgnoreQueryFilters() on chunk.DocumentVersionId equals version.Id
+               where version.OrganizationId == organizationId && version.DocumentId == documentId
+               select new StoredObjectReference(content.StorageProvider, content.StorageBucket, content.ContentObjectKey))
+            .ToListAsync(cancellationToken);
+
+    public async Task<IReadOnlyList<VectorPointReference>> GetDocumentVectorPointsAsync(Guid organizationId, Guid documentId, CancellationToken cancellationToken)
+    {
+        var references = await (from index in dbContext.RagIndexes.IgnoreQueryFilters()
+                                join version in dbContext.DocumentVersions.IgnoreQueryFilters() on index.OrganizationId equals version.OrganizationId
+                                join chunk in dbContext.DocumentChunks.IgnoreQueryFilters() on version.Id equals chunk.DocumentVersionId
+                                where index.OrganizationId == organizationId && version.DocumentId == documentId
+                                select new { index.CollectionName, chunk.Id })
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        return references
+            .Select(reference => new VectorPointReference(reference.CollectionName, reference.Id.ToString("D")))
+            .ToArray();
+    }
+
+    public async Task MarkDocumentVectorRecordsDeletedAsync(Guid organizationId, Guid documentId, CancellationToken cancellationToken)
+    {
+        var records = await (from record in dbContext.RagIndexRecords.IgnoreQueryFilters()
+                             join chunk in dbContext.DocumentChunks.IgnoreQueryFilters() on record.ChunkId equals chunk.Id
+                             join version in dbContext.DocumentVersions.IgnoreQueryFilters() on chunk.DocumentVersionId equals version.Id
+                             where record.OrganizationId == organizationId && version.OrganizationId == organizationId && version.DocumentId == documentId
+                             select record)
+            .ToListAsync(cancellationToken);
+
+        foreach (var record in records)
+        {
+            record.MarkDeleted();
+        }
     }
 
     public async Task<bool> CanUploadToFolderAsync(DocumentFolder folder, Guid userId, DateTimeOffset utcNow, CancellationToken cancellationToken)

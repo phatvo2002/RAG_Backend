@@ -34,4 +34,7 @@ internal sealed class MinioObjectStorage(IMinioClient client) : IObjectStorage
             throw;
         }
     }
+
+    public Task DeleteAsync(string bucket, string objectKey, CancellationToken cancellationToken) =>
+        client.RemoveObjectAsync(new RemoveObjectArgs().WithBucket(bucket).WithObject(objectKey), cancellationToken);
 }
