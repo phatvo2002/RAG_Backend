@@ -21,6 +21,8 @@ internal sealed class MeetingConfiguration : IEntityTypeConfiguration<Meeting>
         builder.Property(x => x.ScheduledStart).HasColumnName("scheduledStart").HasColumnType("timestamptz").IsRequired();
         builder.Property(x => x.ScheduledEnd).HasColumnName("scheduledEnd").HasColumnType("timestamptz").IsRequired();
         builder.Property(x => x.Status).HasColumnName("status").HasMaxLength(20).IsRequired();
+        builder.Property(x => x.ActualStartedAt).HasColumnName("actualStartedAt").HasColumnType("timestamptz");
+        builder.Property(x => x.ActualEndedAt).HasColumnName("actualEndedAt").HasColumnType("timestamptz");
         builder.Property(x => x.RoomProvider).HasColumnName("roomProvider").HasMaxLength(80);
         builder.Property(x => x.RoomExternalId).HasColumnName("roomExternalId").HasMaxLength(200);
         builder.Property(x => x.RecordingConsentStatus).HasColumnName("recordingConsentStatus").HasMaxLength(30);

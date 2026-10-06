@@ -31,21 +31,93 @@ public static class ApiFunctionTreeBuilder
         functions
             .GroupBy(function => function.Module, StringComparer.OrdinalIgnoreCase)
             .OrderBy(group => group.Key, StringComparer.OrdinalIgnoreCase)
-            .Select(group => new ApiFunctionTreeResponse
+            .Select(group =>
             {
-                FunctionCode = group.Key.ToUpperInvariant(),
-                FunctionName = group.Key,
-                Module = group.Key,
-                Order = group.Min(function => function.DisplayOrder),
-                ChildFunctions = group
+                var moduleFunctions = group.ToArray();
+                var menuParents = moduleFunctions
+                    .Where(function => function.RouteTemplate.Value == "#")
+                    .ToDictionary(function => function.Code.Value, StringComparer.OrdinalIgnoreCase);
+                var moduleParent = menuParents.Values.FirstOrDefault(function =>
+                    NormalizeCode(function.Code.Value) == NormalizeCode(group.Key));
+
+                IReadOnlyList<ApiFunctionTreeResponse> BuildChildren(string parentCode) => moduleFunctions
+                    .Where(function => string.Equals(function.MenuParentCode, parentCode, StringComparison.OrdinalIgnoreCase))
                     .OrderBy(function => function.DisplayOrder)
                     .ThenBy(function => function.Name, StringComparer.OrdinalIgnoreCase)
-                    .Select(ToResponse)
-                    .ToArray()
+                    .Select(function => ToTreeNode(function, BuildChildren))
+                    .Where(node => node is not null)
+                    .Select(node => node!)
+                    .ToArray();
+
+                var rootFunctions = new List<ApiFunctionTreeResponse>();
+                if (moduleParent is not null)
+                {
+                    rootFunctions.AddRange(BuildChildren(moduleParent.Code.Value));
+                }
+
+                rootFunctions.AddRange(moduleFunctions
+                    .Where(function => string.IsNullOrWhiteSpace(function.MenuParentCode) &&
+                        function.RouteTemplate.Value != "#" &&
+                        !ReferenceEquals(function, moduleParent))
+                    .OrderBy(function => function.DisplayOrder)
+                    .ThenBy(function => function.Name, StringComparer.OrdinalIgnoreCase)
+                    .Select(function => ToResponse(function) with
+                    {
+                        ChildFunctions = BuildChildren(function.Code.Value)
+                    }));
+
+                rootFunctions.AddRange(menuParents.Values
+                    .Where(function => function.MenuParentCode is null && !ReferenceEquals(function, moduleParent))
+                    .OrderBy(function => function.DisplayOrder)
+                    .ThenBy(function => function.Name, StringComparer.OrdinalIgnoreCase)
+                    .Select(function => ToStructuralNode(function, BuildChildren(function.Code.Value)))
+                    .Where(node => node.ChildFunctions.Count > 0));
+
+                var rootName = moduleParent?.Name ?? group.Key;
+
+                return new ApiFunctionTreeResponse
+                {
+                    FunctionCode = moduleParent?.Code.Value ?? group.Key.ToUpperInvariant(),
+                    FunctionName = rootName,
+                    Module = group.Key,
+                    Order = moduleFunctions.Min(function => function.DisplayOrder),
+                    ChildFunctions = rootFunctions
+                        .OrderBy(node => node.Order)
+                        .ThenBy(node => node.FunctionName, StringComparer.OrdinalIgnoreCase)
+                        .ToArray()
+                };
             })
             .ToArray();
 
-    private static ApiFunctionTreeResponse ToResponse(DomainApiFunction function) =>
+    private static string NormalizeCode(string value) =>
+        new(value.Where(char.IsLetterOrDigit).Select(char.ToUpperInvariant).ToArray());
+
+    private static ApiFunctionTreeResponse? ToTreeNode(
+        DomainApiFunction function,
+        Func<string, IReadOnlyList<ApiFunctionTreeResponse>> buildChildren)
+    {
+        var children = buildChildren(function.Code.Value);
+        return function.RouteTemplate.Value == "#"
+            ? children.Count == 0 ? null : ToStructuralNode(function, children)
+            : ToResponse(function) with { ChildFunctions = children };
+    }
+
+    private static ApiFunctionTreeResponse ToStructuralNode(
+        DomainApiFunction function,
+        IReadOnlyList<ApiFunctionTreeResponse> children) =>
+        new()
+        {
+            FunctionId = null,
+            FunctionCode = function.Code.Value,
+            FunctionName = function.Name,
+            Module = function.Module,
+            Description = function.Description,
+            ParentCode = function.MenuParentCode,
+            Order = function.DisplayOrder,
+            ChildFunctions = children
+        };
+
+    internal static ApiFunctionTreeResponse ToResponse(DomainApiFunction function) =>
         new()
         {
             FunctionId = function.Id,

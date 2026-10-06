@@ -1471,6 +1471,14 @@ namespace Nexora.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<DateTimeOffset?>("ActualEndedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("actualEndedAt");
+
+                    b.Property<DateTimeOffset?>("ActualStartedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("actualStartedAt");
+
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("timestamptz")
                         .HasColumnName("createdAt");

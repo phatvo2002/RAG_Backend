@@ -32,14 +32,31 @@ public sealed record RoleDetailResponse
         RoleId = roleId;
         Name = name;
         IsActive = isActive;
-        ApiFunctions = apiFunctions;
+        AssignedApiFunctions = apiFunctions;
+        Users = users;
+    }
+
+    public RoleDetailResponse(
+        Guid roleId,
+        string name,
+        bool isActive,
+        IReadOnlyCollection<ApiFunctionResponse> assignedApiFunctions,
+        IReadOnlyCollection<RoleUserResponse> users,
+        IReadOnlyList<ApiFunctionTreeResponse> apiFunctionTree)
+    {
+        RoleId = roleId;
+        Name = name;
+        IsActive = isActive;
+        ApiFunctions = apiFunctionTree;
+        AssignedApiFunctions = assignedApiFunctions;
         Users = users;
     }
 
     public Guid RoleId { get; set; }
     public string Name { get; set; } = string.Empty;
     public bool IsActive { get; set; }
-    public IReadOnlyCollection<ApiFunctionResponse> ApiFunctions { get; set; } = Array.Empty<ApiFunctionResponse>();
+    public IReadOnlyList<ApiFunctionTreeResponse> ApiFunctions { get; set; } = Array.Empty<ApiFunctionTreeResponse>();
+    public IReadOnlyCollection<ApiFunctionResponse> AssignedApiFunctions { get; set; } = Array.Empty<ApiFunctionResponse>();
     public IReadOnlyCollection<RoleUserResponse> Users { get; set; } = Array.Empty<RoleUserResponse>();
 }
 

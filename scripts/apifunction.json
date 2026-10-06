@@ -946,5 +946,77 @@
     "actionType": "ADMIN",
     "riskLevel": "HIGH",
     "requiresConfirmation": false
+  },
+  {
+    "id": "4dd00c14-877d-4c4e-845e-354e3bdc9111",
+    "code": "MEETING.LIST",
+    "module": "Meeting",
+    "name": "Xem danh sách cuộc họp",
+    "description": null,
+    "httpMethod": "GET",
+    "routeTemplate": "/api/meetings",
+    "actionType": "READ",
+    "riskLevel": "LOW",
+    "requiresConfirmation": false
+  },
+  {
+    "id": "18e6adad-b651-4d3e-b3c8-f762f716c842",
+    "code": "MEETING.GET",
+    "module": "Meeting",
+    "name": "Xem cuộc họp",
+    "description": null,
+    "httpMethod": "GET",
+    "routeTemplate": "/api/meetings/{id:guid}",
+    "actionType": "READ",
+    "riskLevel": "LOW",
+    "requiresConfirmation": false
+  },
+  {
+    "id": "70db6ab1-fc9b-48bf-991b-f0f27ab08989",
+    "code": "MEETING.CREATE",
+    "module": "Meeting",
+    "name": "Tạo cuộc họp",
+    "description": null,
+    "httpMethod": "POST",
+    "routeTemplate": "/api/meetings",
+    "actionType": "WRITE",
+    "riskLevel": "LOW",
+    "requiresConfirmation": false
+  },
+  {
+    "id": "58fdf782-8e8d-47d1-a0db-a7aa23510ec9",
+    "code": "MEETING.START",
+    "module": "Meeting",
+    "name": "Bắt đầu cuộc họp",
+    "description": null,
+    "httpMethod": "POST",
+    "routeTemplate": "/api/meetings/{id:guid}/start",
+    "actionType": "WRITE",
+    "riskLevel": "MEDIUM",
+    "requiresConfirmation": false
+  },
+  {
+    "id": "270a7074-a902-4137-972b-935955e703b7",
+    "code": "MEETING.END",
+    "module": "Meeting",
+    "name": "Kết thúc cuộc họp",
+    "description": null,
+    "httpMethod": "POST",
+    "routeTemplate": "/api/meetings/{id:guid}/end",
+    "actionType": "WRITE",
+    "riskLevel": "MEDIUM",
+    "requiresConfirmation": false
+  },
+  {
+    "id": "69612ec9-c49f-431d-ae5c-fb651b8c62e6",
+    "code": "MEETING.JOIN",
+    "module": "Meeting",
+    "name": "Tham gia cuộc họp",
+    "description": null,
+    "httpMethod": "POST",
+    "routeTemplate": "/api/meetings/{id:guid}/join-token",
+    "actionType": "READ",
+    "riskLevel": "LOW",
+    "requiresConfirmation": false
   }
 ]

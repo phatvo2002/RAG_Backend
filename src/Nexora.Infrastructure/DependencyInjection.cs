@@ -37,6 +37,9 @@ using Nexora.Infrastructure.Integrations.Embeddings;
 using Nexora.Infrastructure.Integrations.Storage;
 using Nexora.Infrastructure.Integrations.VectorStores;
 using Nexora.Infrastructure.Rag;
+using Nexora.Application.Common.Abstractions.Meetings;
+using Nexora.Infrastructure.Persistence.Repositories.Meetings;
+using Nexora.Infrastructure.Integrations.LiveKit;
 using Nexora.Infrastructure.Seed;
 
 namespace Nexora.Infrastructure;
@@ -152,6 +155,8 @@ public static class DependencyInjection
         services.AddScoped<IDocumentRetrievalStore, DocumentRepository>();
         services.AddScoped<IFolderOverviewRepository, DocumentRepository>();
         services.AddScoped<IActivityLogWriter, ActivityLogWriter>();
+        services.AddScoped<IMeetingStore, MeetingStore>();
+        services.AddHttpClient<IMeetingRoomProvider, LiveKitRoomProvider>();
         services.AddScoped<ApiFunctionSeeder>();
         services.AddScoped<IDocumentProcessingStore, DocumentProcessingStore>();
         services.AddScoped<IDocumentIngestionService, DocumentIngestionService>();

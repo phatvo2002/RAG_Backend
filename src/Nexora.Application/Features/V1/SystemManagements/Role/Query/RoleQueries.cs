@@ -53,6 +53,13 @@ public sealed class GetRoleQueryHandler(IUnitOfWork unitOfWork, IDefaultOrganiza
     private async Task<Result<RoleDetailResponse>> BuildRoleDetailAsync(ApplicationRole role, Guid roleId, CancellationToken cancellationToken)
     {
         var apiFunctions = Array.Empty<ApiFunctionResponse>();
+        var allFunctions = await unitOfWork.ApiFunctionRepository.GetAllAsync(
+            orderBy: query => query.OrderBy(function => function.Module)
+                .ThenBy(function => function.DisplayOrder)
+                .ThenBy(function => function.Name),
+            asNoTracking: true,
+            cancellationToken: cancellationToken);
+        var apiFunctionTree = ApiFunctionTreeBuilder.Build(allFunctions);
         var users = Array.Empty<RoleUserResponse>();
         var organizationId = await organizationProvider.GetOrganizationIdAsync(cancellationToken);
         if (organizationId.HasValue)
@@ -78,7 +85,13 @@ public sealed class GetRoleQueryHandler(IUnitOfWork unitOfWork, IDefaultOrganiza
             }
         }
 
-        return Result<RoleDetailResponse>.Success(new RoleDetailResponse(role.Id, role.Name ?? string.Empty, role.IsActive, apiFunctions, users));
+        return Result<RoleDetailResponse>.Success(new RoleDetailResponse(
+            role.Id,
+            role.Name ?? string.Empty,
+            role.IsActive,
+            apiFunctions,
+            users,
+            apiFunctionTree));
     }
 }
 
