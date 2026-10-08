@@ -64,6 +64,19 @@ public sealed class OrganizationMembership : AuditableEntityBase
         Status = OrganizationMembershipStatus.Suspended;
     }
 
+    public void Rejoin(DateTimeOffset joinedAt)
+    {
+        if (Status != OrganizationMembershipStatus.Removed)
+        {
+            throw new DomainException("organization_membership.invalid_rejoin", DomainMessages.OrganizationMembershipInvalidActivation);
+        }
+
+        JoinedAt = DomainGuard.Utc(joinedAt, nameof(joinedAt));
+        RemovedAt = null;
+        RemovedByUserId = null;
+        Status = OrganizationMembershipStatus.Active;
+    }
+
     public void Remove(Guid removedByUserId, DateTimeOffset removedAt)
     {
         DomainGuard.RequiredId(removedByUserId, nameof(removedByUserId));

@@ -37,10 +37,13 @@ public sealed class GetUsersQueryHandler(IUnitOfWork unitOfWork, IDefaultOrganiz
         }
 
         var rolesByUser = new Dictionary<Guid, IReadOnlyCollection<UserRoleResponse>>();
+        var organizationsByUser = new Dictionary<Guid, Guid>();
         var organizationId = await organizationProvider.GetOrganizationIdAsync(cancellationToken);
         if (organizationId.HasValue && users.Data.Count > 0)
         {
             var userIds = users.Data.Select(user => user.Id).ToArray();
+            organizationsByUser = (await unitOfWork.OrganizationMembershipRepository.GetActiveByUsersAsync(organizationId.Value, userIds, cancellationToken))
+                .ToDictionary(membership => membership.UserId, membership => membership.OrganizationId);
             var now = clock.UtcNow;
             var assignments = (await unitOfWork.OrganizationRoleAssignmentRepository.GetByUsersAsync(organizationId.Value, userIds, cancellationToken))
                 .Where(assignment => assignment.Status == OrganizationRoleAssignmentStatus.Active && assignment.ValidFrom <= now && (assignment.ExpiresAt == null || assignment.ExpiresAt > now) && assignment.RevokedAt == null)
@@ -56,11 +59,12 @@ public sealed class GetUsersQueryHandler(IUnitOfWork unitOfWork, IDefaultOrganiz
                 .ToDictionary(group => group.Key, group => (IReadOnlyCollection<UserRoleResponse>)group.Select(assignment => ToRoleResponse(assignment, roleNames[assignment.RoleId])).ToArray());
         }
 
-        var items = users.Data.Select(user => ToResponse(user, profiles.GetValueOrDefault(user.Id), rolesByUser.GetValueOrDefault(user.Id))).ToArray();
+        var items = users.Data.Select(user => ToResponse(user, profiles.GetValueOrDefault(user.Id), rolesByUser.GetValueOrDefault(user.Id),
+            organizationsByUser.TryGetValue(user.Id, out var memberOrganizationId) ? memberOrganizationId : null)).ToArray();
         return new PagedResult<UserResponse>(items, page, pageSize, users.Total);
     }
 
-    private static UserResponse ToResponse(ApplicationUser user, UserProfile? profile, IReadOnlyCollection<UserRoleResponse>? roles = null) =>
+    private static UserResponse ToResponse(ApplicationUser user, UserProfile? profile, IReadOnlyCollection<UserRoleResponse>? roles = null, Guid? organizationId = null) =>
         new(
             user.Id,
             user.Email ?? user.UserName ?? string.Empty,
@@ -70,14 +74,15 @@ public sealed class GetUsersQueryHandler(IUnitOfWork unitOfWork, IDefaultOrganiz
             profile?.DisplayName,
             profile?.PreferredLanguage.Value,
             profile?.TimeZone?.Value,
-            roles);
+            roles,
+            organizationId);
 
     private static UserRoleResponse ToRoleResponse(OrganizationRoleAssignment assignment, string roleName) => new(assignment.RoleId, roleName, assignment.Status.ToString(), assignment.ValidFrom, assignment.ExpiresAt);
 }
 
 public sealed record GetUserQuery(Guid UserId) : IQuery<Result<UserResponse>>;
 
-public sealed class GetUserQueryHandler(IUnitOfWork unitOfWork) : IRequestHandler<GetUserQuery, Result<UserResponse>>
+public sealed class GetUserQueryHandler(IUnitOfWork unitOfWork, IDefaultOrganizationProvider organizationProvider) : IRequestHandler<GetUserQuery, Result<UserResponse>>
 {
     public async Task<Result<UserResponse>> Handle(GetUserQuery request, CancellationToken cancellationToken)
     {
@@ -91,6 +96,10 @@ public sealed class GetUserQueryHandler(IUnitOfWork unitOfWork) : IRequestHandle
         }
 
         var profile = await unitOfWork.UserProfileRepository.GetByUserIdAsync(request.UserId, cancellationToken);
+        var organizationId = await organizationProvider.GetOrganizationIdAsync(cancellationToken);
+        var membership = organizationId.HasValue
+            ? (await unitOfWork.OrganizationMembershipRepository.GetActiveByUsersAsync(organizationId.Value, [request.UserId], cancellationToken)).FirstOrDefault()
+            : null;
         return Result<UserResponse>.Success(
             new UserResponse(
                 user.Id,
@@ -100,7 +109,8 @@ public sealed class GetUserQueryHandler(IUnitOfWork unitOfWork) : IRequestHandle
                 user.IsActive,
                 profile?.DisplayName,
                 profile?.PreferredLanguage.Value,
-                profile?.TimeZone?.Value));
+                profile?.TimeZone?.Value,
+                organizationId: membership?.OrganizationId));
     }
 }
 

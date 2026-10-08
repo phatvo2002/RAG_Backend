@@ -64,4 +64,19 @@ public sealed class OrganizationTests
 
         Assert.Equal("organization_membership.invalid_removed_at", exception.Code);
     }
+
+    [Fact]
+    public void OrganizationMembership_RejoinAfterRemoval_ShouldRestoreActiveMembership()
+    {
+        var membership = OrganizationMembership.Create(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Now);
+        membership.Activate(Now);
+        membership.Remove(Guid.NewGuid(), Now.AddDays(1));
+
+        membership.Rejoin(Now.AddDays(2));
+
+        Assert.Equal(OrganizationMembershipStatus.Active, membership.Status);
+        Assert.Equal(Now.AddDays(2), membership.JoinedAt);
+        Assert.Null(membership.RemovedAt);
+        Assert.Null(membership.RemovedByUserId);
+    }
 }

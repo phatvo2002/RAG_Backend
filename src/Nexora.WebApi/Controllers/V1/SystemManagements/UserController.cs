@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Nexora.Application.Features.V1.SystemManagements.User.Command;
 using Nexora.Application.Features.V1.SystemManagements.User.Model;
 using Nexora.Application.Features.V1.SystemManagements.User.Query;
+using Nexora.WebApi.Middleware;
 
 namespace Nexora.WebApi.Controllers.V1.SystemManagements;
 
@@ -45,10 +46,11 @@ public sealed class UserController(ISender sender) : ControllerBase
     public async Task<IActionResult> AssignRole(Guid userId, Guid roleId, CancellationToken cancellationToken) => this.ToActionResult(await sender.Send(new AssignUserRoleCommand(userId, roleId), cancellationToken));
 
     [HttpPut("{userId:guid}")]
+    [RequireApiFunction("USER.UPDATE")]
     [EnableRateLimiting("write")]
     public async Task<IActionResult> UpdateUser(Guid userId, [FromBody] UpdateUserRequest request, CancellationToken cancellationToken)
     {
-        var result = await sender.Send(new UpdateUserCommand(userId, request.Email, request.UserName, request.PhoneNumber, request.DisplayName, request.PreferredLanguage, request.TimeZone), cancellationToken);
+        var result = await sender.Send(new UpdateUserCommand(userId, request.Email, request.UserName, request.PhoneNumber, request.DisplayName, request.PreferredLanguage, request.TimeZone, request.OrganizationId), cancellationToken);
         return this.ToActionResult(result);
     }
 

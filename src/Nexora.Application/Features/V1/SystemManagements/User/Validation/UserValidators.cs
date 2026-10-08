@@ -29,6 +29,7 @@ public sealed class UpdateUserCommandValidator : AbstractValidator<UpdateUserCom
         RuleFor(x => x.DisplayName).NotEmpty().MaximumLength(200);
         RuleFor(x => x.PreferredLanguage).NotEmpty().MaximumLength(10);
         RuleFor(x => x.TimeZone).MaximumLength(50);
+        RuleFor(x => x.OrganizationId).NotEqual(Guid.Empty).When(x => x.OrganizationId.HasValue);
     }
 }
 

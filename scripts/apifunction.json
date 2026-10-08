@@ -876,6 +876,18 @@
     "requiresConfirmation": false
   },
   {
+    "id": "59e46ef0-77be-4591-820f-99bdd16f45a9",
+    "code": "ORGANIZATION.READ.CURRENT",
+    "module": "Organization",
+    "name": "Xem tổ chức hiện tại",
+    "description": null,
+    "httpMethod": "GET",
+    "routeTemplate": "/api/organizations/current",
+    "actionType": "READ",
+    "riskLevel": "LOW",
+    "requiresConfirmation": false
+  },
+  {
     "id": "a54d6ba2-7000-4268-f61a-166e32084c13",
     "code": "ORGANIZATION.CREATE",
     "module": "Organization",
