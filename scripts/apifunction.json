@@ -1030,5 +1030,29 @@
     "actionType": "READ",
     "riskLevel": "LOW",
     "requiresConfirmation": false
+  },
+  {
+    "id": "06f97416-72bc-4de8-8dcb-716fd14c8621",
+    "code": "MEETING.UPDATE",
+    "module": "Meeting",
+    "name": "Chỉnh sửa cuộc họp",
+    "description": null,
+    "httpMethod": "PUT",
+    "routeTemplate": "/api/meetings/{id:guid}",
+    "actionType": "WRITE",
+    "riskLevel": "MEDIUM",
+    "requiresConfirmation": false
+  },
+  {
+    "id": "5ac59c9a-ff99-4933-885d-46d6c44cce2e",
+    "code": "MEETING.ELIGIBLE_PARTICIPANTS",
+    "module": "Meeting",
+    "name": "Tìm người tham gia cuộc họp",
+    "description": null,
+    "httpMethod": "GET",
+    "routeTemplate": "/api/meetings/eligible-participants",
+    "actionType": "READ",
+    "riskLevel": "LOW",
+    "requiresConfirmation": false
   }
 ]

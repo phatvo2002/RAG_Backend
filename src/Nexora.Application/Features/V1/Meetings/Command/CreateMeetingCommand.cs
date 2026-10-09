@@ -20,8 +20,8 @@ public sealed class CreateMeetingCommandHandler(IMeetingStore store, IUserContex
             return Result<MeetingResponse>.Failure(Error.Validation("Tên hoặc thời gian cuộc họp không hợp lệ."));
 
         var participants = (request.ParticipantUserIds ?? Array.Empty<Guid>()).Append(userId).Distinct().ToArray();
-        //if (participants.Any(id => id == Guid.Empty) || !await store.AreActiveMembersAsync(organizationId, participants, cancellationToken))
-        //    return Result<MeetingResponse>.Failure(Error.Validation("Người tham gia phải là thành viên đang hoạt động của tổ chức."));
+        if (participants.Any(id => id == Guid.Empty) || !await store.AreActiveMembersAsync(organizationId, participants, cancellationToken))
+            return Result<MeetingResponse>.Failure(Error.Validation("Người tham gia phải là thành viên đang hoạt động của tổ chức."));
 
         var meeting = Meeting.Create(organizationId, userId, request.Title, request.ScheduledStart, request.ScheduledEnd, clock.UtcNow);
         store.Add(meeting, participants.Select(id => MeetingParticipant.Create(organizationId, meeting.Id, id)).ToArray());

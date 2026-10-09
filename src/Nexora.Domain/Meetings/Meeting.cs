@@ -56,6 +56,17 @@ public class Meeting : SoftDeletableEntityBase
         ActualStartedAt = now;
     }
 
+    public void ReviseScheduledDetails(string title, DateTimeOffset scheduledStart, DateTimeOffset scheduledEnd)
+    {
+        if (Status != "Scheduled") throw new InvalidOperationException("Chỉ có thể sửa cuộc họp chưa bắt đầu.");
+        if (string.IsNullOrWhiteSpace(title) || title.Length > 300 || scheduledStart >= scheduledEnd)
+            throw new ArgumentException("Thông tin cuộc họp không hợp lệ.");
+
+        Title = title.Trim();
+        ScheduledStart = scheduledStart.ToUniversalTime();
+        ScheduledEnd = scheduledEnd.ToUniversalTime();
+    }
+
     public void BeginEnding()
     {
         if (Status == "Ending") return;

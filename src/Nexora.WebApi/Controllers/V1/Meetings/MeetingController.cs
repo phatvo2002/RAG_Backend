@@ -19,10 +19,21 @@ public sealed class MeetingController(ISender sender) : BaseController
     public async Task<IActionResult> Get(Guid id, CancellationToken cancellationToken) =>
         this.ToActionResult(await sender.Send(new GetMeetingQuery(id), cancellationToken));
 
+    [HttpGet("eligible-participants")]
+    public async Task<IActionResult> EligibleParticipants([FromQuery] string? search, [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 20, CancellationToken cancellationToken = default) =>
+        this.ToActionResult(await sender.Send(new FindEligibleMeetingUsersQuery(search, page, pageSize), cancellationToken));
+
     [HttpPost]
     [EnableRateLimiting("write")]
     public async Task<IActionResult> Create([FromBody] CreateMeetingRequest request, CancellationToken cancellationToken) =>
         this.ToActionResult(await sender.Send(new CreateMeetingCommand(request.Title, request.ScheduledStart, request.ScheduledEnd, request.ParticipantUserIds), cancellationToken));
+
+    [HttpPut("{id:guid}")]
+    [EnableRateLimiting("write")]
+    public async Task<IActionResult> Update(Guid id, [FromBody] UpdateMeetingRequest request, CancellationToken cancellationToken) =>
+        this.ToActionResult(await sender.Send(new UpdateMeetingCommand(id, request.Title, request.ScheduledStart,
+            request.ScheduledEnd, request.ParticipantUserIds, request.ExpectedRowVersion), cancellationToken));
 
     [HttpPost("{id:guid}/start")]
     [EnableRateLimiting("write")]

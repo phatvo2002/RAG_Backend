@@ -18,7 +18,8 @@ public sealed class StartMeetingCommandHandler(IMeetingStore store, IMeetingRoom
         if (meeting.Status != "Scheduled") return Result<MeetingResponse>.Failure(Error.Conflict("Cuộc họp không ở trạng thái chờ."));
         await rooms.CreateAsync(meeting.RoomExternalId!, cancellationToken);
         meeting.Start(clock.UtcNow);
-        await store.SaveAsync(cancellationToken);
+        if (!await store.TrySaveUpdateAsync(cancellationToken))
+            return Result<MeetingResponse>.Failure(Error.Conflict("Cuộc họp đã thay đổi. Vui lòng thử lại."));
         return Result<MeetingResponse>.Success(MeetingResponse.FromMeeting(meeting));
     }
 }
