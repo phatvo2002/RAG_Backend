@@ -60,7 +60,7 @@ public sealed record CreateUserRequest
     {
     }
 
-    public CreateUserRequest(string email, string userName, string password, string? phoneNumber, string displayName, string preferredLanguage = "vi", string? timeZone = null)
+    public CreateUserRequest(string email, string userName, string password, string? phoneNumber, string displayName, string preferredLanguage = "en", string? timeZone = null)
     {
         Email = email;
         UserName = userName;
@@ -76,7 +76,7 @@ public sealed record CreateUserRequest
     public string Password { get; set; } = string.Empty;
     public string? PhoneNumber { get; set; }
     public string DisplayName { get; set; } = string.Empty;
-    public string PreferredLanguage { get; set; } = "vi";
+    public string PreferredLanguage { get; set; } = "en";
     public string? TimeZone { get; set; }
 }
 
@@ -86,7 +86,7 @@ public sealed record UpdateUserRequest
     {
     }
 
-    public UpdateUserRequest(string email, string userName, string? phoneNumber, string displayName, string preferredLanguage = "vi", string? timeZone = null, Guid? organizationId = null)
+    public UpdateUserRequest(string email, string userName, string? phoneNumber, string displayName, string preferredLanguage = "en", string? timeZone = null, Guid? organizationId = null)
     {
         Email = email;
         UserName = userName;
@@ -101,7 +101,7 @@ public sealed record UpdateUserRequest
     public string UserName { get; set; } = string.Empty;
     public string? PhoneNumber { get; set; }
     public string DisplayName { get; set; } = string.Empty;
-    public string PreferredLanguage { get; set; } = "vi";
+    public string PreferredLanguage { get; set; } = "en";
     public string? TimeZone { get; set; }
     public Guid? OrganizationId { get; set; }
 }

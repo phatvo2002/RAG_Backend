@@ -80,7 +80,7 @@ internal sealed class UserProfileConfiguration : IEntityTypeConfiguration<UserPr
             .HasColumnName("preferredLanguage")
             .HasConversion(x => x.Value, x => LanguageCode.Create(x))
             .HasMaxLength(10)
-            .HasDefaultValue(LanguageCode.Create("vi"))
+            .HasDefaultValue(LanguageCode.Create("en"))
             .IsRequired();
         builder.Property(x => x.TimeZone)
             .HasColumnName("timeZone")
@@ -195,7 +195,7 @@ internal sealed class OrganizationSettingConfiguration : IEntityTypeConfiguratio
             .HasColumnName("defaultLanguage")
             .HasConversion(x => x.Value, x => LanguageCode.Create(x))
             .HasMaxLength(10)
-            .HasDefaultValue(LanguageCode.Create("vi"))
+            .HasDefaultValue(LanguageCode.Create("en"))
             .IsRequired();
         builder.Property(x => x.TimeZone)
             .HasColumnName("timeZone")

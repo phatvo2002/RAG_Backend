@@ -2047,7 +2047,7 @@ namespace Nexora.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)")
-                        .HasDefaultValue("vi")
+                        .HasDefaultValue("en")
                         .HasColumnName("defaultLanguage");
 
                     b.Property<Guid>("OrganizationId")
@@ -2125,7 +2125,7 @@ namespace Nexora.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAdd()
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)")
-                        .HasDefaultValue("vi")
+                        .HasDefaultValue("en")
                         .HasColumnName("preferredLanguage");
 
                     b.Property<long>("RowVersion")

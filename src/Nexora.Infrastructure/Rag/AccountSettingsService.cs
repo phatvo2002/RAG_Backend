@@ -30,7 +30,7 @@ public sealed class AccountSettingsService(
         var user = await db.Users.AsNoTracking().SingleAsync(x => x.Id == id && x.IsActive, ct);
         var profile = await db.UserProfiles.AsNoTracking().SingleOrDefaultAsync(x => x.UserId == id, ct);
         return new AccountProfileDto(user.Email ?? "", user.UserName ?? "", profile?.DisplayName ?? user.UserName ?? "",
-            profile?.PreferredLanguage.Value ?? "vi", profile?.TimeZone?.Value);
+            profile?.PreferredLanguage.Value ?? "en", profile?.TimeZone?.Value);
     }
 
     public async Task<AccountProfileDto> UpdateProfileAsync(string displayName, string preferredLanguage, string? timeZone, CancellationToken ct)

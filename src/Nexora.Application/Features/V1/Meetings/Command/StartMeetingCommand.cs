@@ -16,8 +16,11 @@ public sealed class StartMeetingCommandHandler(IMeetingStore store, IMeetingRoom
         var meeting = await MeetingHostAccess.GetForHostAsync(store, user, tenant, request.MeetingId, cancellationToken);
         if (meeting is null) return Result<MeetingResponse>.Failure(Error.Forbidden("Không có quyền bắt đầu cuộc họp."));
         if (meeting.Status != "Scheduled") return Result<MeetingResponse>.Failure(Error.Conflict("Cuộc họp không ở trạng thái chờ."));
+        var now = clock.UtcNow;
+        if (meeting.ScheduledEnd <= now)
+            return Result<MeetingResponse>.Failure(Error.Conflict("Cuộc họp đã quá thời gian dự kiến. Vui lòng cập nhật lịch họp."));
+        meeting.Start(now);
         await rooms.CreateAsync(meeting.RoomExternalId!, cancellationToken);
-        meeting.Start(clock.UtcNow);
         if (!await store.TrySaveUpdateAsync(cancellationToken))
             return Result<MeetingResponse>.Failure(Error.Conflict("Cuộc họp đã thay đổi. Vui lòng thử lại."));
         return Result<MeetingResponse>.Success(MeetingResponse.FromMeeting(meeting));

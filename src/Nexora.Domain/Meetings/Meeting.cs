@@ -52,6 +52,7 @@ public class Meeting : SoftDeletableEntityBase
     public void Start(DateTimeOffset now)
     {
         if (Status != "Scheduled") throw new InvalidOperationException("Cuộc họp không ở trạng thái chờ.");
+        if (ScheduledEnd <= now) throw new InvalidOperationException("Cuộc họp đã quá thời gian dự kiến.");
         Status = "Live";
         ActualStartedAt = now;
     }
