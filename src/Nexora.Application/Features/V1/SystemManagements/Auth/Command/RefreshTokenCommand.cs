@@ -25,18 +25,7 @@ public sealed class RefreshTokenCommandHandler(IAuthTokenService authTokenServic
                     new Error(CommonMessages.ErrorCodes.InvalidRefreshToken, CommonMessages.Auth.InvalidRefreshToken));
             }
 
-            var userEntity = await unitOfWork.UserRepository.GetAsync(
-                user => user.Id == tokenSet.UserId && user.IsActive,
-                asNoTracking: true,
-                cancellationToken: cancellationToken);
-            var user = userEntity is null
-                ? null
-                : new IdentityUserSnapshot(
-                    userEntity.Id,
-                    userEntity.Email ?? userEntity.UserName ?? string.Empty,
-                    userEntity.UserName ?? userEntity.Email ?? string.Empty,
-                    userEntity.PhoneNumber,
-                    userEntity.IsActive);
+            var user = await unitOfWork.UserRepository.GetActiveByIdAsync(tokenSet.UserId, cancellationToken);
             if (user is null)
             {
                 return Result<AuthResponse>.Failure(

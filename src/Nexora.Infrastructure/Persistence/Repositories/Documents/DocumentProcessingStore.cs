@@ -1,3 +1,4 @@
+using Nexora.Application.Common.Abstractions.Documents;
 using Microsoft.EntityFrameworkCore;
 using Nexora.Application.Common.Abstractions;
 using Nexora.Application.Common.Abstractions.Rag;

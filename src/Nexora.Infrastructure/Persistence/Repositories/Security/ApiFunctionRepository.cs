@@ -5,7 +5,7 @@ using Nexora.Domain.Authorization;
 using Nexora.Domain.Authorization.Enums;
 using Nexora.Domain.Common.ValueObjects;
 using Nexora.Domain.Organizations.Enums;
-using Nexora.Infrastructure.Identity;
+using Nexora.Infrastructure.Services.Identity;
 
 namespace Nexora.Infrastructure.Persistence.Repositories;
 

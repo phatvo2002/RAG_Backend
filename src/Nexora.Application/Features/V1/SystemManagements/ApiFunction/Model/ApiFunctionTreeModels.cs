@@ -54,6 +54,10 @@ public static class ApiFunctionTreeBuilder
                 {
                     rootFunctions.AddRange(BuildChildren(moduleParent.Code.Value));
                 }
+                else
+                {
+                    rootFunctions.AddRange(BuildChildren(group.Key.ToUpperInvariant()));
+                }
 
                 rootFunctions.AddRange(moduleFunctions
                     .Where(function => string.IsNullOrWhiteSpace(function.MenuParentCode) &&

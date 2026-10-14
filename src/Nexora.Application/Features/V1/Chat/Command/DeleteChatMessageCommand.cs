@@ -5,7 +5,7 @@ namespace Nexora.Application.Features.V1.Chat.Command;
 
 public sealed record DeleteChatMessageCommand(Guid ConversationId, Guid MessageId) : IRequest<bool>;
 
-public sealed class DeleteChatMessageCommandHandler(IChatService chatService)
+public sealed class DeleteChatMessageCommandHandler(IChatWorkflow chatService)
     : IRequestHandler<DeleteChatMessageCommand, bool>
 {
     public Task<bool> Handle(DeleteChatMessageCommand request, CancellationToken cancellationToken) =>

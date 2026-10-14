@@ -4,16 +4,19 @@ using Microsoft.Extensions.Options;
 using Nexora.Application.Common.Abstractions;
 using Nexora.Application.Common.Abstractions.Rag;
 using Nexora.Application.Features.V1.Chat.Model;
+using Nexora.Application.Features.V1.Chat;
+using Nexora.Application.Features.V1.Chat.Query;
+using Nexora.Application.Features.V1.Chat.Command;
 using Nexora.Application.Features.V1.Rag.Retrieval.Model;
-using Nexora.Infrastructure.Options;
+using Nexora.Infrastructure.Services.Rag;
 using Nexora.Infrastructure.Persistence;
-using Nexora.Infrastructure.Rag;
+using Nexora.Infrastructure.Persistence.Repositories.Chat;
 using Nexora.Domain.Organizations;
 using Nexora.Domain.Security;
 
 namespace Nexora.Tests.Rag;
 
-public sealed class ChatServiceTests
+public sealed class ChatStoreTests
 {
     private static readonly Guid OrganizationId = Guid.NewGuid();
     private static readonly Guid OwnerId = Guid.NewGuid();
@@ -69,7 +72,7 @@ public sealed class ChatServiceTests
         await service.CompleteTurnAsync(first, "No source", [], true, default);
         Assert.True(await service.DeleteMessageAsync(first.ConversationId, first.RequestMessageId, default));
         var second = await service.StartTurnAsync(first.ConversationId, "Follow up", "gemini", Guid.NewGuid(), default);
-        var history = await service.PromptHistoryAsync(second.ConversationId, second.RequestMessageId, default);
+        var history = await PromptHistoryAsync(service, second.ConversationId, second.RequestMessageId);
         Assert.DoesNotContain(history, x => x.Content == "Private question");
         Assert.DoesNotContain(await service.ListMessagesAsync(first.ConversationId, null, default), x => x.Id == first.RequestMessageId);
     }
@@ -93,7 +96,7 @@ public sealed class ChatServiceTests
         var second = await service.StartTurnAsync(first.ConversationId, "Any update?", "claude", Guid.NewGuid(), default);
         Assert.Equal("Gemini", db.AiTurns.IgnoreQueryFilters().Single(x => x.Id == first.TurnId).ModelProvider);
         Assert.Equal("Claude", db.AiTurns.IgnoreQueryFilters().Single(x => x.Id == second.TurnId).ModelProvider);
-        var history = await service.PromptHistoryAsync(first.ConversationId, second.RequestMessageId, default);
+        var history = await PromptHistoryAsync(service, first.ConversationId, second.RequestMessageId);
         Assert.DoesNotContain(history, x => x.Content.Contains("director is named"));
     }
 
@@ -101,10 +104,12 @@ public sealed class ChatServiceTests
     public async Task Revoked_source_before_completion_prevents_persisting_answer()
     {
         using var db = CreateDatabase();
-        var service = CreateService(db, OwnerId, new FakeAccess());
+        var access = new FakeAccess();
+        var service = CreateService(db, OwnerId, access);
         var turn = await service.StartTurnAsync(null, "Question", "gemini", Guid.NewGuid(), default);
         var source = new RetrievedChunkResponse(Guid.NewGuid(), Guid.NewGuid(), "file.pdf", "excerpt", 0.9f, 1, null, null);
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => service.CompleteTurnAsync(turn, "Answer", [source], false, default));
+        var handler = new CompleteChatTurnCommandHandler(service, access, new FakeOrganization(), new FakeUser(OwnerId), new FixedClock());
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => handler.Handle(new CompleteChatTurnCommand(turn, "Answer", [source], false), default));
         Assert.Single(db.Messages.IgnoreQueryFilters());
     }
 
@@ -155,15 +160,18 @@ public sealed class ChatServiceTests
         db.SaveChanges();
     }
 
-    private static ChatService CreateService(NexoraDbContext db, Guid userId, FakeAccess access)
+    private static ChatWorkflow CreateService(NexoraDbContext db, Guid userId, FakeAccess access)
     {
         var options = Options.Create(new ChatOptions
         {
             EncryptionKeyBase64 = Convert.ToBase64String(Enumerable.Range(0, 32).Select(x => (byte)x).ToArray()),
         });
-        return new ChatService(db, new FakeOrganization(), new FakeUser(userId), access, new FixedClock(),
+        return new ChatWorkflow(new ChatStore(db), new FakeOrganization(), new FakeUser(userId), access, new FixedClock(),
             new ChatCipher(options), new ChatModelStreamer(new HttpClient(), options));
     }
+
+    private static Task<IReadOnlyList<ChatPromptMessage>> PromptHistoryAsync(ChatWorkflow store, Guid conversationId, Guid requestMessageId) =>
+        new GetChatPromptHistoryQueryHandler(store).Handle(new GetChatPromptHistoryQuery(conversationId, requestMessageId), default);
 
     private sealed class FakeOrganization : IDefaultOrganizationProvider
     {

@@ -8,7 +8,6 @@ using Nexora.Application.Common.Results;
 using Nexora.Application.Features.V1.SystemManagements.User.Model;
 using Nexora.Domain.Organizations;
 using Nexora.Domain.Organizations.Enums;
-using Nexora.Infrastructure.Identity;
 
 namespace Nexora.Application.Features.V1.SystemManagements.User.Query;
 
@@ -20,12 +19,7 @@ public sealed class GetUsersQueryHandler(IUnitOfWork unitOfWork, IDefaultOrganiz
     {
         var page = request.Page < 1 ? 1 : request.Page;
         var pageSize = request.PageSize is < 1 or > 100 ? 20 : request.PageSize;
-        var users = await unitOfWork.UserRepository.PaginationAsync(
-            page,
-            pageSize,
-            orderBy: query => query.OrderBy(user => user.Email),
-            asNoTracking: true,
-            cancellationToken: cancellationToken);
+        var users = await unitOfWork.UserRepository.ListPageAsync(page, pageSize, cancellationToken);
         var profiles = new Dictionary<Guid, UserProfile>();
         foreach (var user in users.Data)
         {
@@ -49,9 +43,7 @@ public sealed class GetUsersQueryHandler(IUnitOfWork unitOfWork, IDefaultOrganiz
                 .Where(assignment => assignment.Status == OrganizationRoleAssignmentStatus.Active && assignment.ValidFrom <= now && (assignment.ExpiresAt == null || assignment.ExpiresAt > now) && assignment.RevokedAt == null)
                 .ToArray();
             var roleIds = assignments.Select(assignment => assignment.RoleId).Distinct().ToArray();
-            var roles = roleIds.Length == 0
-                ? new List<ApplicationRole>()
-                : await unitOfWork.RoleRepository.GetAllAsync(role => roleIds.Contains(role.Id), orderBy: query => query.OrderBy(role => role.Name), asNoTracking: true, cancellationToken: cancellationToken);
+            var roles = await unitOfWork.RoleRepository.GetByIdsAsync(roleIds, cancellationToken);
             var roleNames = roles.ToDictionary(role => role.Id, role => role.Name ?? string.Empty);
             rolesByUser = assignments
                 .Where(assignment => roleNames.ContainsKey(assignment.RoleId))
@@ -64,7 +56,7 @@ public sealed class GetUsersQueryHandler(IUnitOfWork unitOfWork, IDefaultOrganiz
         return new PagedResult<UserResponse>(items, page, pageSize, users.Total);
     }
 
-    private static UserResponse ToResponse(ApplicationUser user, UserProfile? profile, IReadOnlyCollection<UserRoleResponse>? roles = null, Guid? organizationId = null) =>
+    private static UserResponse ToResponse(IdentityUserSnapshot user, UserProfile? profile, IReadOnlyCollection<UserRoleResponse>? roles = null, Guid? organizationId = null) =>
         new(
             user.Id,
             user.Email ?? user.UserName ?? string.Empty,
@@ -86,10 +78,7 @@ public sealed class GetUserQueryHandler(IUnitOfWork unitOfWork, IDefaultOrganiza
 {
     public async Task<Result<UserResponse>> Handle(GetUserQuery request, CancellationToken cancellationToken)
     {
-        var user = await unitOfWork.UserRepository.GetAsync(
-            item => item.Id == request.UserId,
-            asNoTracking: true,
-            cancellationToken: cancellationToken);
+        var user = await unitOfWork.UserRepository.GetByIdAsync(request.UserId, cancellationToken);
         if (user is null)
         {
             return Result<UserResponse>.Failure(Error.NotFound(CommonMessages.User.NotFound));
@@ -136,7 +125,7 @@ public sealed class GetUserRolesQueryHandler(IUnitOfWork unitOfWork, IDefaultOrg
             return Array.Empty<UserRoleResponse>();
         }
 
-        var roles = await unitOfWork.RoleRepository.GetAllAsync(role => roleIds.Contains(role.Id), orderBy: query => query.OrderBy(role => role.Name), asNoTracking: true, cancellationToken: cancellationToken);
+        var roles = await unitOfWork.RoleRepository.GetByIdsAsync(roleIds, cancellationToken);
         var roleNames = roles.ToDictionary(role => role.Id, role => role.Name ?? string.Empty);
         return assignments.Where(assignment => roleNames.ContainsKey(assignment.RoleId)).Select(assignment => new UserRoleResponse(assignment.RoleId, roleNames[assignment.RoleId], assignment.Status.ToString(), assignment.ValidFrom, assignment.ExpiresAt)).ToArray();
     }

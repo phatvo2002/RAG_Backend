@@ -34,10 +34,7 @@ public sealed class CreateDepartmentCommandHandler(IUnitOfWork unitOfWork, IDefa
 
         if (request.ManagerUserId.HasValue)
         {
-            var manager = await unitOfWork.UserRepository.GetAsync(
-                user => user.Id == request.ManagerUserId.Value,
-                asNoTracking: true,
-                cancellationToken: cancellationToken);
+            var manager = await unitOfWork.UserRepository.GetByIdAsync(request.ManagerUserId.Value, cancellationToken);
             if (manager is null || !manager.IsActive)
             {
                 return Result<DepartmentResponse>.Failure(Error.NotFound(CommonMessages.Department.ManagerNotFoundOrInactive));

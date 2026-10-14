@@ -21,14 +21,8 @@ public sealed class AssignUserRoleCommandHandler(IUnitOfWork unitOfWork, IDefaul
         }
 
         var organizationId = await organizationProvider.GetOrganizationIdAsync(cancellationToken);
-        var user = await unitOfWork.UserRepository.GetAsync(
-            item => item.Id == request.UserId,
-            asNoTracking: true,
-            cancellationToken: cancellationToken);
-        var role = await unitOfWork.RoleRepository.GetAsync(
-            item => item.Id == request.RoleId,
-            asNoTracking: true,
-            cancellationToken: cancellationToken);
+        var user = await unitOfWork.UserRepository.GetByIdAsync(request.UserId, cancellationToken);
+        var role = await unitOfWork.RoleRepository.GetByIdAsync(request.RoleId, cancellationToken);
         if (!organizationId.HasValue || user is null || role is null)
         {
             return Result.Failure(Error.NotFound(CommonMessages.User.RoleOrOrganizationNotFound));

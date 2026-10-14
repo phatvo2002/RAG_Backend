@@ -23,8 +23,8 @@ public sealed class GetActivityLogsQueryHandler(IUnitOfWork unitOfWork) : IReque
             cancellationToken: cancellationToken);
         var actorIds = logs.Data.Where(log => log.ActorUserId.HasValue).Select(log => log.ActorUserId.GetValueOrDefault()).Distinct().ToArray();
         var actorNames = actorIds.Length == 0
-            ? new Dictionary<Guid, string?>()
-            : (await unitOfWork.UserRepository.GetAllAsync(user => actorIds.Contains(user.Id), asNoTracking: true, cancellationToken: cancellationToken)).ToDictionary(user => user.Id, user => user.UserName);
+            ? new Dictionary<Guid, string>()
+            : (await unitOfWork.UserRepository.GetByIdsAsync(actorIds, cancellationToken)).ToDictionary(user => user.Id, user => user.UserName);
 
         var items = logs.Data.Select(log => new ActivityLogResponse(
             log.Id,

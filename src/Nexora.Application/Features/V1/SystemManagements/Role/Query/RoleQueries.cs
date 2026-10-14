@@ -7,7 +7,6 @@ using Nexora.Application.Common.Messaging;
 using Nexora.Application.Common.Results;
 using Nexora.Application.Features.V1.SystemManagements.ApiFunction.Model;
 using Nexora.Application.Features.V1.SystemManagements.Role.Model;
-using Nexora.Infrastructure.Identity;
 
 namespace Nexora.Application.Features.V1.SystemManagements.Role.Query;
 
@@ -19,12 +18,7 @@ public sealed class GetRolesQueryHandler(IUnitOfWork unitOfWork) : IRequestHandl
     {
         var page = request.Page < 1 ? 1 : request.Page;
         var pageSize = request.PageSize is < 1 or > 100 ? 20 : request.PageSize;
-        var roles = await unitOfWork.RoleRepository.PaginationAsync(
-            page,
-            pageSize,
-            orderBy: query => query.OrderBy(role => role.Name),
-            asNoTracking: true,
-            cancellationToken: cancellationToken);
+        var roles = await unitOfWork.RoleRepository.ListPageAsync(page, pageSize, cancellationToken);
 
         return new PagedResult<RoleResponse>(
             roles.Data.Select(role => new RoleResponse(role.Id, role.Name ?? string.Empty, role.IsActive)).ToArray(),
@@ -40,17 +34,14 @@ public sealed class GetRoleQueryHandler(IUnitOfWork unitOfWork, IDefaultOrganiza
 {
     public async Task<Result<RoleDetailResponse>> Handle(GetRoleQuery request, CancellationToken cancellationToken)
     {
-        var role = await unitOfWork.RoleRepository.GetAsync(
-            item => item.Id == request.RoleId,
-            asNoTracking: true,
-            cancellationToken: cancellationToken);
+        var role = await unitOfWork.RoleRepository.GetByIdAsync(request.RoleId, cancellationToken);
 
         return role is null
             ? Result<RoleDetailResponse>.Failure(Error.NotFound(CommonMessages.Role.NotFound))
             : await BuildRoleDetailAsync(role, request.RoleId, cancellationToken);
     }
 
-    private async Task<Result<RoleDetailResponse>> BuildRoleDetailAsync(ApplicationRole role, Guid roleId, CancellationToken cancellationToken)
+    private async Task<Result<RoleDetailResponse>> BuildRoleDetailAsync(IdentityRoleSnapshot role, Guid roleId, CancellationToken cancellationToken)
     {
         var apiFunctions = Array.Empty<ApiFunctionResponse>();
         var allFunctions = await unitOfWork.ApiFunctionRepository.GetAllAsync(

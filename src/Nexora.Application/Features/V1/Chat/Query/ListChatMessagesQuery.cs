@@ -6,7 +6,7 @@ namespace Nexora.Application.Features.V1.Chat.Query;
 
 public sealed record ListChatMessagesQuery(Guid ConversationId, int? BeforeSequenceNo) : IRequest<IReadOnlyList<ChatMessageDto>>;
 
-public sealed class ListChatMessagesQueryHandler(IChatService chatService)
+public sealed class ListChatMessagesQueryHandler(IChatWorkflow chatService)
     : IRequestHandler<ListChatMessagesQuery, IReadOnlyList<ChatMessageDto>>
 {
     public Task<IReadOnlyList<ChatMessageDto>> Handle(ListChatMessagesQuery request, CancellationToken cancellationToken) =>

@@ -12,7 +12,7 @@ using Nexora.Domain.Projects;
 using Nexora.Domain.Rag;
 using Nexora.Domain.Security;
 using TaskEntity = Nexora.Domain.Tasks.Task;
-using Nexora.Infrastructure.Identity;
+using Nexora.Infrastructure.Services.Identity;
 
 namespace Nexora.Infrastructure.Persistence;
 
@@ -95,6 +95,8 @@ public sealed class NexoraDbContext : IdentityDbContext<ApplicationUser, Applica
 
     public DbSet<MeetingParticipant> MeetingParticipants => Set<MeetingParticipant>();
 
+    public DbSet<MeetingTranscriptSegment> MeetingTranscriptSegments => Set<MeetingTranscriptSegment>();
+
     public DbSet<TaskEntity> Tasks => Set<TaskEntity>();
 
     public DbSet<CalendarEvent> CalendarEvents => Set<CalendarEvent>();
@@ -144,6 +146,7 @@ public sealed class NexoraDbContext : IdentityDbContext<ApplicationUser, Applica
         builder.Entity<Citation>().HasQueryFilter(x => x.OrganizationId == TenantOrganizationId);
         builder.Entity<Meeting>().HasQueryFilter(x => x.OrganizationId == TenantOrganizationId && x.DeletedAt == null);
         builder.Entity<MeetingParticipant>().HasQueryFilter(x => x.OrganizationId == TenantOrganizationId);
+        builder.Entity<MeetingTranscriptSegment>().HasQueryFilter(x => x.OrganizationId == TenantOrganizationId);
         builder.Entity<TaskEntity>().HasQueryFilter(x => x.OrganizationId == TenantOrganizationId && x.DeletedAt == null);
         builder.Entity<CalendarEvent>().HasQueryFilter(x => x.OrganizationId == TenantOrganizationId && x.DeletedAt == null);
     }

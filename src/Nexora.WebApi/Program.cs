@@ -7,7 +7,8 @@ using Nexora.WebApi;
 using Nexora.WebApi.Middleware;
 using Nexora.WebApi.Responses;
 using Nexora.WebApi.RateLimiting;
-using Nexora.Infrastructure.Seed;
+using Nexora.WebApi.Authentication;
+using Nexora.Infrastructure.Persistence.Seeding;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -81,6 +82,9 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddAuthentication().AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions,
+    MeetingAgentAuthenticationHandler>(MeetingAgentAuthenticationHandler.SchemeName, _ => { });
+builder.Services.AddAuthorization();
 builder.Services.AddNexoraRateLimiting();
 
 var app = builder.Build();
@@ -126,6 +130,7 @@ app.UseSwaggerUI(options => { options.SwaggerEndpoint("/swagger/v1/swagger.json"
 app.UseRouting();
 app.UseCors("Frontend");
 app.UseAuthentication();
+app.UseAuthorization();
 app.UseRateLimiter();
 app.UseMiddleware<JwtAuthenticationMiddleware>();
 app.UseMiddleware<ApiPermissionMiddleware>();

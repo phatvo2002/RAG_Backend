@@ -4,7 +4,7 @@ using Nexora.Domain.Calendar;
 using Nexora.Domain.Meetings;
 using Nexora.Domain.Organizations;
 using Nexora.Domain.Projects;
-using Nexora.Infrastructure.Identity;
+using Nexora.Infrastructure.Services.Identity;
 
 namespace Nexora.Infrastructure.Persistence.Configurations;
 

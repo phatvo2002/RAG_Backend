@@ -16,6 +16,7 @@ public class IdentityUserSnapshot
     }
 
     public Guid UserId { get; set; }
+    public Guid Id => UserId;
     public string Email { get; set; } = string.Empty;
     public string UserName { get; set; } = string.Empty;
     public string? PhoneNumber { get; set; }
@@ -36,6 +37,7 @@ public class IdentityRoleSnapshot
     }
 
     public Guid RoleId { get; set; }
+    public Guid Id => RoleId;
     public string Name { get; set; } = string.Empty;
     public bool IsActive { get; set; }
 }

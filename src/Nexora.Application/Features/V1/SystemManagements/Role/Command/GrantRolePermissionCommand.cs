@@ -22,10 +22,7 @@ public sealed class GrantRolePermissionCommandHandler(IUnitOfWork unitOfWork, ID
         }
 
         var organizationId = await organizationProvider.GetOrganizationIdAsync(cancellationToken);
-        var role = await unitOfWork.RoleRepository.GetAsync(
-            item => item.Id == request.RoleId,
-            asNoTracking: true,
-            cancellationToken: cancellationToken);
+        var role = await unitOfWork.RoleRepository.GetByIdAsync(request.RoleId, cancellationToken);
         var function = await unitOfWork.ApiFunctionRepository.GetByCodeAsync(request.FunctionCode, cancellationToken);
         if (!organizationId.HasValue || role is null || !role.IsActive || function is null)
         {

@@ -8,7 +8,7 @@ namespace Nexora.Application.Features.V1.Meetings.Query;
 
 public sealed record GetMeetingQuery(Guid MeetingId) : IRequest<Result<MeetingDetailResponse>>;
 
-public sealed class GetMeetingQueryHandler(IMeetingStore store, IUserContext user, ITenantContext tenant) :
+public sealed class GetMeetingQueryHandler(IMeetingStore store, IMeetingTranscriptStore transcripts, IUserContext user, ITenantContext tenant) :
     IRequestHandler<GetMeetingQuery, Result<MeetingDetailResponse>>
 {
     public async Task<Result<MeetingDetailResponse>> Handle(GetMeetingQuery request, CancellationToken cancellationToken)
@@ -20,6 +20,7 @@ public sealed class GetMeetingQueryHandler(IMeetingStore store, IUserContext use
         if (!await store.IsParticipantAsync(organizationId, meeting.Id, userId, cancellationToken))
             return Result<MeetingDetailResponse>.Failure(Error.Forbidden("Không có quyền xem cuộc họp."));
         var participants = await store.GetParticipantUsersAsync(organizationId, meeting.Id, cancellationToken);
-        return Result<MeetingDetailResponse>.Success(MeetingDetailResponse.FromMeeting(meeting, participants));
+        var language = await transcripts.GetMyLanguageAsync(organizationId, meeting.Id, userId, cancellationToken);
+        return Result<MeetingDetailResponse>.Success(MeetingDetailResponse.FromMeeting(meeting, participants) with { MySourceLanguage = language });
     }
 }

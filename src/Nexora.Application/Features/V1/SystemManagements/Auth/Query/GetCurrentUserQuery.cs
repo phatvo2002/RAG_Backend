@@ -28,10 +28,7 @@ public sealed class GetCurrentUserQueryHandler(
                 Error.Unauthorized(CommonMessages.Auth.LoginRequiredToViewCurrentUser));
         }
 
-        var user = await unitOfWork.UserRepository.GetAsync(
-            item => item.Id == userContext.UserId.Value && item.IsActive,
-            asNoTracking: true,
-            cancellationToken: cancellationToken);
+        var user = await unitOfWork.UserRepository.GetActiveByIdAsync(userContext.UserId.Value, cancellationToken);
         if (user is null)
         {
             return Result<CurrentUserResponse>.Failure(

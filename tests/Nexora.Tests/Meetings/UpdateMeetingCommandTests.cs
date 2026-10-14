@@ -167,6 +167,7 @@ public sealed class UpdateMeetingCommandTests
         public Task CreateAsync(string roomName, CancellationToken cancellationToken) => Task.CompletedTask;
         public Task DeleteAsync(string roomName, CancellationToken cancellationToken) => Task.CompletedTask;
         public MeetingJoinToken IssueToken(string roomName, Guid userId) => throw new NotImplementedException();
+        public MeetingJoinToken IssueTranscriptWorkerToken(string roomName, Guid meetingId) => throw new NotImplementedException();
     }
 
     private sealed class FakeMeetingStore(Meeting meeting, params Guid[] eligibleIds) : IMeetingStore

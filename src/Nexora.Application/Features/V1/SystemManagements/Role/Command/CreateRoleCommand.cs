@@ -5,7 +5,6 @@ using Nexora.Application.Common.Constants;
 using Nexora.Application.Common.Messaging;
 using Nexora.Application.Common.Results;
 using Nexora.Application.Features.V1.SystemManagements.Role.Model;
-using Nexora.Infrastructure.Identity;
 
 namespace Nexora.Application.Features.V1.SystemManagements.Role.Command;
 
@@ -17,26 +16,12 @@ public sealed class CreateRoleCommandHandler(IUnitOfWork unitOfWork) : IRequestH
     {
         var name = request.Name.Trim();
         var normalizedName = name.ToUpperInvariant();
-        var existingRole = await unitOfWork.RoleRepository.GetAsync(
-            role => role.NormalizedName == normalizedName,
-            asNoTracking: true,
-            cancellationToken: cancellationToken);
-
-        if (existingRole is not null)
+        if (await unitOfWork.RoleRepository.ExistsWithNormalizedNameAsync(normalizedName, null, cancellationToken))
         {
             return Result<RoleResponse>.Failure(Error.Conflict(CommonMessages.Role.CannotCreate));
         }
 
-        var role = new ApplicationRole
-        {
-            Id = Guid.NewGuid(),
-            Name = name,
-            NormalizedName = normalizedName,
-            IsActive = true,
-            ConcurrencyStamp = Guid.NewGuid().ToString()
-        };
-
-        unitOfWork.RoleRepository.Insert(role);
+        var role = unitOfWork.RoleRepository.Create(name, normalizedName);
         return Result<RoleResponse>.Success(new RoleResponse(role.Id, role.Name, role.IsActive));
     }
 }

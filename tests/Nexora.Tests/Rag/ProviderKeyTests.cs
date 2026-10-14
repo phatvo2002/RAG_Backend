@@ -5,10 +5,13 @@ using Nexora.Domain.Organizations;
 using Nexora.Domain.Security;
 using Microsoft.Extensions.Options;
 using Nexora.Application.Common.Abstractions;
-using Nexora.Infrastructure.Options;
+using Nexora.Application.Features.V1.Account;
+using Nexora.Application.Features.V1.Account.Model;
+using Nexora.Infrastructure.Services.Authentication;
+using Nexora.Infrastructure.Services.Identity;
+using Nexora.Infrastructure.Services.Rag;
 using Nexora.Infrastructure.Persistence;
-using Nexora.Infrastructure.Rag;
-using Nexora.Infrastructure.Identity;
+using Nexora.Infrastructure.Persistence.Repositories.Identity;
 
 namespace Nexora.Tests.Rag;
 
@@ -133,4 +136,35 @@ public sealed class ProviderKeyTests
             modelBuilder.Entity<ActivityLog>().Ignore(x => x.MetadataJson);
         }
     }
+}
+
+internal sealed class AccountSettingsService
+{
+    private readonly AccountSettingsStore store;
+    private readonly IUserContext user;
+    private readonly IClock clock;
+    private readonly ProviderKeyCipher cipher;
+    private readonly ProviderKeyOptions options;
+
+    public AccountSettingsService(NexoraDbContext db, IUserContext user, IClock clock, ProviderKeyCipher cipher, IOptions<ProviderKeyOptions> options)
+    {
+        store = new AccountSettingsStore(db);
+        this.user = user;
+        this.clock = clock;
+        this.cipher = cipher;
+        this.options = options.Value;
+    }
+
+    public Task<AccountProfileDto> GetProfileAsync(CancellationToken ct) =>
+        new GetAccountProfileQueryHandler(store, user).Handle(new GetAccountProfileQuery(), ct);
+    public Task<AccountProfileDto> UpdateProfileAsync(string name, string language, string? zone, CancellationToken ct) =>
+        new UpdateAccountProfileCommandHandler(store, user, clock).Handle(new UpdateAccountProfileCommand(name, language, zone), ct);
+    public Task<ProviderKeySettingsDto> ListKeysAsync(CancellationToken ct) =>
+        new GetProviderKeysQueryHandler(store, user, cipher, options).Handle(new GetProviderKeysQuery(), ct);
+    public Task<ProviderKeyStatusDto?> SaveKeyAsync(string provider, string key, string? endpoint, CancellationToken ct) =>
+        new SaveProviderKeyCommandHandler(store, user, cipher, options, clock).Handle(new SaveProviderKeyCommand(provider, key, endpoint), ct);
+    public Task<bool> DeleteKeyAsync(string provider, CancellationToken ct) =>
+        new DeleteProviderKeyCommandHandler(store, user).Handle(new DeleteProviderKeyCommand(provider), ct);
+    public Task<Nexora.Application.Features.V1.Chat.Model.ProviderCredential?> GetCredentialAsync(string provider, CancellationToken ct) =>
+        new GetProviderCredentialQueryHandler(store, user, cipher, options, clock).Handle(new GetProviderCredentialQuery(provider), ct);
 }

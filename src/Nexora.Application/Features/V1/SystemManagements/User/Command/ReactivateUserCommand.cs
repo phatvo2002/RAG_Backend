@@ -12,18 +12,13 @@ public sealed class ReactivateUserCommandHandler(IUnitOfWork unitOfWork) : IRequ
 {
     public async Task<Result> Handle(ReactivateUserCommand request, CancellationToken cancellationToken)
     {
-        var user = await unitOfWork.UserRepository.GetAsync(
-            item => item.Id == request.UserId,
-            cancellationToken: cancellationToken);
+        var user = await unitOfWork.UserRepository.GetByIdAsync(request.UserId, cancellationToken);
         if (user is null)
         {
             return Result.Failure(Error.NotFound(CommonMessages.User.NotFound));
         }
 
-        user.IsActive = true;
-        user.LockoutEnd = null;
-        user.AccessFailedCount = 0;
-        user.ConcurrencyStamp = Guid.NewGuid().ToString();
+        await unitOfWork.UserRepository.SetActiveAsync(request.UserId, true, cancellationToken);
         return Result.Success();
     }
 }

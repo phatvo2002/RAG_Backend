@@ -1,12 +1,4 @@
-using Microsoft.AspNetCore.Http;
-
 namespace Nexora.Application.Features.V1.Documents.Model;
-
-public sealed record UploadDocumentRequest
-{
-    public Guid FolderId { get; set; }
-    public IFormFile File { get; set; } = null!;
-}
 
 public sealed record DocumentUploadResponse(Guid DocumentId, Guid VersionId, string ProcessingStatus);
 

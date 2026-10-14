@@ -1054,5 +1054,29 @@
     "actionType": "READ",
     "riskLevel": "LOW",
     "requiresConfirmation": false
+  },
+  {
+    "id": "af58cfbb-8d48-4b14-9e6b-54a5323422cc",
+    "code": "MEETING.SET_SOURCE_LANGUAGE",
+    "module": "Meeting",
+    "name": "Chọn ngôn ngữ nói",
+    "description": null,
+    "httpMethod": "PUT",
+    "routeTemplate": "/api/meetings/{id:guid}/my-source-language",
+    "actionType": "WRITE",
+    "riskLevel": "LOW",
+    "requiresConfirmation": false
+  },
+  {
+    "id": "a91910b1-0c9d-40cb-b66b-e2cc193a847b",
+    "code": "MEETING.TRANSCRIPT",
+    "module": "Meeting",
+    "name": "Xem transcript cuộc họp",
+    "description": null,
+    "httpMethod": "GET",
+    "routeTemplate": "/api/meetings/{id:guid}/transcript",
+    "actionType": "READ",
+    "riskLevel": "LOW",
+    "requiresConfirmation": false
   }
 ]

@@ -1,3 +1,4 @@
+using Nexora.Application.Common.Abstractions.Documents;
 using Nexora.Application.Common.Abstractions;
 using Nexora.Application.Common.Abstractions.Rag;
 using Nexora.Application.Features.V1.Rag.Retrieval.Query;

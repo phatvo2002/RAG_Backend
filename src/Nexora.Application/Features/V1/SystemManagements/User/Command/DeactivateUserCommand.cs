@@ -13,17 +13,13 @@ public sealed class DeactivateUserCommandHandler(IUnitOfWork unitOfWork, IDefaul
 {
     public async Task<Result> Handle(DeactivateUserCommand request, CancellationToken cancellationToken)
     {
-        var user = await unitOfWork.UserRepository.GetAsync(
-            item => item.Id == request.UserId,
-            cancellationToken: cancellationToken);
+        var user = await unitOfWork.UserRepository.GetByIdAsync(request.UserId, cancellationToken);
         if (user is null)
         {
             return Result.Failure(Error.NotFound(CommonMessages.User.NotFound));
         }
 
-        user.IsActive = false;
-        user.SecurityStamp = Guid.NewGuid().ToString();
-        user.ConcurrencyStamp = Guid.NewGuid().ToString();
+        await unitOfWork.UserRepository.SetActiveAsync(request.UserId, false, cancellationToken);
 
         if (userContext.UserId.HasValue && await organizationProvider.GetOrganizationIdAsync(cancellationToken) is Guid organizationId)
         {

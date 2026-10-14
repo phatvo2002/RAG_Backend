@@ -3,7 +3,7 @@ using System.Text.Json;
 using Nexora.Application.Common.Abstractions.Rag;
 using Nexora.Application.Features.V1.Rag.Retrieval.Query;
 using Nexora.Application.Features.V1.Rag.Retrieval.Validation;
-using Nexora.Infrastructure.Integrations.VectorStores;
+using Nexora.Infrastructure.Services.Integrations.VectorStores;
 
 namespace Nexora.Tests.Rag;
 

@@ -7,7 +7,8 @@ namespace Nexora.Application.Features.V1.Meetings.Command;
 
 public sealed record JoinMeetingCommand(Guid MeetingId) : IRequest<Result<MeetingJoinToken>>;
 
-public sealed class JoinMeetingCommandHandler(IMeetingStore store, IMeetingRoomProvider rooms, IUserContext user, ITenantContext tenant) :
+public sealed class JoinMeetingCommandHandler(IMeetingStore store, IMeetingTranscriptStore transcripts,
+    IMeetingRoomProvider rooms, IUserContext user, ITenantContext tenant) :
     IRequestHandler<JoinMeetingCommand, Result<MeetingJoinToken>>
 {
     public async Task<Result<MeetingJoinToken>> Handle(JoinMeetingCommand request, CancellationToken cancellationToken)
@@ -19,6 +20,8 @@ public sealed class JoinMeetingCommandHandler(IMeetingStore store, IMeetingRoomP
         if (!await store.IsParticipantAsync(organizationId, request.MeetingId, userId, cancellationToken))
             return Result<MeetingJoinToken>.Failure(Error.Forbidden("Bạn không có trong danh sách tham gia."));
         if (meeting.Status != "Live") return Result<MeetingJoinToken>.Failure(Error.Conflict("Cuộc họp chưa bắt đầu hoặc đang kết thúc."));
+        if (await transcripts.GetMyLanguageAsync(organizationId, meeting.Id, userId, cancellationToken) is null)
+            return Result<MeetingJoinToken>.Failure(Error.Validation("Vui lòng chọn ngôn ngữ nói trước khi vào phòng."));
         return Result<MeetingJoinToken>.Success(rooms.IssueToken(meeting.RoomExternalId!, userId));
     }
 }

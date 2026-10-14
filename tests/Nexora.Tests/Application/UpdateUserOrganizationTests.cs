@@ -1,11 +1,11 @@
 using System.Reflection;
 using Nexora.Application.Common.Abstractions;
+using Nexora.Application.Common.Abstractions.Auth;
 using Nexora.Application.Common.Abstractions.Repositories;
 using Nexora.Application.Features.V1.SystemManagements.User.Command;
 using Nexora.Domain.Common.ValueObjects;
 using Nexora.Domain.Organizations;
 using Nexora.Domain.Organizations.Enums;
-using Nexora.Infrastructure.Identity;
 
 namespace Nexora.Tests.Application;
 
@@ -79,17 +79,8 @@ public sealed class UpdateUserOrganizationTests
 
     private sealed class Fixture
     {
-        private int _userGetCalls;
-
         public Guid ActorUserId { get; } = Guid.NewGuid();
-        public ApplicationUser User { get; } = new()
-        {
-            Id = Guid.NewGuid(),
-            Email = "employee@example.com",
-            UserName = "employee",
-            NormalizedEmail = "EMPLOYEE@EXAMPLE.COM",
-            NormalizedUserName = "EMPLOYEE",
-        };
+        public IdentityUserSnapshot User { get; } = new(Guid.NewGuid(), "employee@example.com", "employee");
         public Organization Organization { get; } = Organization.Create("acme", "Acme", Now);
         public OrganizationMembership? ExistingMembership { get; set; }
         public OrganizationMembership? InsertedMembership { get; private set; }
@@ -100,7 +91,9 @@ public sealed class UpdateUserOrganizationTests
             var profile = UserProfile.Create(User.Id, "Employee", LanguageCode.Create("vi"), null, Now);
             var userRepository = StubProxy<IUserRepository>.Create((method, _) => method.Name switch
             {
-                "GetAsync" => Task.FromResult<ApplicationUser?>(++_userGetCalls == 1 ? User : null),
+                "GetByIdAsync" => Task.FromResult<IdentityUserSnapshot?>(User),
+                "ExistsWithEmailOrUserNameAsync" => Task.FromResult(false),
+                "SetDetailsAsync" => Task.CompletedTask,
                 _ => throw new NotSupportedException(method.Name)
             });
             var profileRepository = StubProxy<IUserProfileRepository>.Create((method, _) => method.Name switch

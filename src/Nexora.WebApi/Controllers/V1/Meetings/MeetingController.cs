@@ -49,4 +49,14 @@ public sealed class MeetingController(ISender sender) : BaseController
     [EnableRateLimiting("write")]
     public async Task<IActionResult> Join(Guid id, CancellationToken cancellationToken) =>
         this.ToActionResult(await sender.Send(new JoinMeetingCommand(id), cancellationToken));
+
+    [HttpPut("{id:guid}/my-source-language")]
+    [EnableRateLimiting("write")]
+    public async Task<IActionResult> SetMySourceLanguage(Guid id, [FromBody] SetMeetingSourceLanguageRequest request,
+        CancellationToken cancellationToken) =>
+        this.ToActionResult(await sender.Send(new SetMeetingSourceLanguageCommand(id, request.Language), cancellationToken));
+
+    [HttpGet("{id:guid}/transcript")]
+    public async Task<IActionResult> Transcript(Guid id, CancellationToken cancellationToken) =>
+        this.ToActionResult(await sender.Send(new GetMeetingTranscriptQuery(id), cancellationToken));
 }

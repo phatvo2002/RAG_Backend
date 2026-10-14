@@ -8,7 +8,8 @@ namespace Nexora.Application.Features.V1.Meetings.Command;
 
 public sealed record StartMeetingCommand(Guid MeetingId) : IRequest<Result<MeetingResponse>>;
 
-public sealed class StartMeetingCommandHandler(IMeetingStore store, IMeetingRoomProvider rooms, IUserContext user, ITenantContext tenant, IClock clock) :
+public sealed class StartMeetingCommandHandler(IMeetingStore store, IMeetingRoomProvider rooms,
+    IUserContext user, ITenantContext tenant, IClock clock) :
     IRequestHandler<StartMeetingCommand, Result<MeetingResponse>>
 {
     public async Task<Result<MeetingResponse>> Handle(StartMeetingCommand request, CancellationToken cancellationToken)

@@ -22,9 +22,9 @@ public sealed class UpdateMeetingCommandHandler(IMeetingStore store, IUserContex
             return Result<MeetingDetailResponse>.Failure(Error.Conflict("Cuộc họp đã thay đổi. Vui lòng tải lại."));
         var userIds = (request.ParticipantUserIds ?? Array.Empty<Guid>())
             .Append(meeting.OrganizerUserId).Distinct().ToArray();
-        //if (userIds.Any(id => id == Guid.Empty) ||
-        //    !await store.AreActiveMembersAsync(organizationId, userIds, cancellationToken))
-        //    return Result<MeetingDetailResponse>.Failure(Error.Validation("Người tham gia phải là thành viên đang hoạt động của tổ chức."));
+        if (userIds.Any(id => id == Guid.Empty) ||
+            !await store.AreActiveMembersAsync(organizationId, userIds, cancellationToken))
+            return Result<MeetingDetailResponse>.Failure(Error.Validation("Người tham gia không hợp lệ."));
 
         meeting.ReviseScheduledDetails(request.Title, request.ScheduledStart, request.ScheduledEnd);
         await store.SyncParticipantUsersAsync(meeting, userIds, cancellationToken);

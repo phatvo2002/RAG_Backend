@@ -1,5 +1,5 @@
 using System.Threading.Channels;
-using Nexora.Application.Common.Abstractions.Rag;
+using Nexora.Application.Common.Abstractions.Documents;
 
 namespace Nexora.Infrastructure.BackgroundProcessing;
 

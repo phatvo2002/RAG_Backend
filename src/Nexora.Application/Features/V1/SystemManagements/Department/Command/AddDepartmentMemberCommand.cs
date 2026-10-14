@@ -17,10 +17,7 @@ public sealed class AddDepartmentMemberCommandHandler(IUnitOfWork unitOfWork, ID
     {
         var organizationId = await organizationProvider.GetOrganizationIdAsync(cancellationToken);
         var department = organizationId.HasValue ? await unitOfWork.DepartmentRepository.GetByIdAsync(request.DepartmentId, asTracking: false, cancellationToken: cancellationToken) : null;
-        var user = await unitOfWork.UserRepository.GetAsync(
-            item => item.Id == request.UserId,
-            asNoTracking: true,
-            cancellationToken: cancellationToken);
+        var user = await unitOfWork.UserRepository.GetByIdAsync(request.UserId, cancellationToken);
         if (!organizationId.HasValue || department is null || department.OrganizationId != organizationId.Value || user is null || !user.IsActive)
         {
             return Result.Failure(Error.NotFound(CommonMessages.Department.DepartmentOrUserNotFound));

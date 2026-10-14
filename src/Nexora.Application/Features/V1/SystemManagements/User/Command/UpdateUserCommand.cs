@@ -18,9 +18,7 @@ public sealed class UpdateUserCommandHandler(IUnitOfWork unitOfWork, IClock cloc
 {
     public async Task<Result<UserResponse>> Handle(UpdateUserCommand request, CancellationToken cancellationToken)
     {
-        var user = await unitOfWork.UserRepository.GetAsync(
-            item => item.Id == request.UserId,
-            cancellationToken: cancellationToken);
+        var user = await unitOfWork.UserRepository.GetByIdAsync(request.UserId, cancellationToken);
         if (user is null)
         {
             return Result<UserResponse>.Failure(Error.NotFound(CommonMessages.User.NotFound));
@@ -49,22 +47,15 @@ public sealed class UpdateUserCommandHandler(IUnitOfWork unitOfWork, IClock cloc
         var userName = UserHelper.NormalizeUserName(request.UserName);
         var normalizedEmail = email.ToUpperInvariant();
         var normalizedUserName = userName.ToUpperInvariant();
-        var duplicateUser = await unitOfWork.UserRepository.GetAsync(
-            item => item.Id != request.UserId &&
-                (item.NormalizedEmail == normalizedEmail || item.NormalizedUserName == normalizedUserName),
-            asNoTracking: true,
-            cancellationToken: cancellationToken);
-        if (duplicateUser is not null)
+        if (await unitOfWork.UserRepository.ExistsWithEmailOrUserNameAsync(request.UserId, normalizedEmail, normalizedUserName, cancellationToken))
         {
             return Result<UserResponse>.Failure(Error.Conflict(CommonMessages.User.CannotUpdate));
         }
 
+        await unitOfWork.UserRepository.SetDetailsAsync(request.UserId, email, userName, request.PhoneNumber?.Trim(), cancellationToken);
         user.Email = email;
-        user.NormalizedEmail = normalizedEmail;
         user.UserName = userName;
-        user.NormalizedUserName = normalizedUserName;
         user.PhoneNumber = request.PhoneNumber?.Trim();
-        user.ConcurrencyStamp = Guid.NewGuid().ToString();
 
         var profile = await unitOfWork.UserProfileRepository.GetByUserIdAsync(request.UserId, cancellationToken, asTracking: true);
         if (profile is null)

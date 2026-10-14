@@ -7,7 +7,7 @@ using Nexora.Application.Common.Constants;
 using Nexora.Application.Common.Helpers;
 using Nexora.Application.Common.Results;
 using Nexora.Domain.Organizations.Enums;
-using Nexora.Infrastructure.Identity;
+using Nexora.Infrastructure.Services.Identity;
 
 namespace Nexora.Infrastructure.Persistence.Repositories.Identity;
 
@@ -19,12 +19,63 @@ internal sealed class IdentityUserRepository(
     SignInManager<ApplicationUser> signInManager)
     : BaseRepository<ApplicationUser>(dbContext, userContext, clock), IUserRepository
 {
-    public Task<List<ApplicationUser>> GetByRoleAsync(Guid organizationId, Guid roleId, DateTimeOffset utcNow, CancellationToken cancellationToken) =>
+    public async Task<BasePaginationEntity<IdentityUserSnapshot>> ListPageAsync(int page, int pageSize, CancellationToken cancellationToken)
+    {
+        var query = DbContext.Users.AsNoTracking();
+        var total = await query.CountAsync(cancellationToken);
+        var rows = await query.OrderBy(user => user.Email).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(cancellationToken);
+        return new BasePaginationEntity<IdentityUserSnapshot>
+        {
+            Total = total,
+            TotalPages = (int)Math.Ceiling((double)total / pageSize),
+            Data = rows.Select(ToSnapshot).ToArray()
+        };
+    }
+
+    public async Task<IdentityUserSnapshot?> GetByIdAsync(Guid userId, CancellationToken cancellationToken) =>
+        (await DbContext.Users.AsNoTracking().SingleOrDefaultAsync(user => user.Id == userId, cancellationToken)) is { } user ? ToSnapshot(user) : null;
+
+    public async Task<IdentityUserSnapshot?> GetActiveByIdAsync(Guid userId, CancellationToken cancellationToken) =>
+        (await DbContext.Users.AsNoTracking().SingleOrDefaultAsync(user => user.Id == userId && user.IsActive, cancellationToken)) is { } user ? ToSnapshot(user) : null;
+
+    public async Task<IReadOnlyList<IdentityUserSnapshot>> GetByIdsAsync(IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken) =>
+        (await DbContext.Users.AsNoTracking().Where(user => userIds.Contains(user.Id)).ToListAsync(cancellationToken)).Select(ToSnapshot).ToArray();
+
+    public async Task<IReadOnlyList<IdentityUserSnapshot>> GetByRoleAsync(Guid organizationId, Guid roleId, DateTimeOffset utcNow, CancellationToken cancellationToken) =>
+        (await (
         (from assignment in DbContext.OrganizationRoleAssignments.IgnoreQueryFilters()
          join user in DbContext.Users on assignment.UserId equals user.Id
          where assignment.OrganizationId == organizationId && assignment.RoleId == roleId && assignment.Status == OrganizationRoleAssignmentStatus.Active && assignment.ValidFrom <= utcNow && (assignment.ExpiresAt == null || assignment.ExpiresAt > utcNow) && assignment.RevokedAt == null
          orderby user.Email
-         select user).AsNoTracking().ToListAsync(cancellationToken);
+         select user).AsNoTracking()).ToListAsync(cancellationToken)).Select(ToSnapshot).ToArray();
+
+    public Task<bool> ExistsWithEmailOrUserNameAsync(Guid excludedUserId, string normalizedEmail, string normalizedUserName, CancellationToken cancellationToken) =>
+        DbContext.Users.AsNoTracking().AnyAsync(user => user.Id != excludedUserId &&
+            (user.NormalizedEmail == normalizedEmail || user.NormalizedUserName == normalizedUserName), cancellationToken);
+
+    public async Task SetDetailsAsync(Guid userId, string email, string userName, string? phoneNumber, CancellationToken cancellationToken)
+    {
+        var user = await DbContext.Users.SingleAsync(item => item.Id == userId, cancellationToken);
+        user.Email = email;
+        user.NormalizedEmail = email.ToUpperInvariant();
+        user.UserName = userName;
+        user.NormalizedUserName = userName.ToUpperInvariant();
+        user.PhoneNumber = phoneNumber;
+        user.ConcurrencyStamp = Guid.NewGuid().ToString();
+    }
+
+    public async Task SetActiveAsync(Guid userId, bool active, CancellationToken cancellationToken)
+    {
+        var user = await DbContext.Users.SingleAsync(item => item.Id == userId, cancellationToken);
+        user.IsActive = active;
+        if (active)
+        {
+            user.LockoutEnd = null;
+            user.AccessFailedCount = 0;
+        }
+        else user.SecurityStamp = Guid.NewGuid().ToString();
+        user.ConcurrencyStamp = Guid.NewGuid().ToString();
+    }
 
     public async Task<IdentityUserSnapshot?> ValidateCredentialsAsync(
         string email,

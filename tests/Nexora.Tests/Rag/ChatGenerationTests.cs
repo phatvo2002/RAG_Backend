@@ -3,8 +3,7 @@ using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Options;
 using Nexora.Application.Features.V1.Chat.Model;
-using Nexora.Infrastructure.Options;
-using Nexora.Infrastructure.Rag;
+using Nexora.Infrastructure.Services.Rag;
 
 namespace Nexora.Tests.Rag;
 

@@ -5,8 +5,7 @@ using Nexora.Application.Common.Permissions;
 using Nexora.Domain.Authorization;
 using Nexora.Domain.Authorization.Enums;
 using Nexora.Domain.Organizations;
-using Nexora.Infrastructure.Authorization;
-using Nexora.Infrastructure.Identity;
+using Nexora.Infrastructure.Services.Authorization;
 using Nexora.Infrastructure.Persistence;
 
 namespace Nexora.Tests.WebApi;

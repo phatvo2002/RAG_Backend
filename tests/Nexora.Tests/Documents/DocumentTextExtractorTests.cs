@@ -1,8 +1,7 @@
 using System.IO.Compression;
 using System.Text;
 using Microsoft.Extensions.Options;
-using Nexora.Infrastructure.DocumentProcessing;
-using Nexora.Infrastructure.Options;
+using Nexora.Infrastructure.Services.DocumentProcessing;
 using UglyToad.PdfPig.Core;
 using UglyToad.PdfPig.Fonts.Standard14Fonts;
 using UglyToad.PdfPig.Writer;

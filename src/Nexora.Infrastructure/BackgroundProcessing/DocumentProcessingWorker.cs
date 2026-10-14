@@ -1,7 +1,8 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Nexora.Infrastructure.Rag;
+using MediatR;
+using Nexora.Application.Features.V1.Documents.Command;
 
 namespace Nexora.Infrastructure.BackgroundProcessing;
 
@@ -14,8 +15,8 @@ internal sealed class DocumentProcessingWorker(IServiceScopeFactory scopeFactory
             try
             {
                 using var scope = scopeFactory.CreateScope();
-                var processor = scope.ServiceProvider.GetRequiredService<DocumentProcessingService>();
-                await processor.ProcessAsync(versionId, stoppingToken);
+                var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+                await sender.Send(new ProcessDocumentVersionCommand(versionId), stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
