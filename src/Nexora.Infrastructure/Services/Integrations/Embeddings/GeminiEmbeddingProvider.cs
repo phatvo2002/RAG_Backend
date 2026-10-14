@@ -26,7 +26,7 @@ internal sealed class GeminiEmbeddingProvider(HttpClient httpClient, IOptions<Em
             .Select(input => new EmbeddingRequest(
                 $"models/{settings.Model}",
                 new EmbeddingContent([new EmbeddingPart(input)]),
-                new EmbeddingConfig(settings.Dimension)))
+                settings.Dimension))
             .ToArray()));
         using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
         if (!response.IsSuccessStatusCode)
@@ -42,7 +42,8 @@ internal sealed class GeminiEmbeddingProvider(HttpClient httpClient, IOptions<Em
         var vectors = payload.Embeddings.Select(item => item.Values).ToArray();
         if (vectors.Length != inputs.Count || vectors.Any(vector => vector.Length != settings.Dimension))
         {
-            throw new InvalidOperationException("Embedding provider trả về số lượng hoặc kích thước vector không hợp lệ.");
+            var dimensions = string.Join(", ", vectors.Select(vector => vector.Length));
+            throw new InvalidOperationException($"Embedding provider trả về {vectors.Length} vector (cần {inputs.Count}), số chiều [{dimensions}] (cần {settings.Dimension}).");
         }
 
         return vectors;
@@ -52,8 +53,7 @@ internal sealed class GeminiEmbeddingProvider(HttpClient httpClient, IOptions<Em
     private sealed record EmbeddingRequest(
         [property: JsonPropertyName("model")] string Model,
         [property: JsonPropertyName("content")] EmbeddingContent Content,
-        [property: JsonPropertyName("embedContentConfig")] EmbeddingConfig Config);
-    private sealed record EmbeddingConfig([property: JsonPropertyName("outputDimensionality")] int OutputDimensionality);
+        [property: JsonPropertyName("outputDimensionality")] int OutputDimensionality);
     private sealed record EmbeddingContent([property: JsonPropertyName("parts")] EmbeddingPart[] Parts);
     private sealed record EmbeddingPart([property: JsonPropertyName("text")] string Text);
     private sealed record EmbeddingResponse([property: JsonPropertyName("embeddings")] EmbeddingItem[] Embeddings);

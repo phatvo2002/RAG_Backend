@@ -1,6 +1,6 @@
 services:
   minio:
-    image: quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z
+    image: ghcr.io/teableio/minio:RELEASE.2025-04-22T22-12-26Z@sha256:a1ea29fa28355559ef137d71fc570e508a214ec84ff8083e39bc5428980b015e
     container_name: minio
     restart: unless-stopped
 
@@ -9,11 +9,11 @@ services:
       - "9001:9001"
 
     environment:
-      MINIO_ROOT_USER: admin
-      MINIO_ROOT_PASSWORD: admin123456
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?Set MINIO_ROOT_USER in .env}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in .env}
 
     volumes:
-      - "D:/RAG/MinIO:/data"
+      - "minio_data:/data"
 
     command: server /data --console-address ":9001"
   qdrant:
@@ -26,4 +26,8 @@ services:
       - "6334:6334"
 
     volumes:
-      - "D:/RAG/Qdrant:/qdrant/storage"
+      - "qdrant_data:/qdrant/storage"
+
+volumes:
+  minio_data:
+  qdrant_data:

@@ -17,6 +17,7 @@ public sealed class DesignTimeNexoraDbContextFactory
             .SetBasePath(webApiPath)
             .AddJsonFile("appsettings.json", optional: false)
             .AddJsonFile($"appsettings.{environment}.json", optional: true)
+            .AddJsonFile("secrets.local.json", optional: true)
             .AddEnvironmentVariables()
             .Build();
 
