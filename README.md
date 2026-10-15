@@ -9,7 +9,7 @@ Nexora AI là dự án nghiên cứu xây dựng không gian làm việc cho t�
 | Trợ lý AI | Hội thoại, tìm kiếm tri thức từ tài liệu được phép truy cập và hiển thị nguồn tham khảo cho câu trả lời. |
 | Kho tài liệu | Quản lý thư mục, tải tài liệu lên, trích xuất nội dung và lập chỉ mục để tìm kiếm. |
 | Không gian quản trị | Quản lý tổ chức, phòng ban, người dùng, vai trò và quyền truy cập. |
-| Cuộc họp | Quản lý cuộc họp và kết nối âm thanh, hình ảnh qua LiveKit. Phụ đề trực tiếp cần worker riêng và chưa nằm trong bản chạy được hướng dẫn ở đây. |
+| Cuộc họp | Tạo, theo dõi và tham gia cuộc họp trực tuyến qua LiveKit; hỗ trợ transcript lời nói bằng tiếng Việt và tiếng Anh. |
 | Nền tảng kỹ thuật | ASP.NET Core Web API, Clean Architecture, CQRS/MediatR, PostgreSQL, MinIO và Qdrant; frontend dùng React/TypeScript. |
 
 Các hình dưới đây minh họa giao diện của dự án nghiên cứu tại thời điểm viết README. Chức năng hiển thị có thể thay đổi trong quá trình phát triển.
@@ -27,6 +27,10 @@ Các hình dưới đây minh họa giao diện của dự án nghiên cứu t�
 ### Kho tài liệu
 
 ![Giao diện quản lý tài liệu và trạng thái lập chỉ mục](docs/images/document-repository.png)
+
+### Cuộc họp
+
+![Danh sách và thông tin chi tiết cuộc họp](docs/images/meetings.png)
 
 ### Quản lý vai trò và quyền
 
