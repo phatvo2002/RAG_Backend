@@ -105,8 +105,9 @@ public static class DependencyInjection
         services.AddOptions<ChatOptions>()
             .Bind(configuration.GetSection(ChatOptions.SectionName))
             .Validate(options => float.IsFinite(options.DepartmentMatchThreshold) &&
-                options.DepartmentMatchThreshold is >= 0f and <= 1f,
-                "Chat:DepartmentMatchThreshold must be a finite value between 0 and 1.")
+                options.DepartmentMatchThreshold is >= 0f and <= 1f &&
+                options.MaxOutputTokens is >= 256 and <= 2048,
+                "Chat:DepartmentMatchThreshold must be between 0 and 1 and MaxOutputTokens between 256 and 2048.")
             .ValidateOnStart();
         services.AddSingleton<IDepartmentScopeOptions>(serviceProvider =>
             serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<ChatOptions>>().Value);

@@ -6,6 +6,7 @@ using Nexora.Application.Features.V1.Chat.Command;
 using Nexora.Application.Features.V1.Chat.Model;
 using Nexora.Application.Features.V1.Chat.Query;
 using Nexora.Application.Features.V1.Rag.Retrieval.Query;
+using Nexora.Application.Features.V1.Rag.Retrieval.Model;
 using Nexora.WebApi.Controllers;
 
 namespace Nexora.WebApi.Controllers.V1.Chat;
@@ -93,11 +94,9 @@ public sealed class ChatController(ISender sender, ILogger<ChatController> logge
             await EmitAsync("sources", retrieval.Results, cancellationToken);
             string answer;
             var completedTurn = start;
-            if (retrieval.Results.Count == 0)
+            if (retrieval.DepartmentAccessDenied)
             {
-                answer = retrieval.DepartmentAccessDenied
-                    ? "No access"
-                    : "Không tìm thấy tài liệu được phép truy cập hỗ trợ câu hỏi này.";
+                answer = "No access";
                 await EmitAsync("delta", new { text = answer }, cancellationToken);
             }
             else
@@ -108,7 +107,9 @@ public sealed class ChatController(ISender sender, ILogger<ChatController> logge
                     .ToArray();
                 var result = await ChatModelFallbackRunner.RunAsync(
                     candidates,
-                    (model, token) => sender.Send(new StreamChatGenerationQuery(model, history, retrieval.AugmentedContext, credential), token),
+                    (model, token) => sender.Send(new StreamChatGenerationQuery(model, history,
+                        retrieval.Results.Count == 0 ? RagContextComposer.ComposeWithoutSources(request.Question) : retrieval.AugmentedContext,
+                        credential), token),
                     (delta, token) => EmitAsync("delta", new { text = delta }, token),
                     (model, token) => EmitAsync("reset", new { modelName = model.Name }, token),
                     (failedModel, nextModel, exception) => logger.LogWarning(exception,

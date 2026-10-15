@@ -64,9 +64,10 @@ public sealed class ChatGenerationTests
         Assert.Equal("test-gemini-model", body.RootElement.GetProperty("model").GetString());
         Assert.Equal("Question and sources", body.RootElement.GetProperty("input").GetString());
         var systemInstruction = body.RootElement.GetProperty("system_instruction").GetString();
-        Assert.Contains("configured company's scope", systemInstruction);
-        Assert.Contains("Be concise and direct", systemInstruction);
+        Assert.Contains("general knowledge", systemInstruction);
+        Assert.Contains("use only relevant authorized source passages", systemInstruction);
         Assert.Contains("inaccessible departments", systemInstruction);
+        Assert.Equal(768, body.RootElement.GetProperty("generation_config").GetProperty("max_output_tokens").GetInt32());
         Assert.True(body.RootElement.GetProperty("stream").GetBoolean());
         Assert.False(body.RootElement.GetProperty("store").GetBoolean());
     }
@@ -87,7 +88,8 @@ public sealed class ChatGenerationTests
         Assert.Null(handler.Authorization);
         Assert.Contains("test-claude-model", handler.Body);
         using var body = JsonDocument.Parse(handler.Body!);
-        Assert.Contains("Be concise and direct", body.RootElement.GetProperty("system").GetString());
+        Assert.Contains("general knowledge", body.RootElement.GetProperty("system").GetString());
+        Assert.Equal(768, body.RootElement.GetProperty("max_tokens").GetInt32());
     }
 
     [Fact]

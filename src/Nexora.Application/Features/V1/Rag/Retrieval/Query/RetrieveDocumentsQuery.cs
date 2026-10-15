@@ -118,7 +118,7 @@ public sealed class RetrieveDocumentsQueryHandler(
                 source.PageNo,
                 source.CharStart,
                 source.CharEnd,
-                text));
+                excerpt));
             results.Add(new RetrievedChunkResponse(
                 source.DocumentId,
                 source.ChunkId,

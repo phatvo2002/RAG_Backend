@@ -17,8 +17,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Nexora.Tests", "tests\Nexor
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Nexora.WebApi", "src\Nexora.WebApi\Nexora.WebApi.csproj", "{8E837545-1E43-4EC7-A2D1-6475C56CD43F}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Nexora.MeetingAgent.Tests", "tests\Nexora.MeetingAgent.Tests\Nexora.MeetingAgent.Tests.csproj", "{BA7CAC2D-5364-4C70-870C-638AA214A42F}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -89,18 +87,6 @@ Global
 		{8E837545-1E43-4EC7-A2D1-6475C56CD43F}.Release|x64.Build.0 = Release|Any CPU
 		{8E837545-1E43-4EC7-A2D1-6475C56CD43F}.Release|x86.ActiveCfg = Release|Any CPU
 		{8E837545-1E43-4EC7-A2D1-6475C56CD43F}.Release|x86.Build.0 = Release|Any CPU
-		{BA7CAC2D-5364-4C70-870C-638AA214A42F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{BA7CAC2D-5364-4C70-870C-638AA214A42F}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{BA7CAC2D-5364-4C70-870C-638AA214A42F}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{BA7CAC2D-5364-4C70-870C-638AA214A42F}.Debug|x64.Build.0 = Debug|Any CPU
-		{BA7CAC2D-5364-4C70-870C-638AA214A42F}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{BA7CAC2D-5364-4C70-870C-638AA214A42F}.Debug|x86.Build.0 = Debug|Any CPU
-		{BA7CAC2D-5364-4C70-870C-638AA214A42F}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{BA7CAC2D-5364-4C70-870C-638AA214A42F}.Release|Any CPU.Build.0 = Release|Any CPU
-		{BA7CAC2D-5364-4C70-870C-638AA214A42F}.Release|x64.ActiveCfg = Release|Any CPU
-		{BA7CAC2D-5364-4C70-870C-638AA214A42F}.Release|x64.Build.0 = Release|Any CPU
-		{BA7CAC2D-5364-4C70-870C-638AA214A42F}.Release|x86.ActiveCfg = Release|Any CPU
-		{BA7CAC2D-5364-4C70-870C-638AA214A42F}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -111,7 +97,6 @@ Global
 		{13234EED-C59C-40BC-898B-A631432D8559} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{4A612A34-4642-4E49-9702-2BFDF77BF73B} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{8E837545-1E43-4EC7-A2D1-6475C56CD43F} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
-		{BA7CAC2D-5364-4C70-870C-638AA214A42F} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {B37EF78A-D7C5-4CBA-87D0-15420785AE83}

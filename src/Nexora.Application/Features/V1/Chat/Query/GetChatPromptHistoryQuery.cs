@@ -16,7 +16,7 @@ public sealed class GetChatPromptHistoryQueryHandler(IChatWorkflow chatService)
         var characters = 0;
         foreach (var message in visible.Reverse().Where(x => x.Status is not ("FAILED" or "PENDING")))
         {
-            if (selected.Count == 10 || characters + message.Content.Length > 12000) break;
+            if (selected.Count == 6 || characters + message.Content.Length > 4000) break;
             selected.Add(new ChatPromptMessage(message.Role, message.Content));
             characters += message.Content.Length;
         }
