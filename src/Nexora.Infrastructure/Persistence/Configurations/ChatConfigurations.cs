@@ -4,7 +4,7 @@ using Nexora.Domain.Chat;
 using Nexora.Domain.Documents;
 using Nexora.Domain.Organizations;
 using Nexora.Domain.Projects;
-using Nexora.Infrastructure.Identity;
+using Nexora.Infrastructure.Services.Identity;
 
 namespace Nexora.Infrastructure.Persistence.Configurations;
 
@@ -78,6 +78,8 @@ internal sealed class MessageConfiguration : IEntityTypeConfiguration<Message>
         builder.Property(x => x.LanguageCode).HasColumnName("languageCode").HasMaxLength(10);
         builder.Property(x => x.SequenceNo).HasColumnName("sequenceNo").IsRequired();
         builder.Property(x => x.CreatedAt).HasColumnName("createdAt").HasColumnType("timestamptz").IsRequired();
+        builder.Property(x => x.DeletedAt).HasColumnName("deletedAt").HasColumnType("timestamptz");
+        builder.Property(x => x.DeletedByUserId).HasColumnName("deletedByUserId");
 
         builder.HasIndex(x => new { x.OrganizationId, x.Id }).IsUnique().HasDatabaseName("ux_message_tenant_id");
         builder.HasIndex(x => new { x.OrganizationId, x.ConversationId, x.SequenceNo }).IsUnique();
@@ -85,6 +87,7 @@ internal sealed class MessageConfiguration : IEntityTypeConfiguration<Message>
         builder.HasOne<Organization>().WithMany().HasForeignKey(x => x.OrganizationId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Conversation>().WithMany().HasForeignKey(x => x.ConversationId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.SenderUserId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.DeletedByUserId).OnDelete(DeleteBehavior.Restrict);
     }
 }
 
@@ -115,6 +118,7 @@ internal sealed class AiTurnConfiguration : IEntityTypeConfiguration<AiTurn>
         builder.HasIndex(x => new { x.OrganizationId, x.Id }).IsUnique().HasDatabaseName("ux_ai_turn_tenant_id");
         builder.HasIndex(x => new { x.OrganizationId, x.ConversationId, x.StartedAt });
         builder.HasIndex(x => new { x.OrganizationId, x.Status });
+        builder.HasIndex(x => new { x.OrganizationId, x.CorrelationId }).IsUnique();
 
         builder.HasOne<Organization>().WithMany().HasForeignKey(x => x.OrganizationId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Conversation>().WithMany().HasForeignKey(x => x.ConversationId).OnDelete(DeleteBehavior.Restrict);
@@ -137,6 +141,7 @@ internal sealed class CitationConfiguration : IEntityTypeConfiguration<Citation>
         builder.Property(x => x.PageNo).HasColumnName("pageNo");
         builder.Property(x => x.CharStart).HasColumnName("charStart");
         builder.Property(x => x.CharEnd).HasColumnName("charEnd");
+        builder.Property(x => x.Score).HasColumnName("score");
         builder.Property(x => x.QuoteHash).HasColumnName("quoteHash").HasColumnType("char(64)").HasMaxLength(64);
         builder.Property(x => x.CreatedAt).HasColumnName("createdAt").HasColumnType("timestamptz").IsRequired();
 

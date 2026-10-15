@@ -27,7 +27,7 @@ public sealed class SyncRolePermissionsCommandHandler(IUnitOfWork unitOfWork, ID
             return Result<RolePermissionsResponse>.Failure(Error.Conflict(CommonMessages.User.DefaultOrganizationNotConfigured));
         }
 
-        var role = await unitOfWork.RoleRepository.GetAsync(role => role.Id == request.RoleId && role.IsActive, asNoTracking: true, cancellationToken: cancellationToken);
+        var role = await unitOfWork.RoleRepository.GetActiveByIdAsync(request.RoleId, cancellationToken);
         if (role is null)
         {
             return Result<RolePermissionsResponse>.Failure(Error.NotFound(CommonMessages.Role.NotFound));

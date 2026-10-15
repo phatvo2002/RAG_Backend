@@ -14,10 +14,19 @@ public sealed class ApiFunctionController(ISender sender) : BaseController
     public async Task<IActionResult> GetApiFunctions(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
+        [FromQuery] bool tree = false,
         CancellationToken cancellationToken = default) =>
-        this.ToSuccessResponse(
-            await sender.Send(new GetApiFunctionsQuery(page, pageSize), cancellationToken),
-            "Lấy danh sách ApiFunction thành công.");
+        tree
+            ? this.ToSuccessResponse(
+                await sender.Send(new GetApiFunctionTreeQuery(), cancellationToken),
+                "Lấy cây ApiFunction thành công.")
+            : this.ToSuccessResponse(
+                await sender.Send(new GetApiFunctionsQuery(page, pageSize), cancellationToken),
+                "Lấy danh sách ApiFunction thành công.");
+
+    [HttpGet("{apiFunctionId:guid}")]
+    public async Task<IActionResult> GetApiFunction(Guid apiFunctionId, CancellationToken cancellationToken) =>
+        this.ToActionResult(await sender.Send(new GetApiFunctionQuery(apiFunctionId), cancellationToken));
 
     [HttpPost]
     [EnableRateLimiting("write")]
@@ -33,12 +42,23 @@ public sealed class ApiFunctionController(ISender sender) : BaseController
                     request.RouteTemplate,
                     request.ActionType,
                     request.RiskLevel,
-                    request.RequiresConfirmation),
+                    request.RequiresConfirmation,
+                    request.MenuParentCode,
+                    request.DisplayOrder,
+                    request.IsMenuVisible,
+                    request.IsMobile,
+                    request.MenuUrl),
                 cancellationToken));
 
-    [HttpGet("{apiFunctionId:guid}")]
-    public async Task<IActionResult> GetApiFunction(Guid apiFunctionId, CancellationToken cancellationToken) =>
-        this.ToActionResult(await sender.Send(new GetApiFunctionQuery(apiFunctionId), cancellationToken));
+    [HttpPost("{apiFunctionId:guid}/deactivate")]
+    [EnableRateLimiting("write")]
+    public async Task<IActionResult> DeactivateApiFunction(Guid apiFunctionId, CancellationToken cancellationToken) =>
+        this.ToActionResult(await sender.Send(new DeactivateApiFunctionCommand(apiFunctionId), cancellationToken));
+
+    [HttpPost("{apiFunctionId:guid}/reactivate")]
+    [EnableRateLimiting("write")]
+    public async Task<IActionResult> ReactivateApiFunction(Guid apiFunctionId, CancellationToken cancellationToken) =>
+        this.ToActionResult(await sender.Send(new ReactivateApiFunctionCommand(apiFunctionId), cancellationToken));
 
     [HttpPut("{apiFunctionId:guid}")]
     [EnableRateLimiting("write")]
@@ -57,16 +77,11 @@ public sealed class ApiFunctionController(ISender sender) : BaseController
                     request.RouteTemplate,
                     request.ActionType,
                     request.RiskLevel,
-                    request.RequiresConfirmation),
+                    request.RequiresConfirmation,
+                    request.MenuParentCode,
+                    request.DisplayOrder,
+                    request.IsMenuVisible,
+                    request.IsMobile,
+                    request.MenuUrl),
                 cancellationToken));
-
-    [HttpPost("{apiFunctionId:guid}/deactivate")]
-    [EnableRateLimiting("write")]
-    public async Task<IActionResult> DeactivateApiFunction(Guid apiFunctionId, CancellationToken cancellationToken) =>
-        this.ToActionResult(await sender.Send(new DeactivateApiFunctionCommand(apiFunctionId), cancellationToken));
-
-    [HttpPost("{apiFunctionId:guid}/reactivate")]
-    [EnableRateLimiting("write")]
-    public async Task<IActionResult> ReactivateApiFunction(Guid apiFunctionId, CancellationToken cancellationToken) =>
-        this.ToActionResult(await sender.Send(new ReactivateApiFunctionCommand(apiFunctionId), cancellationToken));
 }

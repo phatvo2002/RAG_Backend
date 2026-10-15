@@ -2,7 +2,7 @@ using Nexora.Application.Features.V1.SystemManagements.ApiFunction.Model;
 
 namespace Nexora.Application.Features.V1.SystemManagements.Auth.Model;
 
-public class AuthResponse
+public sealed record AuthResponse
 {
     public AuthResponse()
     {
@@ -25,7 +25,7 @@ public class AuthResponse
         AccessTokenExpiresAt = accessTokenExpiresAt;
         RefreshToken = refreshToken;
         RefreshTokenExpiresAt = refreshTokenExpiresAt;
-        ApiFunctions = apiFunctions ?? Array.Empty<ApiFunctionResponse>();
+     //   ApiFunctions = apiFunctions ?? Array.Empty<ApiFunctionResponse>();
     }
 
     public Guid UserId { get; set; }
@@ -35,30 +35,37 @@ public class AuthResponse
     public DateTimeOffset AccessTokenExpiresAt { get; set; }
     public string RefreshToken { get; set; } = string.Empty;
     public DateTimeOffset RefreshTokenExpiresAt { get; set; }
-    public IReadOnlyList<ApiFunctionResponse> ApiFunctions { get; set; } = Array.Empty<ApiFunctionResponse>();
+   // public IReadOnlyList<ApiFunctionResponse> ApiFunctions { get; set; } = Array.Empty<ApiFunctionResponse>();
 }
 
-public class CurrentUserResponse
+public sealed record CurrentUserResponse
 {
     public CurrentUserResponse()
     {
     }
 
-    public CurrentUserResponse(Guid userId, string email, string userName, string? displayName)
+    public CurrentUserResponse(
+        Guid userId,
+        string email,
+        string userName,
+        string? displayName,
+        IReadOnlyList<ApiFunctionMenuResponse>? allowMenuTree = null)
     {
         UserId = userId;
         Email = email;
         UserName = userName;
         DisplayName = displayName;
+        AllowMenuTree = allowMenuTree ?? Array.Empty<ApiFunctionMenuResponse>();
     }
 
     public Guid UserId { get; set; }
     public string Email { get; set; } = string.Empty;
     public string UserName { get; set; } = string.Empty;
     public string? DisplayName { get; set; }
+    public IReadOnlyList<ApiFunctionMenuResponse> AllowMenuTree { get; set; } = Array.Empty<ApiFunctionMenuResponse>();
 }
 
-public class LoginRequest
+public sealed record LoginRequest
 {
     public LoginRequest()
     {
@@ -74,7 +81,7 @@ public class LoginRequest
     public string Password { get; set; } = string.Empty;
 }
 
-public class RefreshTokenRequest
+public sealed record RefreshTokenRequest
 {
     public RefreshTokenRequest()
     {
@@ -88,7 +95,7 @@ public class RefreshTokenRequest
     public string RefreshToken { get; set; } = string.Empty;
 }
 
-public class LogoutRequest
+public sealed record LogoutRequest
 {
     public LogoutRequest()
     {

@@ -3,7 +3,7 @@ using DomainApiFunction = Nexora.Domain.Authorization.ApiFunction;
 
 namespace Nexora.Application.Features.V1.SystemManagements.ApiFunction.Model;
 
-public class ApiFunctionResponse
+public sealed record ApiFunctionResponse
 {
     public ApiFunctionResponse()
     {
@@ -23,7 +23,12 @@ public class ApiFunctionResponse
         string status,
         int version,
         DateTimeOffset createdAt,
-        DateTimeOffset updatedAt)
+        DateTimeOffset updatedAt,
+        string? menuParentCode = null,
+        int displayOrder = 0,
+        bool isMenuVisible = true,
+        bool isMobile = false,
+        string? menuUrl = null)
     {
         ApiFunctionId = apiFunctionId;
         Code = code;
@@ -39,6 +44,11 @@ public class ApiFunctionResponse
         Version = version;
         CreatedAt = createdAt;
         UpdatedAt = updatedAt;
+        MenuParentCode = menuParentCode;
+        DisplayOrder = displayOrder;
+        IsMenuVisible = isMenuVisible;
+        IsMobile = isMobile;
+        MenuUrl = menuUrl;
     }
 
     public Guid ApiFunctionId { get; set; }
@@ -55,6 +65,12 @@ public class ApiFunctionResponse
     public int Version { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset UpdatedAt { get; set; }
+    public string? MenuParentCode { get; set; }
+    public int DisplayOrder { get; set; }
+    public bool IsMenuVisible { get; set; }
+    public bool IsMobile { get; set; }
+    public string? MenuUrl { get; set; }
+    public string ApiEndpoint => RouteTemplate == "#" ? "#" : $"{HttpMethod} {RouteTemplate}";
 
     public static ApiFunctionResponse FromEntity(DomainApiFunction function) =>
         new(
@@ -71,10 +87,15 @@ public class ApiFunctionResponse
             function.Status.ToString(),
             function.Version,
             function.CreatedAt,
-            function.UpdatedAt);
+            function.UpdatedAt,
+            function.MenuParentCode,
+            function.DisplayOrder,
+            function.IsMenuVisible,
+            function.IsMobile,
+            function.MenuUrl);
 }
 
-public class CreateApiFunctionRequest
+public sealed record CreateApiFunctionRequest
 {
     public CreateApiFunctionRequest()
     {
@@ -89,7 +110,12 @@ public class CreateApiFunctionRequest
         ApiActionType actionType,
         ApiRiskLevel riskLevel,
         bool requiresConfirmation = false,
-        string? description = null)
+        string? description = null,
+        string? menuParentCode = null,
+        int displayOrder = 0,
+        bool isMenuVisible = true,
+        bool isMobile = false,
+        string? menuUrl = null)
     {
         Code = code;
         Module = module;
@@ -100,6 +126,11 @@ public class CreateApiFunctionRequest
         RiskLevel = riskLevel;
         RequiresConfirmation = requiresConfirmation;
         Description = description;
+        MenuParentCode = menuParentCode;
+        DisplayOrder = displayOrder;
+        IsMenuVisible = isMenuVisible;
+        IsMobile = isMobile;
+        MenuUrl = menuUrl;
     }
 
     public string Code { get; set; } = string.Empty;
@@ -111,9 +142,14 @@ public class CreateApiFunctionRequest
     public ApiActionType ActionType { get; set; }
     public ApiRiskLevel RiskLevel { get; set; }
     public bool RequiresConfirmation { get; set; }
+    public string? MenuParentCode { get; set; }
+    public int DisplayOrder { get; set; }
+    public bool IsMenuVisible { get; set; } = true;
+    public bool IsMobile { get; set; }
+    public string? MenuUrl { get; set; }
 }
 
-public class UpdateApiFunctionRequest
+public sealed record UpdateApiFunctionRequest
 {
     public UpdateApiFunctionRequest()
     {
@@ -127,7 +163,12 @@ public class UpdateApiFunctionRequest
         ApiActionType actionType,
         ApiRiskLevel riskLevel,
         bool requiresConfirmation = false,
-        string? description = null)
+        string? description = null,
+        string? menuParentCode = null,
+        int displayOrder = 0,
+        bool isMenuVisible = true,
+        bool isMobile = false,
+        string? menuUrl = null)
     {
         Module = module;
         Name = name;
@@ -137,6 +178,11 @@ public class UpdateApiFunctionRequest
         RiskLevel = riskLevel;
         RequiresConfirmation = requiresConfirmation;
         Description = description;
+        MenuParentCode = menuParentCode;
+        DisplayOrder = displayOrder;
+        IsMenuVisible = isMenuVisible;
+        IsMobile = isMobile;
+        MenuUrl = menuUrl;
     }
 
     public string Module { get; set; } = string.Empty;
@@ -147,4 +193,9 @@ public class UpdateApiFunctionRequest
     public ApiActionType ActionType { get; set; }
     public ApiRiskLevel RiskLevel { get; set; }
     public bool RequiresConfirmation { get; set; }
+    public string? MenuParentCode { get; set; }
+    public int DisplayOrder { get; set; }
+    public bool IsMenuVisible { get; set; } = true;
+    public bool IsMobile { get; set; }
+    public string? MenuUrl { get; set; }
 }

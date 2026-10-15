@@ -1,6 +1,7 @@
 ## .NET build output
 [Bb]in/
 [Oo]bj/
+.review-temp/
 
 ## Visual Studio
 .vs/
@@ -19,7 +20,9 @@ launchSettings.local.json
 
 ## Local secrets and environment overrides
 appsettings.*.local.json
+secrets.local.json
 .env
 .env.*
 !.env.example
+services/meeting-agent-dotnet/**/model-data/
 /build-infra.log

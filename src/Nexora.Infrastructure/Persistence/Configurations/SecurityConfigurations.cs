@@ -6,9 +6,30 @@ using Nexora.Domain.Common.ValueObjects;
 using Nexora.Domain.Organizations;
 using Nexora.Domain.Projects;
 using Nexora.Domain.Security;
-using Nexora.Infrastructure.Identity;
+using Nexora.Infrastructure.Services.Identity;
 
 namespace Nexora.Infrastructure.Persistence.Configurations;
+
+internal sealed class UserProviderKeyConfiguration : IEntityTypeConfiguration<UserProviderKey>
+{
+    public void Configure(EntityTypeBuilder<UserProviderKey> builder)
+    {
+        builder.ToTable("UserProviderKeys", SchemaNames.Security);
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.Id).HasColumnName("id");
+        builder.Property(x => x.UserId).HasColumnName("userId").IsRequired();
+        builder.Property(x => x.Provider).HasColumnName("provider").HasMaxLength(20).IsRequired();
+        builder.Property(x => x.Ciphertext).HasColumnName("ciphertext").HasColumnType("bytea").IsRequired();
+        builder.Property(x => x.Sha256).HasColumnName("sha256").HasColumnType("bytea").IsRequired();
+        builder.Property(x => x.EndpointId).HasColumnName("endpointId").HasMaxLength(80).IsRequired();
+        builder.Property(x => x.MaskedSuffix).HasColumnName("maskedSuffix").HasMaxLength(4).IsRequired();
+        builder.Property(x => x.CreatedAt).HasColumnName("createdAt").HasColumnType("timestamptz").IsRequired();
+        builder.Property(x => x.UpdatedAt).HasColumnName("updatedAt").HasColumnType("timestamptz").IsRequired();
+        builder.Property(x => x.LastUsedAt).HasColumnName("lastUsedAt").HasColumnType("timestamptz");
+        builder.HasIndex(x => new { x.UserId, x.Provider }).IsUnique();
+        builder.HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+    }
+}
 
 internal sealed class ApiFunctionConfiguration : IEntityTypeConfiguration<ApiFunction>
 {
@@ -53,6 +74,11 @@ internal sealed class ApiFunctionConfiguration : IEntityTypeConfiguration<ApiFun
             .HasDefaultValue(ApiFunctionStatus.Active)
             .IsRequired();
         builder.Property(x => x.Version).HasColumnName("version").HasDefaultValue(1).IsRequired();
+        builder.Property(x => x.MenuParentCode).HasColumnName("menuParentCode").HasMaxLength(150);
+        builder.Property(x => x.DisplayOrder).HasColumnName("displayOrder").HasDefaultValue(0).IsRequired();
+        builder.Property(x => x.IsMenuVisible).HasColumnName("isMenuVisible").HasDefaultValue(true).IsRequired();
+        builder.Property(x => x.IsMobile).HasColumnName("isMobile").HasDefaultValue(false).IsRequired();
+        builder.Property(x => x.MenuUrl).HasColumnName("menuUrl").HasMaxLength(300);
         builder.Property(x => x.CreatedAt).HasColumnName("createdAt").HasColumnType("timestamptz").IsRequired();
         builder.Property(x => x.UpdatedByUserId).HasColumnName("updatedByUserId");
         builder.Property(x => x.UpdatedAt).HasColumnName("updatedAt").HasColumnType("timestamptz").IsRequired();
@@ -60,6 +86,8 @@ internal sealed class ApiFunctionConfiguration : IEntityTypeConfiguration<ApiFun
 
         builder.HasIndex(x => x.Code).IsUnique();
         builder.HasIndex(x => new { x.Module, x.Status });
+        builder.HasIndex(x => new { x.MenuParentCode, x.DisplayOrder, x.Status })
+            .HasDatabaseName("ix_api_functions_menu_parent_order_status");
         builder.HasIndex(x => new { x.HttpMethod, x.RouteTemplate, x.Status })
             .HasDatabaseName("ix_api_functions_http_method_route_status");
         builder.HasMany(x => x.RoleApiFunctions).WithOne(x => x.Function).HasForeignKey(x => x.FunctionId).OnDelete(DeleteBehavior.Restrict);
@@ -155,9 +183,9 @@ internal sealed class ActivityLogConfiguration : IEntityTypeConfiguration<Activi
         builder.ToTable("ActivityLogs", SchemaNames.Security);
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Id).HasColumnName("id");
-        builder.Property(x => x.OrganizationId).HasColumnName("organizationId").IsRequired();
+        builder.Property(x => x.OrganizationId).HasColumnName("organizationId");
         builder.Property(x => x.ProjectId).HasColumnName("projectId");
-        builder.Property(x => x.ActorUserId).HasColumnName("actorUserId").IsRequired();
+        builder.Property(x => x.ActorUserId).HasColumnName("actorUserId");
         builder.Property(x => x.ApiFunctionId).HasColumnName("apiFunctionId");
         builder.Property(x => x.Module).HasColumnName("module").HasMaxLength(80).IsRequired();
         builder.Property(x => x.Action).HasColumnName("action").HasMaxLength(100).IsRequired();
@@ -167,10 +195,10 @@ internal sealed class ActivityLogConfiguration : IEntityTypeConfiguration<Activi
         builder.Property(x => x.Description).HasColumnName("description").HasMaxLength(500);
         builder.Property(x => x.IpAddress).HasColumnName("ipAddress").HasColumnType("inet");
         builder.Property(x => x.UserAgent).HasColumnName("userAgent").HasMaxLength(500);
-        builder.Property(x => x.CorrelationId).HasColumnName("correlationId").HasMaxLength(100).IsRequired();
+        builder.Property(x => x.CorrelationId).HasColumnName("correlationId").HasMaxLength(100);
         builder.Property(x => x.MetadataJson).HasColumnName("metadataJson").HasColumnType("jsonb");
         builder.Property(x => x.PreviousLogHash).HasColumnName("previousLogHash").HasColumnType("char(64)").HasMaxLength(64);
-        builder.Property(x => x.LogHash).HasColumnName("logHash").HasColumnType("char(64)").HasMaxLength(64).IsRequired();
+        builder.Property(x => x.LogHash).HasColumnName("logHash").HasColumnType("char(64)").HasMaxLength(64);
         builder.Property(x => x.OccurredAt).HasColumnName("occurredAt").HasColumnType("timestamptz").IsRequired();
 
         builder.HasIndex(x => new { x.OrganizationId, x.ActorUserId, x.OccurredAt });

@@ -5,6 +5,7 @@ using Nexora.Application.Common.Abstractions.Repositories;
 using Nexora.Application.Common.Constants;
 using Nexora.Application.Common.Messaging;
 using Nexora.Application.Common.Results;
+using Nexora.Application.Features.V1.SystemManagements.ApiFunction.Model;
 using Nexora.Application.Features.V1.SystemManagements.Role.Model;
 
 namespace Nexora.Application.Features.V1.SystemManagements.Role.Query;
@@ -17,12 +18,7 @@ public sealed class GetRolesQueryHandler(IUnitOfWork unitOfWork) : IRequestHandl
     {
         var page = request.Page < 1 ? 1 : request.Page;
         var pageSize = request.PageSize is < 1 or > 100 ? 20 : request.PageSize;
-        var roles = await unitOfWork.RoleRepository.PaginationAsync(
-            page,
-            pageSize,
-            orderBy: query => query.OrderBy(role => role.Name),
-            asNoTracking: true,
-            cancellationToken: cancellationToken);
+        var roles = await unitOfWork.RoleRepository.ListPageAsync(page, pageSize, cancellationToken);
 
         return new PagedResult<RoleResponse>(
             roles.Data.Select(role => new RoleResponse(role.Id, role.Name ?? string.Empty, role.IsActive)).ToArray(),
@@ -32,20 +28,61 @@ public sealed class GetRolesQueryHandler(IUnitOfWork unitOfWork) : IRequestHandl
     }
 }
 
-public sealed record GetRoleQuery(Guid RoleId) : IQuery<Result<RoleResponse>>;
+public sealed record GetRoleQuery(Guid RoleId) : IQuery<Result<RoleDetailResponse>>;
 
-public sealed class GetRoleQueryHandler(IUnitOfWork unitOfWork) : IRequestHandler<GetRoleQuery, Result<RoleResponse>>
+public sealed class GetRoleQueryHandler(IUnitOfWork unitOfWork, IDefaultOrganizationProvider organizationProvider, IClock clock) : IRequestHandler<GetRoleQuery, Result<RoleDetailResponse>>
 {
-    public async Task<Result<RoleResponse>> Handle(GetRoleQuery request, CancellationToken cancellationToken)
+    public async Task<Result<RoleDetailResponse>> Handle(GetRoleQuery request, CancellationToken cancellationToken)
     {
-        var role = await unitOfWork.RoleRepository.GetAsync(
-            item => item.Id == request.RoleId,
-            asNoTracking: true,
-            cancellationToken: cancellationToken);
+        var role = await unitOfWork.RoleRepository.GetByIdAsync(request.RoleId, cancellationToken);
 
         return role is null
-            ? Result<RoleResponse>.Failure(Error.NotFound(CommonMessages.Role.NotFound))
-            : Result<RoleResponse>.Success(new RoleResponse(role.Id, role.Name ?? string.Empty, role.IsActive));
+            ? Result<RoleDetailResponse>.Failure(Error.NotFound(CommonMessages.Role.NotFound))
+            : await BuildRoleDetailAsync(role, request.RoleId, cancellationToken);
+    }
+
+    private async Task<Result<RoleDetailResponse>> BuildRoleDetailAsync(IdentityRoleSnapshot role, Guid roleId, CancellationToken cancellationToken)
+    {
+        var apiFunctions = Array.Empty<ApiFunctionResponse>();
+        var allFunctions = await unitOfWork.ApiFunctionRepository.GetAllAsync(
+            orderBy: query => query.OrderBy(function => function.Module)
+                .ThenBy(function => function.DisplayOrder)
+                .ThenBy(function => function.Name),
+            asNoTracking: true,
+            cancellationToken: cancellationToken);
+        var apiFunctionTree = ApiFunctionTreeBuilder.Build(allFunctions);
+        var users = Array.Empty<RoleUserResponse>();
+        var organizationId = await organizationProvider.GetOrganizationIdAsync(cancellationToken);
+        if (organizationId.HasValue)
+        {
+            var now = clock.UtcNow;
+            var roleUsers = await unitOfWork.UserRepository.GetByRoleAsync(organizationId.Value, roleId, now, cancellationToken);
+            users = roleUsers.Select(user => new RoleUserResponse(user.Id, user.Email ?? user.UserName ?? string.Empty, user.UserName ?? user.Email ?? string.Empty, user.PhoneNumber, user.IsActive)).ToArray();
+
+            var grants = await unitOfWork.RoleApiFunctionRepository.GetByRoleAsync(organizationId.Value, roleId, cancellationToken);
+            var functionIds = grants
+                .Where(grant => grant.RevokedAt is null && grant.ValidFrom <= now && (grant.ExpiresAt is null || grant.ExpiresAt > now))
+                .Select(grant => grant.FunctionId)
+                .Distinct()
+                .ToArray();
+            if (functionIds.Length > 0)
+            {
+                var functions = await unitOfWork.ApiFunctionRepository.GetActiveByIdsAsync(functionIds, cancellationToken);
+                apiFunctions = functions
+                    .OrderBy(function => function.Module)
+                    .ThenBy(function => function.Name)
+                    .Select(ApiFunctionResponse.FromEntity)
+                    .ToArray();
+            }
+        }
+
+        return Result<RoleDetailResponse>.Success(new RoleDetailResponse(
+            role.Id,
+            role.Name ?? string.Empty,
+            role.IsActive,
+            apiFunctions,
+            users,
+            apiFunctionTree));
     }
 }
 

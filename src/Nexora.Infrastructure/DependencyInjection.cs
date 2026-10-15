@@ -5,7 +5,9 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.IdentityModel.Tokens;
+using Minio;
 using FluentValidation;
 using MediatR;
 using Nexora.Application;
@@ -15,14 +17,33 @@ using Nexora.Application.Common.Abstractions.Repositories;
 using Nexora.Application.Common.Behaviors;
 using Nexora.Application.Common.Constants;
 using Nexora.Application.Common.Permissions;
-using Nexora.Infrastructure.Authentication;
-using Nexora.Infrastructure.Context;
-using Nexora.Infrastructure.Authorization;
-using Nexora.Infrastructure.Identity;
+using Nexora.Infrastructure.Services.Authentication;
+using Nexora.Infrastructure.Services.Identity.Context;
+using Nexora.Infrastructure.Services.Common;
+using Nexora.Infrastructure.Services.Audit;
+using Nexora.Infrastructure.Services.Authorization;
+using Nexora.Infrastructure.Services.Identity;
 using Nexora.Infrastructure.Persistence;
 using Nexora.Infrastructure.Persistence.Repositories;
+using Nexora.Infrastructure.Persistence.Repositories.Documents;
 using Nexora.Infrastructure.Persistence.Repositories.Identity;
-using Nexora.Infrastructure.Options;
+using Nexora.Infrastructure.Services.DocumentProcessing;
+using Nexora.Infrastructure.Services.Integrations.Embeddings;
+using Nexora.Infrastructure.Services.Integrations.Storage;
+using Nexora.Infrastructure.Services.Integrations.VectorStores;
+using Nexora.Infrastructure.Services.Rag;
+using Nexora.Application.Common.Abstractions.Rag;
+using Nexora.Application.Common.Abstractions.Chat;
+using Nexora.Application.Features.V1.Chat;
+using Nexora.Application.Common.Abstractions.Account;
+using Nexora.Application.Common.Abstractions.Documents;
+using Nexora.Application.Common.Abstractions.Logging;
+using Nexora.Infrastructure.BackgroundProcessing;
+using Nexora.Application.Common.Abstractions.Meetings;
+using Nexora.Infrastructure.Persistence.Repositories.Meetings;
+using Nexora.Infrastructure.Persistence.Repositories.Chat;
+using Nexora.Infrastructure.Services.Integrations.LiveKit;
+using Nexora.Infrastructure.Persistence.Seeding;
 
 namespace Nexora.Infrastructure;
 
@@ -51,6 +72,8 @@ public static class DependencyInjection
             })
             .AddRoles<ApplicationRole>()
             .AddEntityFrameworkStores<NexoraDbContext>();
+        services.RemoveAll<IUserValidator<ApplicationUser>>();
+        services.AddScoped<IUserValidator<ApplicationUser>, UnicodeUserNameValidator>();
         services.AddScoped<IUserStore<ApplicationUser>>(serviceProvider =>
         {
             var store = new UserStore<ApplicationUser, ApplicationRole, NexoraDbContext, Guid>(serviceProvider.GetRequiredService<NexoraDbContext>(), serviceProvider.GetRequiredService<IdentityErrorDescriber>());
@@ -75,6 +98,20 @@ public static class DependencyInjection
         jwtOptions.Validate();
 
         services.AddOptions<CompanyOptions>().Bind(configuration.GetSection(CompanyOptions.SectionName));
+        services.AddOptions<StorageOptions>().Bind(configuration.GetSection(StorageOptions.SectionName));
+        services.AddOptions<QdrantOptions>().Bind(configuration.GetSection(QdrantOptions.SectionName));
+        services.AddOptions<EmbeddingOptions>().Bind(configuration.GetSection(EmbeddingOptions.SectionName));
+        services.AddOptions<DocumentProcessingOptions>().Bind(configuration.GetSection(DocumentProcessingOptions.SectionName));
+        services.AddOptions<ChatOptions>()
+            .Bind(configuration.GetSection(ChatOptions.SectionName))
+            .Validate(options => float.IsFinite(options.DepartmentMatchThreshold) &&
+                options.DepartmentMatchThreshold is >= 0f and <= 1f &&
+                options.MaxOutputTokens is >= 256 and <= 2048,
+                "Chat:DepartmentMatchThreshold must be between 0 and 1 and MaxOutputTokens between 256 and 2048.")
+            .ValidateOnStart();
+        services.AddSingleton<IDepartmentScopeOptions>(serviceProvider =>
+            serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<ChatOptions>>().Value);
+        services.AddOptions<ProviderKeyOptions>().Bind(configuration.GetSection(ProviderKeyOptions.SectionName));
 
         services
             .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -115,11 +152,64 @@ public static class DependencyInjection
         services.AddScoped<IApiFunctionRepository, ApiFunctionRepository>();
         services.AddScoped<IRoleApiFunctionRepository, RoleApiFunctionRepository>();
         services.AddScoped<IAccessTokenRepository, AccessTokenRepository>();
+        services.AddScoped<IActivityLogRepository, ActivityLogRepository>();
+        services.AddScoped<IDocumentFolderRepository, DocumentFolderRepository>();
+        services.AddScoped<IDocumentFolderAccessGrantRepository, DocumentFolderAccessGrantRepository>();
+        services.AddScoped<IDocumentRepository, DocumentRepository>();
+        services.AddScoped<IDocumentRetrievalStore, DocumentRepository>();
+        services.AddScoped<IFolderOverviewRepository, DocumentRepository>();
+        services.AddScoped<IActivityLogWriter, ActivityLogWriter>();
+        services.AddScoped<IMeetingStore, MeetingStore>();
+        services.AddScoped<IMeetingTranscriptStore, MeetingTranscriptStore>();
+        services.AddHttpClient<IMeetingRoomProvider, LiveKitRoomProvider>();
+        services.AddScoped<ApiFunctionSeeder>();
+        services.AddScoped<IDocumentProcessingStore, DocumentProcessingStore>();
+        services.AddScoped<IPdfOcrEngine, TesseractOcrEngine>();
+        services.AddScoped<IDocumentStorageSettings>(serviceProvider => serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<StorageOptions>>().Value);
+        services.AddScoped<IDocumentIndexSettings, DocumentIndexSettings>();
+        services.AddScoped<IDocumentTextChunker, DocumentTextChunker>();
+        services.AddScoped<ChatCipher>();
+        services.AddScoped<IChatCipher>(serviceProvider => serviceProvider.GetRequiredService<ChatCipher>());
+        services.AddScoped<ProviderKeyCipher>();
+        services.AddScoped<IProviderKeyCipher>(serviceProvider => serviceProvider.GetRequiredService<ProviderKeyCipher>());
+        services.AddScoped<IProviderEndpointSettings>(serviceProvider => serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<ProviderKeyOptions>>().Value);
+        services.AddScoped<IAccountStore, AccountSettingsStore>();
+        services.AddScoped<IChatStore, ChatStore>();
+        services.AddScoped<IChatWorkflow, ChatWorkflow>();
+        services.AddScoped<IChatProviderService, ChatProviderService>();
+        services.AddHttpClient<ChatModelStreamer>();
+        services.AddScoped<IChatModelResolver>(serviceProvider => serviceProvider.GetRequiredService<ChatModelStreamer>());
+        services.AddScoped<IDocumentTextExtractor, DocumentTextExtractor>();
+
+        var storageOptions = configuration.GetSection(StorageOptions.SectionName).Get<StorageOptions>() ?? new StorageOptions();
+        var storageEndpoint = new Uri(storageOptions.Endpoint);
+        var minioBuilder = new MinioClient().WithEndpoint(storageEndpoint.Authority).WithCredentials(storageOptions.AccessKey, storageOptions.SecretKey);
+        if (storageEndpoint.Scheme.Equals(Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase))
+        {
+            minioBuilder.WithSSL();
+        }
+
+        services.AddSingleton<IMinioClient>(minioBuilder.Build());
+        services.AddScoped<IObjectStorage, MinioObjectStorage>();
+        services.AddHttpClient<IEmbeddingProvider, GeminiEmbeddingProvider>();
+        services.AddHttpClient<IVectorStore, QdrantVectorStore>((serviceProvider, client) =>
+        {
+            var options = serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<QdrantOptions>>().Value;
+            client.BaseAddress = new Uri(options.Endpoint.TrimEnd('/') + "/");
+            if (!string.IsNullOrWhiteSpace(options.ApiKey))
+            {
+                client.DefaultRequestHeaders.Add("api-key", options.ApiKey);
+            }
+        });
+        services.AddSingleton<DocumentProcessingQueue>();
+        services.AddSingleton<IDocumentProcessingQueue>(serviceProvider => serviceProvider.GetRequiredService<DocumentProcessingQueue>());
+        services.AddHostedService<DocumentProcessingWorker>();
 
         services.AddScoped<IApiRequestPermissionChecker, ApiPermissionService>();
         services.AddMediatR(config =>
         {
             config.RegisterServicesFromAssembly(typeof(ApplicationAssemblyMarker).Assembly);
+            config.AddOpenBehavior(typeof(ExceptionHandlingBehavior<,>));
             config.AddOpenBehavior(typeof(ValidationBehavior<,>));
             config.AddOpenBehavior(typeof(TransactionBehavior<,>));
         });

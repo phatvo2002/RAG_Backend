@@ -6,6 +6,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Content Include="..\..\scripts\apifunction.json" Link="SeedData\apifunction.json" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Remove="secrets.local.json" />
+    <None Update="secrets.local.json" CopyToOutputDirectory="Never" CopyToPublishDirectory="Never" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.10">
       <PrivateAssets>all</PrivateAssets>

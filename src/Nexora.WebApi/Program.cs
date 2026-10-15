@@ -7,11 +7,19 @@ using Nexora.WebApi;
 using Nexora.WebApi.Middleware;
 using Nexora.WebApi.Responses;
 using Nexora.WebApi.RateLimiting;
+using Nexora.WebApi.Authentication;
+using Nexora.Infrastructure.Persistence.Seeding;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Configuration
+    .AddJsonFile("secrets.local.json", optional: true, reloadOnChange: false)
+    .AddEnvironmentVariables()
+    .AddCommandLine(args);
 
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddControllers();
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
+builder.Services.AddCors(options => options.AddPolicy("Frontend", policy => policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod()));
 builder.Services.Configure<ApiBehaviorOptions>(options =>
 {
     options.InvalidModelStateResponseFactory = context =>
@@ -37,6 +45,20 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new OpenApiInfo { Title = "Nexora AI API", Version = "v1", Description = "Nexora AI backend API" });
+
+    options.OrderActionsBy(apiDescription =>
+    {
+        var methodOrder = apiDescription.HttpMethod?.ToUpperInvariant() switch
+        {
+            "GET" => 0,
+            "POST" => 1,
+            "PUT" => 2,
+            "DELETE" => 3,
+            _ => 4
+        };
+
+        return $"{methodOrder:D2}_{apiDescription.RelativePath ?? string.Empty}";
+    });
 
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
@@ -64,9 +86,14 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddAuthentication().AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions,
+    MeetingAgentAuthenticationHandler>(MeetingAgentAuthenticationHandler.SchemeName, _ => { });
+builder.Services.AddAuthorization();
 builder.Services.AddNexoraRateLimiting();
 
 var app = builder.Build();
+
+await app.SeedApiFunctionsAsync();
 
 app.UseExceptionHandler(exceptionHandlerApp =>
 {
@@ -83,6 +110,7 @@ app.UseExceptionHandler(exceptionHandlerApp =>
             httpContext.RequestAborted);
     });
 });
+app.UseMiddleware<RequestActivityLogMiddleware>();
 app.UseStatusCodePages(async statusCodeContext =>
 {
     var httpContext = statusCodeContext.HttpContext;
@@ -104,7 +132,9 @@ app.UseHttpsRedirection();
 app.UseSwagger();
 app.UseSwaggerUI(options => { options.SwaggerEndpoint("/swagger/v1/swagger.json", "Nexora AI API v1"); options.RoutePrefix = "swagger"; });
 app.UseRouting();
+app.UseCors("Frontend");
 app.UseAuthentication();
+app.UseAuthorization();
 app.UseRateLimiter();
 app.UseMiddleware<JwtAuthenticationMiddleware>();
 app.UseMiddleware<ApiPermissionMiddleware>();

@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Nexora.Domain.Documents;
 using Nexora.Domain.Organizations;
 using Nexora.Domain.Projects;
-using Nexora.Infrastructure.Identity;
+using Nexora.Infrastructure.Services.Identity;
 
 namespace Nexora.Infrastructure.Persistence.Configurations;
 

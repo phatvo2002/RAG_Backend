@@ -1,8 +1,9 @@
+using Nexora.Application.Features.V1.SystemManagements.ApiFunction.Model;
 using Nexora.Domain.Authorization.Enums;
 
 namespace Nexora.Application.Features.V1.SystemManagements.Role.Model;
 
-public class RoleResponse
+public sealed record RoleResponse
 {
     public RoleResponse()
     {
@@ -20,7 +21,68 @@ public class RoleResponse
     public bool IsActive { get; set; }
 }
 
-public class RolePermissionResponse
+public sealed record RoleDetailResponse
+{
+    public RoleDetailResponse()
+    {
+    }
+
+    public RoleDetailResponse(Guid roleId, string name, bool isActive, IReadOnlyCollection<ApiFunctionResponse> apiFunctions, IReadOnlyCollection<RoleUserResponse> users)
+    {
+        RoleId = roleId;
+        Name = name;
+        IsActive = isActive;
+        AssignedApiFunctions = apiFunctions;
+        Users = users;
+    }
+
+    public RoleDetailResponse(
+        Guid roleId,
+        string name,
+        bool isActive,
+        IReadOnlyCollection<ApiFunctionResponse> assignedApiFunctions,
+        IReadOnlyCollection<RoleUserResponse> users,
+        IReadOnlyList<ApiFunctionTreeResponse> apiFunctionTree)
+    {
+        RoleId = roleId;
+        Name = name;
+        IsActive = isActive;
+        ApiFunctions = apiFunctionTree;
+        AssignedApiFunctions = assignedApiFunctions;
+        Users = users;
+    }
+
+    public Guid RoleId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public bool IsActive { get; set; }
+    public IReadOnlyList<ApiFunctionTreeResponse> ApiFunctions { get; set; } = Array.Empty<ApiFunctionTreeResponse>();
+    public IReadOnlyCollection<ApiFunctionResponse> AssignedApiFunctions { get; set; } = Array.Empty<ApiFunctionResponse>();
+    public IReadOnlyCollection<RoleUserResponse> Users { get; set; } = Array.Empty<RoleUserResponse>();
+}
+
+public sealed record RoleUserResponse
+{
+    public RoleUserResponse()
+    {
+    }
+
+    public RoleUserResponse(Guid userId, string email, string userName, string? phoneNumber, bool isActive)
+    {
+        UserId = userId;
+        Email = email;
+        UserName = userName;
+        PhoneNumber = phoneNumber;
+        IsActive = isActive;
+    }
+
+    public Guid UserId { get; set; }
+    public string Email { get; set; } = string.Empty;
+    public string UserName { get; set; } = string.Empty;
+    public string? PhoneNumber { get; set; }
+    public bool IsActive { get; set; }
+}
+
+public sealed record RolePermissionResponse
 {
     public RolePermissionResponse()
     {
@@ -42,7 +104,7 @@ public class RolePermissionResponse
     public DateTimeOffset? RevokedAt { get; set; }
 }
 
-public class CreateRoleRequest
+public sealed record CreateRoleRequest
 {
     public CreateRoleRequest()
     {
@@ -56,7 +118,7 @@ public class CreateRoleRequest
     public string Name { get; set; } = string.Empty;
 }
 
-public class UpdateRoleRequest
+public sealed record UpdateRoleRequest
 {
     public UpdateRoleRequest()
     {
@@ -70,7 +132,7 @@ public class UpdateRoleRequest
     public string Name { get; set; } = string.Empty;
 }
 
-public class GrantRolePermissionRequest
+public sealed record GrantRolePermissionRequest
 {
     public GrantRolePermissionRequest()
     {
@@ -88,7 +150,7 @@ public class GrantRolePermissionRequest
     public DateTimeOffset? ExpiresAt { get; set; }
 }
 
-public sealed class SetRolePermissionsRequest
+public sealed record SetRolePermissionsRequest
 {
     public IReadOnlyCollection<Guid> FunctionIds { get; set; } = Array.Empty<Guid>();
 }

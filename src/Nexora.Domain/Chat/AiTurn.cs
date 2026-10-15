@@ -39,4 +39,27 @@ public class AiTurn : EntityBase
     public DateTimeOffset? CompletedAt { get; set; }
 
     public string? ErrorCode { get; set; }
+
+    public static AiTurn Create(Guid id, Guid organizationId, Guid conversationId, Guid requestMessageId,
+        string correlationId, string provider, string model, string promptVersion, DateTimeOffset now) => new(id)
+    {
+        OrganizationId = organizationId,
+        ConversationId = conversationId,
+        RequestMessageId = requestMessageId,
+        CorrelationId = correlationId,
+        ModelProvider = provider,
+        ModelName = model,
+        PromptVersion = promptVersion,
+        Status = "PENDING",
+        StartedAt = now
+    };
+
+    public void Complete(Guid responseMessageId, DateTimeOffset now)
+    {
+        ResponseMessageId = responseMessageId;
+        Status = "COMPLETED";
+        CompletedAt = now;
+    }
+
+    private AiTurn(Guid id) : base(id) { }
 }

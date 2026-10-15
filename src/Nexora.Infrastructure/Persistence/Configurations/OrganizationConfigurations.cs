@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Nexora.Domain.Common.ValueObjects;
 using Nexora.Domain.Organizations;
 using Nexora.Domain.Organizations.Enums;
-using Nexora.Infrastructure.Identity;
+using Nexora.Infrastructure.Services.Identity;
 
 namespace Nexora.Infrastructure.Persistence.Configurations;
 
@@ -80,7 +80,7 @@ internal sealed class UserProfileConfiguration : IEntityTypeConfiguration<UserPr
             .HasColumnName("preferredLanguage")
             .HasConversion(x => x.Value, x => LanguageCode.Create(x))
             .HasMaxLength(10)
-            .HasDefaultValue(LanguageCode.Create("vi"))
+            .HasDefaultValue(LanguageCode.Create("en"))
             .IsRequired();
         builder.Property(x => x.TimeZone)
             .HasColumnName("timeZone")
@@ -195,7 +195,7 @@ internal sealed class OrganizationSettingConfiguration : IEntityTypeConfiguratio
             .HasColumnName("defaultLanguage")
             .HasConversion(x => x.Value, x => LanguageCode.Create(x))
             .HasMaxLength(10)
-            .HasDefaultValue(LanguageCode.Create("vi"))
+            .HasDefaultValue(LanguageCode.Create("en"))
             .IsRequired();
         builder.Property(x => x.TimeZone)
             .HasColumnName("timeZone")

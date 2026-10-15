@@ -1,11 +1,12 @@
 using Microsoft.EntityFrameworkCore;
 using Nexora.Application.Common.Abstractions;
+using Nexora.Application.Common.Abstractions.Documents;
 using Nexora.Application.Common.Abstractions.Repositories;
 using Nexora.Application.Common.Results;
-
+ 
 namespace Nexora.Infrastructure.Persistence;
 
-internal sealed class UnitOfWork(
+public class UnitOfWork(
     NexoraDbContext dbContext,
     IUserRepository userRepository,
     IRoleRepository roleRepository,
@@ -17,7 +18,10 @@ internal sealed class UnitOfWork(
     IDepartmentMembershipRepository departmentMembershipRepository,
     IApiFunctionRepository apiFunctionRepository,
     IRoleApiFunctionRepository roleApiFunctionRepository,
-    IAccessTokenRepository accessTokenRepository) : IUnitOfWork
+    IAccessTokenRepository accessTokenRepository,
+    IActivityLogRepository activityLogRepository,
+    IDocumentFolderRepository documentFolderRepository,
+    IDocumentFolderAccessGrantRepository documentFolderAccessGrantRepository) : IUnitOfWork
 {
     public IUserRepository UserRepository { get; } = userRepository;
     public IRoleRepository RoleRepository { get; } = roleRepository;
@@ -30,6 +34,9 @@ internal sealed class UnitOfWork(
     public IApiFunctionRepository ApiFunctionRepository { get; } = apiFunctionRepository;
     public IRoleApiFunctionRepository RoleApiFunctionRepository { get; } = roleApiFunctionRepository;
     public IAccessTokenRepository AccessTokenRepository { get; } = accessTokenRepository;
+    public IActivityLogRepository ActivityLogRepository { get; } = activityLogRepository;
+    public IDocumentFolderRepository DocumentFolderRepository { get; } = documentFolderRepository;
+    public IDocumentFolderAccessGrantRepository DocumentFolderAccessGrantRepository { get; } = documentFolderAccessGrantRepository;
 
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken) =>
         dbContext.SaveChangesAsync(cancellationToken);

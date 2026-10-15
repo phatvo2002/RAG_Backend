@@ -8,4 +8,8 @@ public interface IOrganizationMembershipRepository : IBaseRepository<Organizatio
 
     Task<OrganizationMembership?> GetAsync(Guid organizationId, Guid userId, CancellationToken cancellationToken);
 
+    Task<OrganizationMembership?> GetForUpdateAsync(Guid organizationId, Guid userId, CancellationToken cancellationToken);
+
+    Task<List<OrganizationMembership>> GetActiveByUsersAsync(Guid organizationId, IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken);
+
 }

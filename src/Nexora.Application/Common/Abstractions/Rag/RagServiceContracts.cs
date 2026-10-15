@@ -1,0 +1,62 @@
+namespace Nexora.Application.Common.Abstractions.Rag;
+
+public interface IEmbeddingProvider
+{
+    Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyCollection<string> inputs, CancellationToken cancellationToken);
+}
+
+public interface IDepartmentScopeOptions
+{
+    float DepartmentMatchThreshold { get; }
+}
+
+public sealed record VectorPoint(string Id, float[] Vector, Guid DocumentId, Guid VersionId, Guid ChunkId, string ContentHash, string FileName);
+
+public sealed record VectorPointReference(string CollectionName, string PointId);
+
+public sealed record VectorSearchResult(Guid DocumentId, Guid ChunkId, float Score);
+
+public sealed record IndexedDocumentReference(Guid DocumentId, bool IsDepartmentScoped);
+
+public sealed record RetrievalChunkSource(
+    Guid DocumentId,
+    Guid ChunkId,
+    string FileName,
+    string? DepartmentName,
+    int? PageNo,
+    int? CharStart,
+    int? CharEnd,
+    string StorageBucket,
+    string ContentObjectKey);
+
+public interface IDocumentRetrievalStore
+{
+    Task<string?> GetOrganizationNameAsync(Guid organizationId, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<IndexedDocumentReference>> GetIndexedDocumentsAsync(Guid organizationId, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<Guid>> GetAccessibleIndexedDocumentIdsAsync(Guid organizationId, Guid userId, DateTimeOffset now, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<RetrievalChunkSource>> GetAccessibleChunkSourcesAsync(
+        Guid organizationId,
+        Guid userId,
+        DateTimeOffset now,
+        IReadOnlyCollection<Guid> chunkIds,
+        CancellationToken cancellationToken);
+}
+
+public interface IVectorStore
+{
+    Task EnsureCollectionAsync(string collectionName, int dimension, string distance, CancellationToken cancellationToken);
+
+    Task UpsertAsync(string collectionName, IReadOnlyCollection<VectorPoint> points, CancellationToken cancellationToken);
+
+    Task<IReadOnlyList<VectorSearchResult>> SearchAsync(
+        string collectionName,
+        float[] vector,
+        IReadOnlyCollection<Guid> allowedDocumentIds,
+        int limit,
+        CancellationToken cancellationToken);
+
+    Task DeleteAsync(string collectionName, IReadOnlyCollection<string> pointIds, CancellationToken cancellationToken);
+}

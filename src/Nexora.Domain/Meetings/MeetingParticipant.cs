@@ -8,6 +8,10 @@ public class MeetingParticipant : EntityBase
     {
     }
 
+    private MeetingParticipant(Guid id) : base(id)
+    {
+    }
+
     public Guid OrganizationId { get; private set; }
 
     public Guid MeetingId { get; private set; }
@@ -23,4 +27,9 @@ public class MeetingParticipant : EntityBase
     public DateTimeOffset? JoinedAt { get; set; }
 
     public DateTimeOffset? LeftAt { get; set; }
+
+    public static MeetingParticipant Create(Guid organizationId, Guid meetingId, Guid userId) => new(Guid.NewGuid())
+    {
+        OrganizationId = organizationId, MeetingId = meetingId, UserId = userId
+    };
 }

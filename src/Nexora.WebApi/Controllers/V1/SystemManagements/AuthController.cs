@@ -11,6 +11,14 @@ namespace Nexora.WebApi.Controllers.V1.SystemManagements;
 [Route("api/auth")]
 public sealed class AuthController(ISender sender) : ControllerBase
 {
+    [HttpGet("me")]
+    public async Task<IActionResult> Me(CancellationToken cancellationToken)
+    {
+        var result = await sender.Send(new GetCurrentUserQuery(), cancellationToken);
+
+        return this.ToActionResult(result, "Lấy thông tin tài khoản thành công.");
+    }
+
     [HttpPost("login")]
     [EnableRateLimiting("auth")]
     public async Task<IActionResult> Login([FromBody] LoginRequest request, CancellationToken cancellationToken)
@@ -36,13 +44,5 @@ public sealed class AuthController(ISender sender) : ControllerBase
         await sender.Send(new LogoutCommand(request.RefreshToken), cancellationToken);
 
         return this.ToSuccessResponse("Đăng xuất thành công.");
-    }
-
-    [HttpGet("me")]
-    public async Task<IActionResult> Me(CancellationToken cancellationToken)
-    {
-        var result = await sender.Send(new GetCurrentUserQuery(), cancellationToken);
-
-        return this.ToActionResult(result, "Lấy thông tin tài khoản thành công.");
     }
 }

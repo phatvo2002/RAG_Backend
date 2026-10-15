@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Nexora.Domain.Documents;
 using Nexora.Domain.Organizations;
 using Nexora.Domain.Projects;
-using Nexora.Infrastructure.Identity;
+using Nexora.Infrastructure.Services.Identity;
 
 namespace Nexora.Infrastructure.Persistence.Configurations;
 
@@ -15,6 +15,7 @@ internal sealed class DocumentFolderConfiguration : IEntityTypeConfiguration<Doc
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Id).HasColumnName("id");
         builder.Property(x => x.OrganizationId).HasColumnName("organizationId").IsRequired();
+        builder.Property(x => x.DepartmentId).HasColumnName("departmentId");
         builder.Property(x => x.ParentFolderId).HasColumnName("parentFolderId");
         builder.Property(x => x.Name).HasColumnName("name").HasMaxLength(200).IsRequired();
         builder.Property(x => x.OwnerUserId).HasColumnName("ownerUserId").IsRequired();
@@ -26,9 +27,11 @@ internal sealed class DocumentFolderConfiguration : IEntityTypeConfiguration<Doc
         builder.Property(x => x.RowVersion).HasColumnName("rowVersion").HasDefaultValue(1L).IsConcurrencyToken();
 
         builder.HasIndex(x => new { x.OrganizationId, x.ParentFolderId, x.Name }).IsUnique().HasDatabaseName("ux_folder_parent_name");
+        builder.HasIndex(x => new { x.OrganizationId, x.DepartmentId });
         builder.HasIndex(x => new { x.OrganizationId, x.Id }).IsUnique().HasDatabaseName("ux_folder_tenant_id");
 
         builder.HasOne<Organization>().WithMany().HasForeignKey(x => x.OrganizationId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Department>().WithMany().HasForeignKey(x => x.DepartmentId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<DocumentFolder>().WithMany().HasForeignKey(x => x.ParentFolderId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.OwnerUserId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.UpdatedByUserId).OnDelete(DeleteBehavior.Restrict);
@@ -44,6 +47,7 @@ internal sealed class DocumentConfiguration : IEntityTypeConfiguration<Document>
         builder.HasKey(x => x.Id);
         builder.Property(x => x.Id).HasColumnName("id");
         builder.Property(x => x.OrganizationId).HasColumnName("organizationId").IsRequired();
+        builder.Property(x => x.DepartmentId).HasColumnName("departmentId");
         builder.Property(x => x.OwnerUserId).HasColumnName("ownerUserId").IsRequired();
         builder.Property(x => x.FolderId).HasColumnName("folderId");
         builder.Property(x => x.Title).HasColumnName("title").HasMaxLength(300).IsRequired();
@@ -59,11 +63,13 @@ internal sealed class DocumentConfiguration : IEntityTypeConfiguration<Document>
         builder.HasIndex(x => new { x.OrganizationId, x.Status });
         builder.HasIndex(x => new { x.OrganizationId, x.OwnerUserId });
         builder.HasIndex(x => new { x.OrganizationId, x.FolderId });
+        builder.HasIndex(x => new { x.OrganizationId, x.DepartmentId });
         builder.HasIndex(x => new { x.OrganizationId, x.Id }).IsUnique().HasDatabaseName("ux_document_tenant_id");
 
         builder.HasOne<Organization>().WithMany().HasForeignKey(x => x.OrganizationId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.OwnerUserId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<DocumentFolder>().WithMany().HasForeignKey(x => x.FolderId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Department>().WithMany().HasForeignKey(x => x.DepartmentId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<DocumentVersion>().WithMany().HasForeignKey(x => x.CurrentVersionId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.UpdatedByUserId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.DeleteBy).OnDelete(DeleteBehavior.Restrict);
@@ -150,6 +156,33 @@ internal sealed class DocumentAccessGrantConfiguration : IEntityTypeConfiguratio
         builder.HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.PrincipalUserId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.GrantedByUserId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.RevokedByUserId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+internal sealed class DocumentFolderAccessGrantConfiguration : IEntityTypeConfiguration<DocumentFolderAccessGrant>
+{
+    public void Configure(EntityTypeBuilder<DocumentFolderAccessGrant> builder)
+    {
+        builder.ToTable("DocumentFolderAccessGrants", SchemaNames.Document);
+        builder.HasKey(x => x.Id);
+        builder.Property(x => x.Id).HasColumnName("id");
+        builder.Property(x => x.OrganizationId).HasColumnName("organizationId").IsRequired();
+        builder.Property(x => x.FolderId).HasColumnName("folderId").IsRequired();
+        builder.Property(x => x.DepartmentId).HasColumnName("departmentId");
+        builder.Property(x => x.UserId).HasColumnName("userId");
+        builder.Property(x => x.AccessLevel).HasColumnName("accessLevel").HasMaxLength(20).IsRequired();
+        builder.Property(x => x.GrantedByUserId).HasColumnName("grantedByUserId").IsRequired();
+        builder.Property(x => x.ValidFrom).HasColumnName("validFrom").HasColumnType("timestamptz").IsRequired();
+        builder.Property(x => x.ExpiresAt).HasColumnName("expiresAt").HasColumnType("timestamptz");
+        builder.Property(x => x.RevokedAt).HasColumnName("revokedAt").HasColumnType("timestamptz");
+        builder.Property(x => x.RevokedByUserId).HasColumnName("revokedByUserId");
+        builder.Property(x => x.CreatedAt).HasColumnName("createdAt").HasColumnType("timestamptz").IsRequired();
+        builder.Property(x => x.RowVersion).HasColumnName("rowVersion").HasDefaultValue(1L).IsConcurrencyToken();
+        builder.HasIndex(x => new { x.OrganizationId, x.FolderId });
+        builder.HasIndex(x => new { x.OrganizationId, x.DepartmentId });
+        builder.HasIndex(x => new { x.OrganizationId, x.UserId });
+        builder.HasOne<DocumentFolder>().WithMany().HasForeignKey(x => x.FolderId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Department>().WithMany().HasForeignKey(x => x.DepartmentId).OnDelete(DeleteBehavior.Restrict);
     }
 }
 

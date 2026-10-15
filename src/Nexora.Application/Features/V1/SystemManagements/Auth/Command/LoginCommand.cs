@@ -17,15 +17,25 @@ public sealed class LoginCommandHandler(IUnitOfWork unitOfWork, IAuthTokenServic
     {
         var user = await unitOfWork.UserRepository.ValidateCredentialsAsync(request.Email, request.Password, cancellationToken);
 
-        if (user is null)
+        try
         {
-            return Result<AuthResponse>.Failure(
-                new Error(CommonMessages.ErrorCodes.InvalidCredentials, CommonMessages.Auth.InvalidCredentials));
+            if (user is null)
+            {
+                return Result<AuthResponse>.Failure(
+                    new Error(CommonMessages.ErrorCodes.InvalidCredentials, CommonMessages.Auth.InvalidCredentials));
+            }
+
+            var tokenSet = await authTokenService.IssueAsync(user, requestMetadata.IpAddress, requestMetadata.UserAgent, cancellationToken);
+            //     var apiFunctions = await unitOfWork.ApiFunctionRepository.GetEffectiveByUserAsync(tokenSet.OrganizationId, user.UserId, clock.UtcNow, cancellationToken);
+
+            return Result<AuthResponse>.Success(AuthMapper.ToResponse(user, tokenSet));
         }
-
-        var tokenSet = await authTokenService.IssueAsync(user, requestMetadata.IpAddress, requestMetadata.UserAgent, cancellationToken);
-        var apiFunctions = await unitOfWork.ApiFunctionRepository.GetEffectiveByUserAsync(tokenSet.OrganizationId, user.UserId, clock.UtcNow, cancellationToken);
-
-        return Result<AuthResponse>.Success(AuthMapper.ToResponse(user, tokenSet, apiFunctions));
+        catch (Exception ex)
+        {
+            Console.WriteLine($"An error occurred while validating credentials: {ex.Message}");
+            return Result<AuthResponse>.Failure(
+                new Error(CommonMessages.ErrorCodes.Server, ex.Message));
+        }
+     
     }
 }

@@ -7,7 +7,8 @@ namespace Nexora.Application.Features.V1.SystemManagements.Auth.Mapper;
 
 internal static class AuthMapper
 {
-    public static AuthResponse ToResponse(IdentityUserSnapshot user, AuthTokenSet tokenSet, IEnumerable<DomainApiFunction> apiFunctions) =>
+    public static AuthResponse ToResponse(IdentityUserSnapshot user, AuthTokenSet tokenSet //, IEnumerable<DomainApiFunction> apiFunctions
+        ) =>
         new(
             user.UserId,
             user.Email,
@@ -15,6 +16,6 @@ internal static class AuthMapper
             tokenSet.AccessToken,
             tokenSet.AccessTokenExpiresAt,
             tokenSet.RefreshToken,
-            tokenSet.RefreshTokenExpiresAt,
-            apiFunctions.Select(ApiFunctionResponse.FromEntity).ToArray());
+            tokenSet.RefreshTokenExpiresAt);
+           // apiFunctions.Select(ApiFunctionResponse.FromEntity).ToArray());
 }

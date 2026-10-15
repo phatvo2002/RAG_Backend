@@ -34,6 +34,7 @@ public static class CommonMessages
         public const string DefaultOrganizationNotConfigured = "Chưa cấu hình Organization mặc định.";
         public const string CannotCreate = "Không thể tạo User.";
         public const string CannotUpdate = "Không thể cập nhật User.";
+        public const string UserNameInvalid = "UserName chỉ được chứa chữ cái Unicode và khoảng trắng giữa các từ.";
         public const string LoginRequiredToCreate = "Cần đăng nhập để tạo User.";
         public const string LoginRequiredToAssignRole = "Cần đăng nhập để gán Role.";
         public const string LoginRequiredToRevokeRole = "Cần đăng nhập để thu hồi Role.";
@@ -115,6 +116,12 @@ public static class CommonMessages
         public const string PermissionNotGrantedTemplate = "Permission '{0}' was not granted.";
         public const string ApiFunctionCatalogConflictTemplate = "ApiFunction code '{0}' đã tồn tại nhưng route hoặc HTTP method không khớp catalog.";
         public const string UnhandledRequestLogTemplate = "Unhandled exception while processing request {TraceIdentifier}.";
+    }
+
+    public static class Document
+    {
+        public const string NotFound = "Document không tồn tại.";
+        public const string UploadFailed = "Không thể lưu tài liệu.";
     }
 
     public static class TokenReasons

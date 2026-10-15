@@ -1,6 +1,6 @@
 namespace Nexora.Application.Features.V1.SystemManagements.Department.Model;
 
-public class DepartmentResponse
+public sealed record DepartmentResponse
 {
     public DepartmentResponse()
     {
@@ -24,7 +24,7 @@ public class DepartmentResponse
     public string Status { get; set; } = string.Empty;
 }
 
-public class DepartmentMemberResponse
+public sealed record DepartmentMemberResponse
 {
     public DepartmentMemberResponse()
     {
@@ -44,7 +44,7 @@ public class DepartmentMemberResponse
     public DateTimeOffset? LeftAt { get; set; }
 }
 
-public class CreateDepartmentRequest
+public sealed record CreateDepartmentRequest
 {
     public CreateDepartmentRequest()
     {
@@ -60,11 +60,11 @@ public class CreateDepartmentRequest
 
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
-    public Guid? ParentDepartmentId { get; set; }
+    public Guid? ParentDepartmentId { get; set; } = null;
     public Guid? ManagerUserId { get; set; }
 }
 
-public class UpdateDepartmentRequest
+public sealed record UpdateDepartmentRequest
 {
     public UpdateDepartmentRequest()
     {
