@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.Extensions.Configuration;
 using Nexora.Application.Common.Constants;
+using Nexora.Infrastructure.Services.Common;
 
 namespace Nexora.Infrastructure.Persistence;
 
@@ -17,7 +18,7 @@ public sealed class DesignTimeNexoraDbContextFactory
             .SetBasePath(webApiPath)
             .AddJsonFile("appsettings.json", optional: false)
             .AddJsonFile($"appsettings.{environment}.json", optional: true)
-            .AddJsonFile("secrets.local.json", optional: true)
+            .AddInMemoryCollection(DotEnvConfiguration.ReadFromAncestors(webApiPath))
             .AddEnvironmentVariables()
             .Build();
 

@@ -9,10 +9,11 @@ using Nexora.WebApi.Responses;
 using Nexora.WebApi.RateLimiting;
 using Nexora.WebApi.Authentication;
 using Nexora.Infrastructure.Persistence.Seeding;
+using Nexora.Infrastructure.Services.Common;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Configuration
-    .AddJsonFile("secrets.local.json", optional: true, reloadOnChange: false)
+    .AddInMemoryCollection(DotEnvConfiguration.ReadFromAncestors(builder.Environment.ContentRootPath))
     .AddEnvironmentVariables()
     .AddCommandLine(args);
 
