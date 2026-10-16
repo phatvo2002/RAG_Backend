@@ -38,17 +38,17 @@ Các hình dưới đây minh họa giao diện của dự án nghiên cứu t�
 
 ## Cài đặt
 
-Cần Docker, PostgreSQL và image backend/frontend trên Docker Hub.
+Cần Docker và hai repository `my_rag-backend`, `my_rag-frontend` đặt cạnh nhau. Compose sẽ build ứng dụng từ mã nguồn.
 
-1. Tạo `.env` cho MinIO và file cấu hình bí mật của WebApi từ [`secrets.example.json`](src/Nexora.WebApi/secrets.example.json). Giữ các khóa ngoài Git.
-2. Chạy MinIO và Qdrant: `docker compose up -d minio qdrant`.
-3. Cập nhật database, sau đó chạy image backend và frontend.
+1. Tạo `.env` từ `.env.example`; điền mật khẩu PostgreSQL, MinIO, chuỗi kết nối `ConnectionStrings__Postgres` và các khóa API cần dùng. `.env` không được commit.
+2. Chạy `docker compose up -d --build` từ repository backend. Compose chạy PostgreSQL, MinIO, Qdrant, cập nhật schema rồi khởi động WebApi và frontend.
+3. Mở `http://localhost:3000`.
 
-Xem [hướng dẫn triển khai bằng Docker](docs/deployment.md) để có lệnh cụ thể và cách cấu hình.
+Nếu cần chuyển dữ liệu PostgreSQL đang dùng, làm theo [hướng dẫn chuyển dữ liệu](docs/deployment.md) **trước bước 2**.
 
 ## Phát triển từ mã nguồn
 
-Sao chép `src/Nexora.WebApi/secrets.example.json` thành `src/Nexora.WebApi/secrets.local.json`, điền thông tin cho môi trường phát triển rồi chạy `docker compose up -d` để có MinIO/Qdrant. PostgreSQL vẫn cần được chuẩn bị riêng. Sau khi áp dụng migration:
+Chạy `docker compose up -d postgres minio qdrant`. Khi backend chạy trực tiếp trên máy, PostgreSQL trong Compose ở `127.0.0.1:5433`; đổi `ConnectionStrings__Postgres` trong `.env` sang host và cổng này, hoặc đặt biến môi trường cùng tên để ghi đè. `dotnet run` và `dotnet ef` tự đọc `.env` ở thư mục gốc repository. Sau khi áp dụng migration:
 
 ```powershell
 dotnet run --project src/Nexora.WebApi --launch-profile http

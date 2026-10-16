@@ -1,30 +1,51 @@
-# Hướng dẫn triển khai bằng Docker
+# Chạy Nexora bằng Docker Compose
 
-Chạy các lệnh từ thư mục gốc repository. Cần **Docker Compose**, một PostgreSQL truy cập được, hai image Docker Hub của backend/frontend và repository này để chạy migration. Ví dụ dưới đây dùng Linux và tag UAT `u1.0.1`; bản chính thức dùng tag `v1.0.1`.
+Đặt hai repository cạnh nhau:
 
-1. Sao chép `.env.example` thành `.env`, điền tài khoản MinIO và thêm `COMPOSE_PROJECT_NAME=nexora`.
-2. Tạo file secret WebApi **ngoài repository** từ [`secrets.example.json`](../src/Nexora.WebApi/secrets.example.json), ví dụ `/srv/nexora/runtime/webapi-uat.json`. Điền kết nối PostgreSQL, khóa JWT, khóa MinIO (trùng `.env`) và các API key cần dùng. Khi WebApi chạy trong Docker, đặt `Storage:Endpoint` là `http://minio:9000`, `Qdrant:Endpoint` là `http://qdrant:6333` và `Cors:AllowedOrigins` là URL frontend. Không đưa file secret vào Git hoặc image.
-3. Chạy MinIO, Qdrant và cập nhật database. PostgreSQL phải chạy sẵn; máy thực hiện migration cần .NET 10 SDK, `dotnet-ef` 10.x và biến môi trường `ConnectionStrings__Postgres` trỏ tới database từ máy đó:
-
-```bash
-docker compose up -d minio qdrant
-dotnet ef database update --project src/Nexora.Infrastructure \
-  --startup-project src/Nexora.WebApi --context NexoraDbContext
+```text
+workspace/
+├── my_rag-backend/
+└── my_rag-frontend/
 ```
 
-4. Thay địa chỉ image, đường dẫn secret và cổng frontend trong ví dụ rồi chạy:
+Nếu frontend ở nơi khác, đổi `FRONTEND_BUILD_CONTEXT` trong `.env` thành đường dẫn tới repository đó. Không cần image Docker Hub hoặc .NET SDK trên máy chạy Compose.
 
-```bash
-BACKEND_IMAGE="docker.io/your-user/nexora-webapi:u1.0.1"
-FRONTEND_IMAGE="docker.io/your-user/nexora-frontend:u1.0.1"
-FRONTEND_PORT=80
+## Chạy lần đầu với database mới
 
-docker run -d --name nexora-webapi --restart unless-stopped \
-  --network nexora_default -p 8080:8080 \
-  --mount type=bind,src=/srv/nexora/runtime/webapi-uat.json,dst=/app/secrets.local.json,readonly \
-  -e ASPNETCORE_ENVIRONMENT=Staging "$BACKEND_IMAGE"
-docker run -d --name nexora-frontend --restart unless-stopped \
-  -p 3000:"$FRONTEND_PORT" "$FRONTEND_IMAGE"
+1. Trong `my_rag-backend`, sao chép `.env.example` thành `.env`; điền `POSTGRES_PASSWORD`, `MINIO_ROOT_USER` và `MINIO_ROOT_PASSWORD`. Đổi `FRONTEND_ORIGIN`, `PUBLIC_API_URL` và `API_ALLOWED_HOSTS` nếu truy cập bằng địa chỉ khác `localhost`.
+2. Trong chính `.env`, điền `ConnectionStrings__Postgres` với `Host=postgres;Port=5432` và database, user, password khớp các biến PostgreSQL ở trên. Điền `Jwt__SignaturePrivateKey`, `Storage__AccessKey`, `Storage__SecretKey` (khớp tài khoản MinIO), `Qdrant__ApiKey` nếu Qdrant bật xác thực, và các khóa AI/LiveKit cần dùng. Compose truyền các biến này cho cả migration và WebApi; không cần file JSON bí mật riêng. `.env` đã nằm trong `.gitignore` và `.dockerignore`.
+3. Từ `my_rag-backend`, chạy:
+
+```powershell
+docker compose config --quiet
+docker compose up -d --build
+docker compose ps
+docker compose logs --tail 100 migrate webapi frontend
 ```
 
-Mở `http://localhost:3000`; kiểm tra `docker logs nexora-webapi` nếu API không khởi động. Image frontend phải được build với `VITE_API_URL` trỏ tới URL WebApi mà trình duyệt truy cập được. Với production, thay tag bằng `v1.0.1`, dùng secret tương ứng và đặt `ASPNETCORE_ENVIRONMENT=Production`. Thay các địa chỉ image mẫu khi có link publish.
+Compose build WebApi và frontend tại máy, tạo database, chạy EF migration bằng service `migrate` rồi mới khởi động WebApi. Frontend nhận `PUBLIC_API_URL` khi container chạy; URL này phải truy cập được **từ trình duyệt**, không dùng tên service `webapi`. Mở `http://localhost:3000` để kiểm tra.
+
+Các adapter MinIO và Qdrant đọc `Storage__*` và `Qdrant__*` từ cấu hình .NET. Khi chạy bằng Compose, endpoint được đặt thành `http://minio:9000` và `http://qdrant:6333`; khi chạy `dotnet run` trực tiếp, WebApi đọc các giá trị trong `.env` (mặc định localhost). Biến môi trường của tiến trình luôn được ưu tiên hơn `.env`.
+
+Nếu cổng 8080 đã được sử dụng, đổi đồng thời `API_HOST_PORT` và cổng trong `PUBLIC_API_URL` (ví dụ `8081`). Mặc định MinIO/Qdrant dùng Docker named volume. Để dùng lại thư mục dữ liệu cũ, đặt `MINIO_MOUNT_TYPE=bind`, `MINIO_DATA_SOURCE=<đường dẫn thư mục MinIO>`, `QDRANT_MOUNT_TYPE=bind` và `QDRANT_DATA_SOURCE=<đường dẫn thư mục Qdrant>` trong `.env` trước khi khởi động.
+
+## Chuyển dữ liệu PostgreSQL hiện có
+
+Nếu đang có database cần giữ, thực hiện phần này **trước** `docker compose up -d --build` lần đầu. Dừng các thao tác ghi vào database cũ. Kiểm tra phiên bản nguồn, tạo backup **mới** bằng `pg_dump` cùng phiên bản chính hoặc mới hơn, rồi kiểm tra archive:
+
+```powershell
+$sourceUser = 'YOUR_SOURCE_USER'
+pg_dump -h 127.0.0.1 -p 5432 -U $sourceUser -d Nexora_AI -Fc -f D:\backups\nexora-latest.dump
+pg_restore --list D:\backups\nexora-latest.dump
+```
+
+Chuẩn bị thư mục `D:\backups` trước khi chạy. File `D:\RAG\16-09-2026.sql` là backup cũ, không thay cho bản vừa tạo. PostgreSQL trong Compose dùng cổng host `127.0.0.1:5433` để tránh xung đột với nguồn ở cổng 5432. Khởi động riêng các dịch vụ lưu trữ và restore vào **database trống**:
+
+```powershell
+docker compose up -d postgres minio qdrant
+docker compose cp D:\backups\nexora-latest.dump postgres:/tmp/nexora.dump
+docker compose exec -T postgres sh -c 'pg_restore --no-owner --no-privileges --exit-on-error -U "$POSTGRES_USER" -d "$POSTGRES_DB" /tmp/nexora.dump'
+docker compose exec -T postgres rm /tmp/nexora.dump
+```
+
+So sánh số bản ghi người dùng, tài liệu, hội thoại và lịch sử EF migration giữa hai database. Sau đó chạy `docker compose up -d --build`; service `migrate` chỉ áp dụng migration còn thiếu. **Không** lặp lại restore trên volume đã chứa dữ liệu. Giữ database cũ và file backup cho đến khi đăng nhập, chat, tài liệu và cuộc họp hoạt động với database mới. Không dùng `docker compose down -v` vì lệnh đó xóa dữ liệu volume.
