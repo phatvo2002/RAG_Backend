@@ -21,16 +21,16 @@ COPY ["src/Nexora.Domain/Nexora.Domain.csproj", "src/Nexora.Domain/"]
 COPY ["src/Nexora.Application/Nexora.Application.csproj", "src/Nexora.Application/"]
 COPY ["src/Nexora.Infrastructure/Nexora.Infrastructure.csproj", "src/Nexora.Infrastructure/"]
 COPY ["src/Nexora.WebApi/Nexora.WebApi.csproj", "src/Nexora.WebApi/"]
-RUN dotnet restore "./src/Nexora.WebApi/Nexora.WebApi.csproj"
+RUN dotnet restore "./src/Nexora.WebApi/Nexora.WebApi.csproj" --verbosity normal
 
 COPY . .
 WORKDIR "/src/src/Nexora.WebApi"
-RUN dotnet build "./Nexora.WebApi.csproj" -c $BUILD_CONFIGURATION -o /app/build
+RUN dotnet build "./Nexora.WebApi.csproj" -c $BUILD_CONFIGURATION -o /app/build --no-restore
 
 # This stage is used to publish the service project to be copied to the final stage
 FROM build AS publish
 ARG BUILD_CONFIGURATION=Release
-RUN dotnet publish "./Nexora.WebApi.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false
+RUN dotnet publish "./Nexora.WebApi.csproj" -c $BUILD_CONFIGURATION -o /app/publish /p:UseAppHost=false --no-restore
 
 FROM build AS migrate
 WORKDIR /src
