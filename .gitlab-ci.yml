@@ -16,6 +16,7 @@ build_image_production:
   services:
     - name: docker:24.0.5-dind
       alias: docker
+      command: ["--mtu=1360"]
       variables:
         HEALTHCHECK_TCP_PORT: "2375"
   variables:
@@ -27,6 +28,17 @@ build_image_production:
     - |
       : "${DOCKERHUB_USERNAME:?DOCKERHUB_USERNAME is required}"
       : "${DOCKERHUB_TOKEN:?DOCKERHUB_TOKEN is required}"
+      if wget -q -T 20 -O /dev/null https://api.nuget.org/v3/index.json; then
+        echo "CI job to NuGet: OK"
+      else
+        echo "CI job to NuGet: FAILED"
+      fi
+      if docker run --rm --entrypoint sh mcr.microsoft.com/dotnet/sdk:10.0 -ec 'printf "DinD network MTU: "; cat /sys/class/net/eth0/mtu; curl -fLsS --connect-timeout 10 --max-time 30 -o /dev/null https://api.nuget.org/v3/index.json'; then
+        echo "Docker-in-Docker to NuGet: OK"
+      else
+        echo "Docker-in-Docker to NuGet: FAILED; restore cannot reach the package source"
+        exit 1
+      fi
       image="$DOCKERHUB_USERNAME/$DOCKERHUB_REPOSITORY:$CI_COMMIT_TAG"
       printf '%s' "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
       docker build --pull --tag "$image" .
@@ -40,6 +52,7 @@ build_image_uat:
   services:
     - name: docker:24.0.5-dind
       alias: docker
+      command: ["--mtu=1360"]
       variables:
         HEALTHCHECK_TCP_PORT: "2375"
   variables:
@@ -51,6 +64,17 @@ build_image_uat:
     - |
       : "${DOCKERHUB_USERNAME:?DOCKERHUB_USERNAME is required}"
       : "${DOCKERHUB_TOKEN:?DOCKERHUB_TOKEN is required}"
+      if wget -q -T 20 -O /dev/null https://api.nuget.org/v3/index.json; then
+        echo "CI job to NuGet: OK"
+      else
+        echo "CI job to NuGet: FAILED"
+      fi
+      if docker run --rm --entrypoint sh mcr.microsoft.com/dotnet/sdk:10.0 -ec 'printf "DinD network MTU: "; cat /sys/class/net/eth0/mtu; curl -fLsS --connect-timeout 10 --max-time 30 -o /dev/null https://api.nuget.org/v3/index.json'; then
+        echo "Docker-in-Docker to NuGet: OK"
+      else
+        echo "Docker-in-Docker to NuGet: FAILED; restore cannot reach the package source"
+        exit 1
+      fi
       image="$DOCKERHUB_USERNAME/$DOCKERHUB_REPOSITORY:$CI_COMMIT_TAG"
       printf '%s' "$DOCKERHUB_TOKEN" | docker login --username "$DOCKERHUB_USERNAME" --password-stdin
       docker build --pull --tag "$image" .
