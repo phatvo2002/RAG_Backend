@@ -456,6 +456,18 @@
     "requiresConfirmation": false
   },
   {
+    "id": "f8b1598f-61c1-4ac7-a03f-9c1ff0ec32d9",
+    "code": "DOCUMENT.PROGRESS",
+    "module": "Document",
+    "name": "Xem tiến độ xử lý tài liệu",
+    "description": null,
+    "httpMethod": "GET",
+    "routeTemplate": "/api/documents/progress",
+    "actionType": "READ",
+    "riskLevel": "LOW",
+    "requiresConfirmation": false
+  },
+  {
     "id": "58b5e8e2-8050-4bb9-a6d8-13d9c680ced2",
     "code": "DOCUMENT.DELETE",
     "module": "Document",
@@ -583,6 +595,18 @@
     "description": null,
     "httpMethod": "POST",
     "routeTemplate": "/api/chat/turns/stream",
+    "actionType": "WRITE",
+    "riskLevel": "MEDIUM",
+    "requiresConfirmation": false
+  },
+  {
+    "id": "63cf4496-cd46-4293-88e8-3f28eec96d22",
+    "code": "CHAT.CONVERSATION.DELETE",
+    "module": "Chat",
+    "name": "Xóa hội thoại",
+    "description": null,
+    "httpMethod": "DELETE",
+    "routeTemplate": "/api/chat/conversations/{conversationId:guid}",
     "actionType": "WRITE",
     "riskLevel": "MEDIUM",
     "requiresConfirmation": false

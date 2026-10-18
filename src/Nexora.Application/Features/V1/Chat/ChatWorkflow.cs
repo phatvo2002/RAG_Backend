@@ -133,6 +133,15 @@ public sealed class ChatWorkflow(
         return true;
     }
 
+    public async Task<bool> DeleteConversationAsync(Guid conversationId, CancellationToken ct)
+    {
+        var (organizationId, userId) = await IdentityAsync(ct);
+        var conversation = await RequireConversationAsync(organizationId, userId, conversationId, ct);
+        conversation.MarkDeleted(userId, clock.UtcNow);
+        await store.SaveChangesAsync(ct);
+        return true;
+    }
+
     private async Task<IReadOnlyList<ChatMessageDto>> VisibleMessagesAsync(Guid organizationId, Guid userId, IReadOnlyList<Message> rows, CancellationToken ct)
     {
         if (rows.Count == 0) return Array.Empty<ChatMessageDto>();

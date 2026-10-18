@@ -6,6 +6,9 @@ namespace Nexora.Application.Common.Abstractions.Documents;
 
 public interface IDocumentProcessingStore
 {
+    Task<IReadOnlyList<Guid>> GetPendingVersionIdsAsync(string indexName, CancellationToken cancellationToken);
+    Task<bool> IsIndexCompleteAsync(Guid organizationId, Guid indexId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<DocumentProgressRecord>> GetAccessibleProgressAsync(Guid organizationId, Guid userId, DateTimeOffset now, string indexName, CancellationToken cancellationToken);
     Task<Document?> GetDocumentAsync(Guid userId, Guid documentId, bool asTracking, CancellationToken cancellationToken);
 
     Task<Document?> GetDocumentByIdAsync(Guid documentId, bool asTracking, CancellationToken cancellationToken);
@@ -44,3 +47,6 @@ public interface IDocumentProcessingStore
 
     void InsertIndexRecord(RagIndexRecord record);
 }
+
+public sealed record DocumentProgressRecord(Guid DocumentId, Guid VersionId, string FileName, string ProcessingStatus,
+    string? FailureCode, DateTimeOffset CreatedAt, DateTimeOffset? ReadyAt, int TotalChunks, int IndexedChunks, string? IndexStatus);

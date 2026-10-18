@@ -1,5 +1,6 @@
 using Minio;
 using Minio.DataModel.Args;
+using Minio.Exceptions;
 using Nexora.Application.Common.Abstractions.Documents;
 using Nexora.Application.Common.Abstractions.Rag;
 
@@ -36,6 +37,15 @@ internal sealed class MinioObjectStorage(IMinioClient client) : IObjectStorage
         }
     }
 
-    public Task DeleteAsync(string bucket, string objectKey, CancellationToken cancellationToken) =>
-        client.RemoveObjectAsync(new RemoveObjectArgs().WithBucket(bucket).WithObject(objectKey), cancellationToken);
+    public async Task DeleteAsync(string bucket, string objectKey, CancellationToken cancellationToken)
+    {
+        try
+        {
+            await client.RemoveObjectAsync(new RemoveObjectArgs().WithBucket(bucket).WithObject(objectKey), cancellationToken);
+        }
+        catch (BucketNotFoundException)
+        {
+            // The object is already absent when its bucket no longer exists.
+        }
+    }
 }

@@ -5,7 +5,7 @@ using Nexora.Application.Common.Abstractions.Rag;
 
 namespace Nexora.Infrastructure.Services.Integrations.Embeddings;
 
-internal sealed class GeminiEmbeddingProvider(HttpClient httpClient, IOptions<EmbeddingOptions> options) : IEmbeddingProvider
+internal sealed class GeminiEmbeddingProvider(HttpClient httpClient, IOptions<EmbeddingOptions> options, IEmbeddingRateLimiter limiter) : IEmbeddingProvider
 {
     public async Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyCollection<string> inputs, CancellationToken cancellationToken)
     {
@@ -20,11 +20,13 @@ internal sealed class GeminiEmbeddingProvider(HttpClient httpClient, IOptions<Em
             return Array.Empty<float[]>();
         }
 
+        await limiter.WaitAsync(inputs.Count, cancellationToken);
+
         using var request = new HttpRequestMessage(HttpMethod.Post, settings.Endpoint);
         request.Headers.Add("x-goog-api-key", settings.ApiKey);
         request.Content = JsonContent.Create(new BatchEmbeddingRequest(inputs
             .Select(input => new EmbeddingRequest(
-                $"models/{settings.Model}",
+                $"models/{EmbeddingOptions.ModelName}",
                 new EmbeddingContent([new EmbeddingPart(input)]),
                 settings.Dimension))
             .ToArray()));

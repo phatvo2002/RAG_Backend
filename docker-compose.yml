@@ -1,23 +1,8 @@
-services:
-  postgres:
-    image: postgres:18
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-Nexora_AI}
-      POSTGRES_USER: ${POSTGRES_USER:-nexora}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
-    ports:
-      - "127.0.0.1:${POSTGRES_HOST_PORT:-5433}:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
-      interval: 5s
-      timeout: 5s
-      retries: 12
+name: my_rag-backend
 
+services:
   minio:
-    image: ${MINIO_IMAGE:-ghcr.io/teableio/minio:RELEASE.2025-04-22T22-12-26Z@sha256:a1ea29fa28355559ef137d71fc570e508a214ec84ff8083e39bc5428980b015e}
+    image: quay.io/minio/minio:RELEASE.2025-04-22T22-12-26Z
     container_name: minio
     restart: unless-stopped
 
@@ -30,8 +15,8 @@ services:
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in .env}
 
     volumes:
-      - type: ${MINIO_MOUNT_TYPE:-volume}
-        source: ${MINIO_DATA_SOURCE:-minio_data}
+      - type: bind
+        source: D:/RAG/MinIO
         target: /data
 
     command: server /data --console-address ":9001"
@@ -45,62 +30,46 @@ services:
       - "6334:6334"
 
     volumes:
-      - type: ${QDRANT_MOUNT_TYPE:-volume}
-        source: ${QDRANT_DATA_SOURCE:-qdrant_data}
+      - type: bind
+        source: D:/RAG/Qdrant
         target: /qdrant/storage
-
-  migrate:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: migrate
-    restart: "no"
-    depends_on:
-      postgres:
-        condition: service_healthy
-    environment:
-      ConnectionStrings__Postgres: ${ConnectionStrings__Postgres:?Set ConnectionStrings__Postgres in .env}
 
   webapi:
     build:
       context: .
       dockerfile: Dockerfile
     image: nexora-webapi:local
+    pull_policy: build
     restart: unless-stopped
     depends_on:
-      migrate:
-        condition: service_completed_successfully
       minio:
         condition: service_started
       qdrant:
         condition: service_started
     ports:
-      - "${API_HOST_PORT:-8080}:8080"
+      - "8081:8080"
     env_file:
       - .env
     environment:
-      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Staging}
+      ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: http://+:8080
-      Cors__AllowedOrigins__0: ${FRONTEND_ORIGIN:-http://localhost:3000}
-      AllowedHosts: ${API_ALLOWED_HOSTS:-localhost}
+      ConnectionStrings__Postgres: ${COMPOSE_POSTGRES_CONNECTION_STRING:-}
+      Cors__AllowedOrigins__0: http://localhost:3000
+      AllowedHosts: localhost
       Storage__Endpoint: http://minio:9000
       Qdrant__Endpoint: http://qdrant:6333
 
   frontend:
     build:
-      context: ${FRONTEND_BUILD_CONTEXT:-../my_rag-frontend}
+      context: ../my_rag-frontend
       dockerfile: Dockerfile
     image: nexora-frontend:local
+    pull_policy: build
     restart: unless-stopped
     depends_on:
       webapi:
         condition: service_started
     ports:
-      - "${FRONTEND_HOST_PORT:-3000}:80"
+      - "3000:80"
     environment:
-      PUBLIC_API_URL: ${PUBLIC_API_URL:-http://localhost:8080}
-
-volumes:
-  postgres_data:
-  minio_data:
-  qdrant_data:
+      PUBLIC_API_URL: http://localhost:8081

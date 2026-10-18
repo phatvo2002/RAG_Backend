@@ -21,6 +21,14 @@ public sealed class ListDocumentsQueryTests
     }
 
     [Fact]
+    public void Validator_allows_listing_across_all_folders()
+    {
+        var result = new ListDocumentsQueryValidator().Validate(new ListDocumentsQuery());
+
+        Assert.True(result.IsValid);
+    }
+
+    [Fact]
     public async Task Handler_passes_folder_filters_and_maps_repository_items()
     {
         var repository = new RecordingDocumentRepository();
@@ -56,7 +64,7 @@ public sealed class ListDocumentsQueryTests
             Filter = filter;
             var item = new DocumentListRecord(
                 DocumentId,
-                filter.FolderId,
+                filter.FolderId ?? Guid.Empty,
                 "Tài liệu nội bộ",
                 filter.DepartmentId,
                 "Tài liệu nội bộ",

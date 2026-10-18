@@ -191,6 +191,10 @@ public static class DependencyInjection
 
         services.AddSingleton<IMinioClient>(minioBuilder.Build());
         services.AddScoped<IObjectStorage, MinioObjectStorage>();
+        services.AddSingleton(TimeProvider.System);
+        services.AddSingleton<EmbeddingRateLimiter>();
+        services.AddSingleton<IEmbeddingRateLimiter>(provider => provider.GetRequiredService<EmbeddingRateLimiter>());
+        services.AddSingleton<IEmbeddingBatchScheduler>(provider => provider.GetRequiredService<EmbeddingRateLimiter>());
         services.AddHttpClient<IEmbeddingProvider, GeminiEmbeddingProvider>();
         services.AddHttpClient<IVectorStore, QdrantVectorStore>((serviceProvider, client) =>
         {

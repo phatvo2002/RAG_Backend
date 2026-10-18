@@ -13,6 +13,7 @@ public interface IChatWorkflow
     Task<ChatMessageDto> CompleteTurnAsync(ChatTurnStart start, string answer,
         IReadOnlyList<RetrievedChunkResponse> sources, bool noSource, CancellationToken cancellationToken);
     Task FailTurnAsync(ChatTurnStart start, string code);
+    Task<bool> DeleteConversationAsync(Guid conversationId, CancellationToken cancellationToken);
     Task<bool> DeleteMessageAsync(Guid conversationId, Guid messageId, CancellationToken cancellationToken);
 }
 

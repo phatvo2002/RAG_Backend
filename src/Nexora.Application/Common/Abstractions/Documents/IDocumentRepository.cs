@@ -5,7 +5,7 @@ namespace Nexora.Application.Common.Abstractions.Documents;
 public sealed record DocumentListFilter(
     Guid OrganizationId,
     Guid UserId,
-    Guid FolderId,
+    Guid? FolderId,
     Guid? DepartmentId,
     string? Search,
     string? FileType,

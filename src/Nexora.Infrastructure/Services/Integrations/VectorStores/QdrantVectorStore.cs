@@ -98,6 +98,14 @@ internal sealed class QdrantVectorStore(HttpClient httpClient) : IVectorStore
         using (request)
         using (var response = await httpClient.SendAsync(request, cancellationToken))
         {
+            if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                using var collectionResponse = await httpClient.GetAsync(
+                    $"collections/{Uri.EscapeDataString(collectionName)}", cancellationToken);
+                if (collectionResponse.StatusCode == System.Net.HttpStatusCode.NotFound)
+                    return;
+                collectionResponse.EnsureSuccessStatusCode();
+            }
             response.EnsureSuccessStatusCode();
         }
     }

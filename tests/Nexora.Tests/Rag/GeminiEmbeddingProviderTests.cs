@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Microsoft.Extensions.Options;
+using Nexora.Application.Common.Abstractions.Rag;
 using Nexora.Infrastructure.Services.Integrations.Embeddings;
 
 namespace Nexora.Tests.Rag;
@@ -46,9 +47,13 @@ public sealed class GeminiEmbeddingProviderTests
         {
             Endpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents",
             ApiKey = "test-key",
-            Model = "gemini-embedding-001",
             Dimension = 768
-        }));
+        }), new NoWaitLimiter());
+
+    private sealed class NoWaitLimiter : IEmbeddingRateLimiter
+    {
+        public Task WaitAsync(int inputCount, CancellationToken cancellationToken) => Task.CompletedTask;
+    }
 
     private sealed class StubHandler(int vectorCount, int dimension) : HttpMessageHandler
     {

@@ -58,6 +58,53 @@ public sealed class QdrantVectorSearchTests
         Assert.Empty(results);
     }
 
+    [Fact]
+    public async Task DeleteAsync_SucceedsWhenCollectionWasAlreadyRemoved()
+    {
+        var calls = new List<string>();
+        var handler = new StubHttpMessageHandler((request, _) =>
+        {
+            calls.Add($"{request.Method} {request.RequestUri!.AbsolutePath}");
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.NotFound));
+        });
+        var store = new QdrantVectorStore(new HttpClient(handler) { BaseAddress = new Uri("http://qdrant/") });
+
+        await store.DeleteAsync("old_collection", [Guid.NewGuid().ToString("D")], CancellationToken.None);
+
+        Assert.Equal(["POST /collections/old_collection/points/delete", "GET /collections/old_collection"], calls);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_Reports404WhenCollectionStillExists()
+    {
+        var handler = new StubHttpMessageHandler((request, _) => Task.FromResult(
+            new HttpResponseMessage(request.Method == HttpMethod.Get ? HttpStatusCode.OK : HttpStatusCode.NotFound)));
+        var store = new QdrantVectorStore(new HttpClient(handler) { BaseAddress = new Uri("http://qdrant/") });
+
+        var error = await Assert.ThrowsAsync<HttpRequestException>(() =>
+            store.DeleteAsync("existing_collection", [Guid.NewGuid().ToString("D")], CancellationToken.None));
+
+        Assert.Equal(HttpStatusCode.NotFound, error.StatusCode);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_ReportsServerErrors()
+    {
+        var calls = 0;
+        var handler = new StubHttpMessageHandler((_, _) =>
+        {
+            calls++;
+            return Task.FromResult(new HttpResponseMessage(HttpStatusCode.InternalServerError));
+        });
+        var store = new QdrantVectorStore(new HttpClient(handler) { BaseAddress = new Uri("http://qdrant/") });
+
+        var error = await Assert.ThrowsAsync<HttpRequestException>(() =>
+            store.DeleteAsync("existing_collection", [Guid.NewGuid().ToString("D")], CancellationToken.None));
+
+        Assert.Equal(HttpStatusCode.InternalServerError, error.StatusCode);
+        Assert.Equal(1, calls);
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("   ")]

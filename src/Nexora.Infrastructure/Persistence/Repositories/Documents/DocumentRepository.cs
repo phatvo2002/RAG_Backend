@@ -15,6 +15,7 @@ internal sealed class DocumentRepository(NexoraDbContext dbContext) : IDocumentR
 
     public async Task<IReadOnlyList<IndexedDocumentReference>> GetIndexedDocumentsAsync(
         Guid organizationId,
+        string indexName,
         CancellationToken cancellationToken)
     {
         var documents = dbContext.Documents.IgnoreQueryFilters();
@@ -36,7 +37,7 @@ internal sealed class DocumentRepository(NexoraDbContext dbContext) : IDocumentR
                   version.OrganizationId == organizationId &&
                   record.OrganizationId == organizationId &&
                   index.OrganizationId == organizationId &&
-                  index.IndexName == "default" &&
+                  index.IndexName == indexName &&
                   document.DeletedAt == null &&
                   folder.DeletedAt == null &&
                   version.ProcessingStatus == "READY" &&
@@ -52,6 +53,7 @@ internal sealed class DocumentRepository(NexoraDbContext dbContext) : IDocumentR
         Guid organizationId,
         Guid userId,
         DateTimeOffset now,
+        string indexName,
         CancellationToken cancellationToken)
     {
         var documents = dbContext.Documents.IgnoreQueryFilters();
@@ -75,7 +77,7 @@ internal sealed class DocumentRepository(NexoraDbContext dbContext) : IDocumentR
                   version.OrganizationId == organizationId &&
                   record.OrganizationId == organizationId &&
                   index.OrganizationId == organizationId &&
-                  index.IndexName == "default" &&
+                  index.IndexName == indexName &&
                   document.DeletedAt == null &&
                   folder.DeletedAt == null &&
                   version.ProcessingStatus == "READY" &&
@@ -145,7 +147,6 @@ internal sealed class DocumentRepository(NexoraDbContext dbContext) : IDocumentR
                   version.OrganizationId == organizationId &&
                   record.OrganizationId == organizationId &&
                   index.OrganizationId == organizationId &&
-                  index.IndexName == "default" &&
                   document.DeletedAt == null &&
                   folder.DeletedAt == null &&
                   (department == null || department.OrganizationId == organizationId) &&
@@ -248,7 +249,7 @@ internal sealed class DocumentRepository(NexoraDbContext dbContext) : IDocumentR
             select new { document, folder, version };
 
         query = query.Where(item =>
-            item.document.FolderId == filter.FolderId &&
+            (!filter.FolderId.HasValue || item.document.FolderId == filter.FolderId.Value) &&
             item.document.DeletedAt == null &&
             item.folder.DeletedAt == null &&
             (item.document.OwnerUserId == filter.UserId ||

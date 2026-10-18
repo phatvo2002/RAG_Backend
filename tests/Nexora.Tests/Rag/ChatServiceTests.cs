@@ -51,6 +51,21 @@ public sealed class ChatStoreTests
         var outsider = CreateService(db, outsiderId, access);
         await Assert.ThrowsAsync<KeyNotFoundException>(() => outsider.ListMessagesAsync(turn.ConversationId, null, default));
         await Assert.ThrowsAsync<KeyNotFoundException>(() => outsider.DeleteMessageAsync(turn.ConversationId, turn.RequestMessageId, default));
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => outsider.DeleteConversationAsync(turn.ConversationId, default));
+    }
+
+    [Fact]
+    public async Task Deleted_conversation_disappears_from_history_and_cannot_be_opened_again()
+    {
+        using var db = CreateDatabase();
+        var service = CreateService(db, OwnerId, new FakeAccess());
+        var turn = await service.StartTurnAsync(null, "Private question", "gemini", Guid.NewGuid(), default);
+
+        Assert.True(await service.DeleteConversationAsync(turn.ConversationId, default));
+        Assert.Empty(await service.ListConversationsAsync(0, default));
+        Assert.NotNull(db.Conversations.IgnoreQueryFilters().Single(x => x.Id == turn.ConversationId).DeletedAt);
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => service.ListMessagesAsync(turn.ConversationId, null, default));
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => service.StartTurnAsync(turn.ConversationId, "Follow up", "gemini", Guid.NewGuid(), default));
     }
 
     [Fact]
@@ -193,9 +208,9 @@ public sealed class ChatStoreTests
     {
         public Dictionary<Guid, RetrievalChunkSource> Allowed { get; } = [];
         public Task<string?> GetOrganizationNameAsync(Guid organizationId, CancellationToken ct) => Task.FromResult<string?>("Nexora");
-        public Task<IReadOnlyList<IndexedDocumentReference>> GetIndexedDocumentsAsync(Guid organizationId, CancellationToken ct) =>
+        public Task<IReadOnlyList<IndexedDocumentReference>> GetIndexedDocumentsAsync(Guid organizationId, string indexName, CancellationToken ct) =>
             Task.FromResult<IReadOnlyList<IndexedDocumentReference>>(Allowed.Values.Select(x => new IndexedDocumentReference(x.DocumentId, x.DepartmentName is not null)).Distinct().ToArray());
-        public Task<IReadOnlyList<Guid>> GetAccessibleIndexedDocumentIdsAsync(Guid organizationId, Guid userId, DateTimeOffset now, CancellationToken ct) =>
+        public Task<IReadOnlyList<Guid>> GetAccessibleIndexedDocumentIdsAsync(Guid organizationId, Guid userId, DateTimeOffset now, string indexName, CancellationToken ct) =>
             Task.FromResult<IReadOnlyList<Guid>>(Allowed.Values.Select(x => x.DocumentId).Distinct().ToArray());
         public Task<IReadOnlyList<RetrievalChunkSource>> GetAccessibleChunkSourcesAsync(Guid organizationId, Guid userId, DateTimeOffset now,
             IReadOnlyCollection<Guid> chunkIds, CancellationToken ct) =>

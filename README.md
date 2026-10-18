@@ -52,24 +52,32 @@ cd my_rag-backend
 cp .env.example .env
 ```
 
-Điền các giá trị chính trong `.env`:
+`.env` chỉ chứa credential, khóa mã hóa và chuỗi kết nối PostgreSQL. Điền các giá trị chính:
 
 | Biến | Cách điền |
 | --- | --- |
-| PostgreSQL | `POSTGRES_PASSWORD` phải khớp mật khẩu trong `ConnectionStrings__Postgres`; giữ `Host=postgres;Port=5432`. |
+| PostgreSQL | Khi chạy WebApi từ Visual Studio hoặc `dotnet run`, đặt `ConnectionStrings__Postgres` tới database trên máy (ví dụ `Host=127.0.0.1;Port=5432;Database=Nexora_AI_V2`). Khi chạy bằng Compose trên Docker Desktop, đặt `COMPOSE_POSTGRES_CONNECTION_STRING` tới cùng database nhưng dùng `Host=host.docker.internal` để container truy cập máy chủ. |
 | MinIO | `Storage__AccessKey`/`Storage__SecretKey` phải khớp `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`. |
 | Khóa máy chủ | Điền `Jwt__SignaturePrivateKey` (ít nhất 32 ký tự). Tạo **hai khóa Base64 32 byte khác nhau** cho `ProviderKeys__EncryptionKeyBase64` và `Chat__EncryptionKeyBase64` ([cách tạo khóa](docs/personal-provider-keys.md)). |
-| AI và cuộc họp | `Embedding__ApiKey` cho tìm kiếm tài liệu; `LiveKit__ApiKey`/`LiveKit__ApiSecret` khi dùng phòng họp. |
+| AI và cuộc họp | `Embedding__ApiKey` cho Gemini Embedding; `LiveKit__ApiKey`/`LiveKit__ApiSecret` khi dùng phòng họp. |
 
-`.env` không được đưa lên Git. API key Gemini/Claude cho chat được từng người dùng thêm trong trang **Tài khoản**; `Qdrant__ApiKey` có thể để trống nếu Qdrant không bật xác thực.
+`.env` không được đưa lên Git. Cổng, đường dẫn dữ liệu, endpoint và URL local nằm trong `docker-compose.yml`; khi chạy WebApi trực tiếp, endpoint và provider mặc định nằm trong `src/Nexora.WebApi/appsettings.json`. API key Gemini/Claude cho chat được từng người dùng thêm trong trang **Tài khoản**; `Qdrant__ApiKey` có thể để trống nếu Qdrant không bật xác thực.
+
+Hệ thống chỉ dùng `gemini-embedding-001` ở **768 chiều**. Index mới dùng collection `nexora_documents_gemini_001`, tách khỏi vector của model cũ. Worker lập chỉ mục tối đa **5 chunk mỗi batch**, chờ ít nhất **35 giây** sau mỗi batch; cả truy vấn chat và tài liệu dùng chung giới hạn **12 đầu vào trong 60 giây** trên một tiến trình WebApi. Khi API trả 429, worker chờ rồi thử lại. Tiến độ của tài liệu có quyền xem nằm ở tab **Hoạt động → Tiến trình xử lý** và `GET /api/documents/progress`. Sau khi khởi động lại, worker tiếp tục các chunk chưa có bản ghi index.
+
+Khi chuyển từ model cũ sang `gemini-embedding-001`, worker index lại các tài liệu đã sẵn sàng từ chunk lưu trong MinIO. Truy vấn chỉ đọc index Gemini mới sau khi index này hoàn tất.
+
+Để kiểm thử WebApi trực tiếp trên máy với `Nexora_AI_V2`, dùng `ConnectionStrings__Postgres` trỏ tới `127.0.0.1:5432` rồi chạy `dotnet run --project src/Nexora.WebApi`. Khi chạy WebApi trong container, `COMPOSE_POSTGRES_CONNECTION_STRING` phải trỏ tới cùng database qua `host.docker.internal`; `localhost` bên trong container không phải máy chủ Windows.
 
 Chạy trong thư mục backend:
 
 ```sh
-docker compose up -d --build
-docker compose ps
+docker compose config --quiet
+docker compose up -d --no-deps --build webapi
+docker compose up -d --no-deps --build frontend
+docker compose ps webapi frontend
 ```
 
-Mở [giao diện](http://localhost:3000) hoặc [Swagger API](http://localhost:8080/swagger). Compose tự chạy PostgreSQL, MinIO, Qdrant và EF migration. Nếu cổng 8080 bận, đổi cả `API_HOST_PORT` và cổng trong `PUBLIC_API_URL` (ví dụ `8081`).
+Mở [giao diện](http://localhost:3000) hoặc [Swagger API](http://localhost:8081/swagger). Các lệnh trên chỉ build và chạy WebApi/frontend; MinIO và Qdrant cần đang chạy sẵn. PostgreSQL `Nexora_AI_V2` trên máy phải truy cập được từ container và có schema phù hợp; Compose không tự chạy EF migration. Nếu cổng 8081 bận, đổi cổng xuất bản của `webapi` và `PUBLIC_API_URL` trong `docker-compose.yml` cùng lúc.
 
-Khi sửa code, chạy lại `docker compose up -d --build`. Xem lỗi bằng `docker compose logs --tail=100 webapi frontend`. Nếu dùng lại database cũ, giữ nguyên **hai khóa mã hóa cũ** và làm theo [hướng dẫn chuyển dữ liệu](docs/deployment.md) trước khi chạy. Compose không tự tạo tài khoản đăng nhập.
+Khi sửa code, chạy lại lệnh `up --no-deps --build` cho service vừa thay đổi. Xem lỗi bằng `docker compose logs --tail=100 webapi frontend`. File Compose hiện dùng đường dẫn bind Windows `D:/RAG/MinIO`, `D:/RAG/Qdrant`, URL localhost và môi trường `Development`; sửa các giá trị này trước khi chạy trên server production. Nếu dùng lại database cũ, giữ nguyên **hai khóa mã hóa cũ** và làm theo [hướng dẫn chuyển dữ liệu](docs/deployment.md) trước khi chạy. Compose không tự tạo tài khoản đăng nhập.

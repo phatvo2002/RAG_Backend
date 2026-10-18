@@ -17,7 +17,8 @@ public sealed class RetrieveDocumentsQueryHandler(
     IVectorStore vectorStore,
     IObjectStorage objectStorage,
     IClock clock,
-    IDepartmentScopeOptions scopeOptions) : IRequestHandler<RetrieveDocumentsQuery, RetrievalResponse>
+    IDepartmentScopeOptions scopeOptions,
+    IDocumentIndexSettings indexSettings) : IRequestHandler<RetrieveDocumentsQuery, RetrievalResponse>
 {
     private const int ResultLimit = 5;
     private const int ExcerptLength = 600;
@@ -36,13 +37,14 @@ public sealed class RetrieveDocumentsQueryHandler(
             return EmptyResponse();
         }
 
-        var index = await processingStore.GetIndexAsync(organizationId.Value, "default", false, cancellationToken);
+        var indexName = indexSettings.IndexName;
+        var index = await processingStore.GetIndexAsync(organizationId.Value, indexName, false, cancellationToken);
         if (index is null || !string.Equals(index.Status, "ACTIVE", StringComparison.OrdinalIgnoreCase))
         {
             return EmptyResponse();
         }
 
-        var indexedDocuments = await retrievalStore.GetIndexedDocumentsAsync(organizationId.Value, cancellationToken);
+        var indexedDocuments = await retrievalStore.GetIndexedDocumentsAsync(organizationId.Value, indexName, cancellationToken);
         if (indexedDocuments.Count == 0)
         {
             return EmptyResponse();
@@ -52,6 +54,7 @@ public sealed class RetrieveDocumentsQueryHandler(
             organizationId.Value,
             userContext.UserId.Value,
             clock.UtcNow,
+            indexName,
             cancellationToken);
 
         var vectors = await embeddingProvider.EmbedAsync([request.Query.Trim()], cancellationToken);

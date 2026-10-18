@@ -10,6 +10,87 @@ namespace Nexora.Infrastructure.Persistence.Repositories.Documents;
 
 internal sealed class DocumentProcessingStore(NexoraDbContext dbContext) : IDocumentProcessingStore
 {
+    public async Task<IReadOnlyList<Guid>> GetPendingVersionIdsAsync(string indexName, CancellationToken cancellationToken)
+    {
+        var documents = dbContext.Documents.IgnoreQueryFilters();
+        var versions = dbContext.DocumentVersions.IgnoreQueryFilters();
+        var chunks = dbContext.DocumentChunks.IgnoreQueryFilters();
+        var records = dbContext.RagIndexRecords.IgnoreQueryFilters();
+        var indexes = dbContext.RagIndexes.IgnoreQueryFilters();
+        return await (from document in documents
+                      join version in versions on document.CurrentVersionId equals version.Id
+                      where document.DeletedAt == null &&
+                            (version.ProcessingStatus == "QUEUED" || version.ProcessingStatus == "EXTRACTING" ||
+                             version.ProcessingStatus == "CHUNKING" || version.ProcessingStatus == "INDEXING" ||
+                             (version.ProcessingStatus == "READY" &&
+                              (indexes.Any(index => index.OrganizationId == version.OrganizationId &&
+                                  index.IndexName == indexName && index.Status == "BUILDING") ||
+                               chunks.Any(chunk => chunk.DocumentVersionId == version.Id && chunk.Status == "ACTIVE" &&
+                                   !records.Any(record => record.ChunkId == chunk.Id && record.Status == "INDEXED" &&
+                                       record.ContentHash == chunk.ContentHash && indexes.Any(index =>
+                                           index.Id == record.RagIndexId && index.OrganizationId == version.OrganizationId && index.IndexName == indexName))))))
+                      orderby version.CreatedAt
+                      select version.Id).ToListAsync(cancellationToken);
+    }
+
+    public async Task<bool> IsIndexCompleteAsync(Guid organizationId, Guid indexId, CancellationToken cancellationToken)
+    {
+        var documents = dbContext.Documents.IgnoreQueryFilters();
+        var versions = dbContext.DocumentVersions.IgnoreQueryFilters();
+        var chunks = dbContext.DocumentChunks.IgnoreQueryFilters();
+        var records = dbContext.RagIndexRecords.IgnoreQueryFilters();
+        return !await (from document in documents
+                        join version in versions on document.CurrentVersionId equals version.Id
+                        join chunk in chunks on version.Id equals chunk.DocumentVersionId
+                        where document.OrganizationId == organizationId && document.DeletedAt == null &&
+                              version.OrganizationId == organizationId && version.ProcessingStatus == "READY" &&
+                              chunk.Status == "ACTIVE" && !records.Any(record =>
+                                  record.RagIndexId == indexId && record.ChunkId == chunk.Id &&
+                                  record.Status == "INDEXED" && record.ContentHash == chunk.ContentHash)
+                        select chunk.Id).AnyAsync(cancellationToken);
+    }
+
+    public async Task<IReadOnlyList<DocumentProgressRecord>> GetAccessibleProgressAsync(Guid organizationId, Guid userId, DateTimeOffset now, string indexName, CancellationToken cancellationToken)
+    {
+        var documents = dbContext.Documents.IgnoreQueryFilters();
+        var folders = dbContext.DocumentFolders.IgnoreQueryFilters();
+        var versions = dbContext.DocumentVersions.IgnoreQueryFilters();
+        var grants = dbContext.DocumentFolderAccessGrants.IgnoreQueryFilters();
+        var memberships = dbContext.DepartmentMemberships.IgnoreQueryFilters();
+        var chunks = dbContext.DocumentChunks.IgnoreQueryFilters();
+        var records = dbContext.RagIndexRecords.IgnoreQueryFilters();
+        var indexes = dbContext.RagIndexes.IgnoreQueryFilters();
+        return await (from document in documents
+                      join folder in folders on document.FolderId equals folder.Id
+                      join version in versions on document.CurrentVersionId equals version.Id
+                      where document.OrganizationId == organizationId && folder.OrganizationId == organizationId &&
+                            version.OrganizationId == organizationId && document.DeletedAt == null && folder.DeletedAt == null &&
+                            (document.OwnerUserId == userId || folder.OwnerUserId == userId ||
+                             (folder.DepartmentId.HasValue && memberships.Any(member =>
+                                 member.OrganizationId == organizationId && member.DepartmentId == folder.DepartmentId.Value &&
+                                 member.UserId == userId && member.LeftAt == null)) ||
+                             grants.Any(grant => grant.OrganizationId == organizationId && grant.FolderId == folder.Id &&
+                                 grant.RevokedAt == null && grant.ValidFrom <= now &&
+                                 (grant.ExpiresAt == null || grant.ExpiresAt > now) &&
+                                 (grant.UserId == userId || (grant.DepartmentId.HasValue && memberships.Any(member =>
+                                     member.OrganizationId == organizationId && member.DepartmentId == grant.DepartmentId.Value &&
+                                     member.UserId == userId && member.LeftAt == null)))))
+                      orderby version.CreatedAt descending
+                      select new DocumentProgressRecord(
+                          document.Id, version.Id, version.OriginalFileName, version.ProcessingStatus,
+                          version.FailureCode, version.CreatedAt, version.ReadyAt,
+                          chunks.Count(chunk => chunk.DocumentVersionId == version.Id && chunk.Status == "ACTIVE"),
+                          (from chunk in chunks
+                           join record in records on chunk.Id equals record.ChunkId
+                           join index in indexes on record.RagIndexId equals index.Id
+                           where chunk.DocumentVersionId == version.Id && chunk.Status == "ACTIVE" &&
+                                 record.Status == "INDEXED" && record.ContentHash == chunk.ContentHash &&
+                                 index.OrganizationId == organizationId && index.IndexName == indexName
+                           select record.Id).Count(),
+                          indexes.Where(index => index.OrganizationId == organizationId && index.IndexName == indexName)
+                              .Select(index => index.Status).FirstOrDefault()))
+            .ToListAsync(cancellationToken);
+    }
     public Task<DomainDocument?> GetDocumentAsync(Guid userId, Guid documentId, bool asTracking, CancellationToken cancellationToken)
     {
         var query = dbContext.Documents.IgnoreQueryFilters().Where(document => document.Id == documentId && document.OwnerUserId == userId && document.DeletedAt == null);

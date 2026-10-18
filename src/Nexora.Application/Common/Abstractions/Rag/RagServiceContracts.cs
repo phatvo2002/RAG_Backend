@@ -33,9 +33,9 @@ public interface IDocumentRetrievalStore
 {
     Task<string?> GetOrganizationNameAsync(Guid organizationId, CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<IndexedDocumentReference>> GetIndexedDocumentsAsync(Guid organizationId, CancellationToken cancellationToken);
+    Task<IReadOnlyList<IndexedDocumentReference>> GetIndexedDocumentsAsync(Guid organizationId, string indexName, CancellationToken cancellationToken);
 
-    Task<IReadOnlyList<Guid>> GetAccessibleIndexedDocumentIdsAsync(Guid organizationId, Guid userId, DateTimeOffset now, CancellationToken cancellationToken);
+    Task<IReadOnlyList<Guid>> GetAccessibleIndexedDocumentIdsAsync(Guid organizationId, Guid userId, DateTimeOffset now, string indexName, CancellationToken cancellationToken);
 
     Task<IReadOnlyList<RetrievalChunkSource>> GetAccessibleChunkSourcesAsync(
         Guid organizationId,

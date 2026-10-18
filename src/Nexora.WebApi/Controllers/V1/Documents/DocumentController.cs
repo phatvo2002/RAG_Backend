@@ -14,7 +14,7 @@ public sealed class DocumentController(ISender sender) : BaseController
 {
     [HttpGet]
     public async Task<IActionResult> List(
-        [FromQuery] Guid folderId,
+        [FromQuery] Guid? folderId = null,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 25,
         [FromQuery] string? search = null,
@@ -26,6 +26,10 @@ public sealed class DocumentController(ISender sender) : BaseController
 
     [HttpGet("{documentId:guid}")]
     public async Task<IActionResult> Get(Guid documentId, CancellationToken cancellationToken) => this.ToActionResult(await sender.Send(new GetDocumentStatusQuery(documentId), cancellationToken));
+
+    [HttpGet("progress")]
+    public async Task<IActionResult> GetProgress(CancellationToken cancellationToken) =>
+        this.ToSuccessResponse(await sender.Send(new GetDocumentProgressQuery(), cancellationToken), "Lấy tiến độ xử lý tài liệu thành công.");
 
     [HttpGet("{documentId:guid}/status")]
     public async Task<IActionResult> GetStatus(Guid documentId, CancellationToken cancellationToken) => this.ToActionResult(await sender.Send(new GetDocumentStatusQuery(documentId), cancellationToken));

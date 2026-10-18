@@ -11,10 +11,7 @@ using Nexora.Infrastructure.Services.Identity;
 
 namespace Nexora.Infrastructure.Persistence.Repositories.Identity;
 
-internal sealed class IdentityUserRepository(
-    NexoraDbContext dbContext,
-    IUserContext userContext,
-    IClock clock,
+internal sealed class IdentityUserRepository( NexoraDbContext dbContext, IUserContext userContext, IClock clock,
     UserManager<ApplicationUser> userManager,
     SignInManager<ApplicationUser> signInManager)
     : BaseRepository<ApplicationUser>(dbContext, userContext, clock), IUserRepository

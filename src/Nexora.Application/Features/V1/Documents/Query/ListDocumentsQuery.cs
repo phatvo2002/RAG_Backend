@@ -7,7 +7,7 @@ using Nexora.Application.Features.V1.Documents.Model;
 namespace Nexora.Application.Features.V1.Documents.Query;
 
 public sealed record ListDocumentsQuery(
-    Guid FolderId,
+    Guid? FolderId = null,
     int Page = 1,
     int PageSize = 25,
     string? Search = null,

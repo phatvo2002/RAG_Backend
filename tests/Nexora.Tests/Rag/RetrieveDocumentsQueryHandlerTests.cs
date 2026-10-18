@@ -26,7 +26,8 @@ public sealed class RetrieveDocumentsQueryHandlerTests
             vectorStore,
             storage,
             new FakeClock(),
-            new FakeScopeOptions(0.70f));
+            new FakeScopeOptions(0.70f),
+            new FakeIndexSettings());
 
         var response = await handler.Handle(new RetrieveDocumentsQuery("How does HR set compensation?"), CancellationToken.None);
 
@@ -36,6 +37,45 @@ public sealed class RetrieveDocumentsQueryHandlerTests
         Assert.Equal(1, vectorStore.SearchCount);
         Assert.Equal(0, storage.ReadCount);
         Assert.Equal(0, retrievalStore.SourceLookupCount);
+    }
+
+    [Fact]
+    public async Task Ignores_legacy_index_when_Gemini_index_is_missing()
+    {
+        var documentId = Guid.NewGuid();
+        var retrievalStore = new FakeRetrievalStore(documentId);
+        var provider = new FakeEmbeddingProvider();
+        var handler = new RetrieveDocumentsQueryHandler(
+            new FakeOrganizationProvider(Guid.NewGuid()), new FakeUserContext(),
+            new FakeProcessingStore(missingGeminiIndex: true), retrievalStore, provider,
+            new FakeVectorStore(new VectorSearchResult(documentId, Guid.NewGuid(), 0.91f)),
+            new FakeObjectStorage(), new FakeClock(), new FakeScopeOptions(0.70f),
+            new FakeIndexSettings());
+
+        var response = await handler.Handle(new RetrieveDocumentsQuery("question"), default);
+
+        Assert.Empty(response.Results);
+        Assert.Equal(0, provider.Calls);
+        Assert.Null(retrievalStore.LastIndexName);
+    }
+
+    [Fact]
+    public async Task Uses_only_Gemini_index_after_reindex_is_complete()
+    {
+        var documentId = Guid.NewGuid();
+        var retrievalStore = new FakeRetrievalStore(documentId);
+        var provider = new FakeEmbeddingProvider();
+        var handler = new RetrieveDocumentsQueryHandler(
+            new FakeOrganizationProvider(Guid.NewGuid()), new FakeUserContext(),
+            new FakeProcessingStore(), retrievalStore, provider,
+            new FakeVectorStore(new VectorSearchResult(documentId, Guid.NewGuid(), 0.91f)),
+            new FakeObjectStorage(), new FakeClock(), new FakeScopeOptions(0.70f),
+            new FakeIndexSettings());
+
+        await handler.Handle(new RetrieveDocumentsQuery("question"), default);
+
+        Assert.Equal(1, provider.Calls);
+        Assert.Equal("gemini-embedding-001", retrievalStore.LastIndexName);
     }
 
     private sealed class FakeOrganizationProvider(Guid organizationId) : IDefaultOrganizationProvider
@@ -59,10 +99,28 @@ public sealed class RetrieveDocumentsQueryHandlerTests
         public float DepartmentMatchThreshold { get; } = departmentMatchThreshold;
     }
 
+    private sealed class FakeIndexSettings : IDocumentIndexSettings
+    {
+        public string ActiveProvider => "Gemini";
+        public string IndexName => "gemini-embedding-001";
+        public int BatchSize => 5;
+        public int ChunkSizeCharacters => 1200;
+        public int ChunkOverlapCharacters => 200;
+        public int EmbeddingDimension => 2;
+        public int VectorDimension => 2;
+        public string CollectionName => "nexora_documents_gemini_001";
+        public string EmbeddingModel => "gemini-embedding-001";
+        public string Distance => "Cosine";
+    }
+
     private sealed class FakeEmbeddingProvider : IEmbeddingProvider
     {
-        public Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyCollection<string> inputs, CancellationToken cancellationToken) =>
-            Task.FromResult<IReadOnlyList<float[]>>([new float[] { 0.1f, 0.2f }]);
+        public int Calls { get; private set; }
+        public Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyCollection<string> inputs, CancellationToken cancellationToken)
+        {
+            Calls++;
+            return Task.FromResult<IReadOnlyList<float[]>>([new float[] { 0.1f, 0.2f }]);
+        }
     }
 
     private sealed class FakeVectorStore(VectorSearchResult companyMatch) : IVectorStore
@@ -108,14 +166,18 @@ public sealed class RetrieveDocumentsQueryHandlerTests
     private sealed class FakeRetrievalStore(Guid inaccessibleDepartmentDocumentId) : IDocumentRetrievalStore
     {
         public int SourceLookupCount { get; private set; }
+        public string? LastIndexName { get; private set; }
 
         public Task<string?> GetOrganizationNameAsync(Guid organizationId, CancellationToken cancellationToken) =>
             Task.FromResult<string?>("Nexora");
 
-        public Task<IReadOnlyList<IndexedDocumentReference>> GetIndexedDocumentsAsync(Guid organizationId, CancellationToken cancellationToken) =>
-            Task.FromResult<IReadOnlyList<IndexedDocumentReference>>([new IndexedDocumentReference(inaccessibleDepartmentDocumentId, true)]);
+        public Task<IReadOnlyList<IndexedDocumentReference>> GetIndexedDocumentsAsync(Guid organizationId, string indexName, CancellationToken cancellationToken)
+        {
+            LastIndexName = indexName;
+            return Task.FromResult<IReadOnlyList<IndexedDocumentReference>>([new IndexedDocumentReference(inaccessibleDepartmentDocumentId, true)]);
+        }
 
-        public Task<IReadOnlyList<Guid>> GetAccessibleIndexedDocumentIdsAsync(Guid organizationId, Guid userId, DateTimeOffset now, CancellationToken cancellationToken) =>
+        public Task<IReadOnlyList<Guid>> GetAccessibleIndexedDocumentIdsAsync(Guid organizationId, Guid userId, DateTimeOffset now, string indexName, CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<Guid>>([]);
 
         public Task<IReadOnlyList<RetrievalChunkSource>> GetAccessibleChunkSourcesAsync(Guid organizationId, Guid userId,
@@ -126,10 +188,17 @@ public sealed class RetrieveDocumentsQueryHandlerTests
         }
     }
 
-    private sealed class FakeProcessingStore : IDocumentProcessingStore
+    private sealed class FakeProcessingStore(bool missingGeminiIndex = false) : IDocumentProcessingStore
     {
-        public Task<RagIndex?> GetIndexAsync(Guid organizationId, string indexName, bool asTracking, CancellationToken cancellationToken) =>
-            Task.FromResult<RagIndex?>(RagIndex.Create(organizationId, indexName, "qdrant", "nexora_documents", "embedding", 2, "Cosine", new string('a', 64), DateTimeOffset.UtcNow));
+        public Task<IReadOnlyList<Guid>> GetPendingVersionIdsAsync(string indexName, CancellationToken cancellationToken) => throw new NotImplementedException();
+        public Task<bool> IsIndexCompleteAsync(Guid organizationId, Guid indexId, CancellationToken cancellationToken) => throw new NotImplementedException();
+        public Task<IReadOnlyList<DocumentProgressRecord>> GetAccessibleProgressAsync(Guid organizationId, Guid userId, DateTimeOffset now, string indexName, CancellationToken cancellationToken) => throw new NotImplementedException();
+        public Task<RagIndex?> GetIndexAsync(Guid organizationId, string indexName, bool asTracking, CancellationToken cancellationToken)
+        {
+            if (missingGeminiIndex) return Task.FromResult<RagIndex?>(null);
+            var index = RagIndex.Create(organizationId, indexName, "qdrant", "nexora_documents_gemini_001", "gemini-embedding-001", 2, "Cosine", new string('a', 64), DateTimeOffset.UtcNow);
+            return Task.FromResult<RagIndex?>(index);
+        }
 
         public Task<Document?> GetDocumentAsync(Guid userId, Guid documentId, bool asTracking, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task<Document?> GetDocumentByIdAsync(Guid documentId, bool asTracking, CancellationToken cancellationToken) => throw new NotImplementedException();

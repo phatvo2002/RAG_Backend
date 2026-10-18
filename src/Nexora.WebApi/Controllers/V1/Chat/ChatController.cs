@@ -38,6 +38,13 @@ public sealed class ChatController(ISender sender, ILogger<ChatController> logge
         catch (KeyNotFoundException) { return NotFound(); }
     }
 
+    [HttpDelete("conversations/{conversationId:guid}")]
+    public async Task<IActionResult> DeleteConversation(Guid conversationId, CancellationToken cancellationToken)
+    {
+        try { return await sender.Send(new DeleteChatConversationCommand(conversationId), cancellationToken) ? NoContent() : NotFound(); }
+        catch (KeyNotFoundException) { return NotFound(); }
+    }
+
     [HttpDelete("conversations/{conversationId:guid}/messages/{messageId:guid}")]
     public async Task<IActionResult> DeleteMessage(Guid conversationId, Guid messageId, CancellationToken cancellationToken)
     {
