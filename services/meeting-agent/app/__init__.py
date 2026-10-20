@@ -1,0 +1,1 @@
+"""Nexora meeting transcription worker."""

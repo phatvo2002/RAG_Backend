@@ -55,9 +55,26 @@ services:
       ASPNETCORE_URLS: http://+:8080
       ConnectionStrings__Postgres: ${COMPOSE_POSTGRES_CONNECTION_STRING:-}
       Cors__AllowedOrigins__0: http://localhost:3000
-      AllowedHosts: localhost
+      AllowedHosts: localhost;webapi
       Storage__Endpoint: http://minio:9000
       Qdrant__Endpoint: http://qdrant:6333
+
+  meeting-agent:
+    build:
+      context: ./services/meeting-agent
+      dockerfile: Dockerfile
+    image: nexora-meeting-agent:local
+    pull_policy: build
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 35s
+    depends_on:
+      webapi:
+        condition: service_started
+    environment:
+      MEETING_AGENT_BACKEND_URL: http://webapi:8080
+      MEETING_AGENT_API_KEY: ${MeetingAgent__ApiKey:-}
+      WHISPER_MODEL_PATH: /opt/models/whisper-small
 
   frontend:
     build:

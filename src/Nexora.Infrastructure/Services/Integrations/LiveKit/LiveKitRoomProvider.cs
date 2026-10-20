@@ -41,9 +41,7 @@ internal sealed class LiveKitRoomProvider(HttpClient client, IConfiguration conf
         {
             Content = JsonContent.Create(body)
         };
-        var grant = method == "DeleteRoom"
-            ? new Dictionary<string, object> { ["roomAdmin"] = true, ["room"] = roomName }
-            : new Dictionary<string, object> { ["roomCreate"] = true };
+        var grant = new Dictionary<string, object> { ["roomCreate"] = true };
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", Sign("meeting-service", grant));
         using var response = await client.SendAsync(request, cancellationToken);
         if (allowNotFound && response.StatusCode == HttpStatusCode.NotFound) return;

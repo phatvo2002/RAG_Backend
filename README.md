@@ -59,7 +59,7 @@ cp .env.example .env
 | PostgreSQL | Khi chạy WebApi từ Visual Studio hoặc `dotnet run`, đặt `ConnectionStrings__Postgres` tới database trên máy (ví dụ `Host=127.0.0.1;Port=5432;Database=Nexora_AI_V2`). Khi chạy bằng Compose trên Docker Desktop, đặt `COMPOSE_POSTGRES_CONNECTION_STRING` tới cùng database nhưng dùng `Host=host.docker.internal` để container truy cập máy chủ. |
 | MinIO | `Storage__AccessKey`/`Storage__SecretKey` phải khớp `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD`. |
 | Khóa máy chủ | Điền `Jwt__SignaturePrivateKey` (ít nhất 32 ký tự). Tạo **hai khóa Base64 32 byte khác nhau** cho `ProviderKeys__EncryptionKeyBase64` và `Chat__EncryptionKeyBase64` ([cách tạo khóa](docs/personal-provider-keys.md)). |
-| AI và cuộc họp | `Embedding__ApiKey` cho Gemini Embedding; `LiveKit__ApiKey`/`LiveKit__ApiSecret` khi dùng phòng họp. |
+| AI và cuộc họp | `Embedding__ApiKey` cho Gemini Embedding; `LiveKit__Url`, `LiveKit__ApiKey` và `LiveKit__ApiSecret` khi dùng phòng họp; `MeetingAgent__ApiKey` là khóa riêng cho worker transcript. |
 
 `.env` không được đưa lên Git. Cổng, đường dẫn dữ liệu, endpoint và URL local nằm trong `docker-compose.yml`; khi chạy WebApi trực tiếp, endpoint và provider mặc định nằm trong `src/Nexora.WebApi/appsettings.json`. API key Gemini/Claude cho chat được từng người dùng thêm trong trang **Tài khoản**; `Qdrant__ApiKey` có thể để trống nếu Qdrant không bật xác thực.
 
@@ -77,6 +77,16 @@ docker compose up -d --no-deps --build webapi
 docker compose up -d --no-deps --build frontend
 docker compose ps webapi frontend
 ```
+
+Để bật transcript tiếng nói gốc, build và chạy thêm worker Python:
+
+```sh
+docker compose build meeting-agent
+docker compose up -d meeting-agent
+docker compose logs --tail=100 meeting-agent
+```
+
+Worker chạy CPU, xử lý một phòng đồng thời và chỉ gửi transcript sau khi người nói tạm dừng. Lần build đầu tải model Whisper `small` vào image. Xem [hướng dẫn worker](services/meeting-agent/README.md) để kiểm thử hai người nói và các giới hạn khi worker ngắt kết nối. Compose không tự áp dụng migration `AddMeetingLifecycle` hoặc `AddMeetingTranscript`.
 
 Mở [giao diện](http://localhost:3000) hoặc [Swagger API](http://localhost:8081/swagger). Các lệnh trên chỉ build và chạy WebApi/frontend; MinIO và Qdrant cần đang chạy sẵn. PostgreSQL `Nexora_AI_V2` trên máy phải truy cập được từ container và có schema phù hợp; Compose không tự chạy EF migration. Nếu cổng 8081 bận, đổi cổng xuất bản của `webapi` và `PUBLIC_API_URL` trong `docker-compose.yml` cùng lúc.
 
