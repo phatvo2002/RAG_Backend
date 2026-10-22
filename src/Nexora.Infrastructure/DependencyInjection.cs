@@ -156,6 +156,7 @@ public static class DependencyInjection
         services.AddScoped<IDocumentFolderRepository, DocumentFolderRepository>();
         services.AddScoped<IDocumentFolderAccessGrantRepository, DocumentFolderAccessGrantRepository>();
         services.AddScoped<IDocumentRepository, DocumentRepository>();
+        services.AddScoped<IDocumentChunkReadStore, DocumentRepository>();
         services.AddScoped<IDocumentRetrievalStore, DocumentRepository>();
         services.AddScoped<IFolderOverviewRepository, DocumentRepository>();
         services.AddScoped<IActivityLogWriter, ActivityLogWriter>();
@@ -167,7 +168,18 @@ public static class DependencyInjection
         services.AddScoped<IPdfOcrEngine, TesseractOcrEngine>();
         services.AddScoped<IDocumentStorageSettings>(serviceProvider => serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<StorageOptions>>().Value);
         services.AddScoped<IDocumentIndexSettings, DocumentIndexSettings>();
-        services.AddScoped<IDocumentTextChunker, DocumentTextChunker>();
+        services.AddScoped<SemanticDocumentTextChunker>();
+        services.AddSingleton<IDocumentChunkingProgressStore, DocumentChunkingProgressStore>();
+        services.AddScoped<IDocumentTextChunker>(provider =>
+        {
+            var mode = provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<DocumentProcessingOptions>>().Value.ChunkingMode;
+            return mode switch
+            {
+                "Semantic" => provider.GetRequiredService<SemanticDocumentTextChunker>(),
+                "Fixed" => new DocumentTextChunker(),
+                _ => throw new InvalidOperationException($"DocumentProcessing:ChunkingMode không hợp lệ: {mode}.")
+            };
+        });
         services.AddScoped<ChatCipher>();
         services.AddScoped<IChatCipher>(serviceProvider => serviceProvider.GetRequiredService<ChatCipher>());
         services.AddScoped<ProviderKeyCipher>();
@@ -196,6 +208,9 @@ public static class DependencyInjection
         services.AddSingleton<IEmbeddingRateLimiter>(provider => provider.GetRequiredService<EmbeddingRateLimiter>());
         services.AddSingleton<IEmbeddingBatchScheduler>(provider => provider.GetRequiredService<EmbeddingRateLimiter>());
         services.AddHttpClient<IEmbeddingProvider, GeminiEmbeddingProvider>();
+        services.AddScoped<GeminiEmbeddingGeneratorAdapter>();
+        services.AddScoped<Microsoft.Extensions.AI.IEmbeddingGenerator<string, Microsoft.Extensions.AI.Embedding<float>>>(
+            provider => provider.GetRequiredService<GeminiEmbeddingGeneratorAdapter>());
         services.AddHttpClient<IVectorStore, QdrantVectorStore>((serviceProvider, client) =>
         {
             var options = serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<QdrantOptions>>().Value;

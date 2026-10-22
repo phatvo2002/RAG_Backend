@@ -24,6 +24,7 @@ public sealed class ProcessDocumentVersionCommandHandler(
     IDocumentStorageSettings storageSettings,
     IDocumentIndexSettings indexSettings,
     IDocumentTextChunker chunker,
+    IDocumentChunkingProgressStore chunkProgressStore,
     IEmbeddingBatchScheduler batchScheduler,
     ILogger<ProcessDocumentVersionCommandHandler> logger) : IRequestHandler<ProcessDocumentVersionCommand>
 {
@@ -38,6 +39,7 @@ public sealed class ProcessDocumentVersionCommandHandler(
         try
         {
             var chunks = await store.GetChunksAsync(version.Id, true, cancellationToken);
+            var generatedVectors = new Dictionary<int, float[]>();
             if (chunks.Count == 0)
             {
                 version.SetProcessingStatus("EXTRACTING");
@@ -53,8 +55,14 @@ public sealed class ProcessDocumentVersionCommandHandler(
                 version.ParserVersion = extracted.ParserVersion;
                 version.SetProcessingStatus("CHUNKING");
                 await unitOfWork.SaveChangesAsync(cancellationToken);
-                foreach (var chunk in chunker.Chunk(normalizedText, indexSettings.ChunkSizeCharacters, indexSettings.ChunkOverlapCharacters))
+                var producedChunks = await chunker.ChunkAsync(normalizedText,
+                    indexSettings.ChunkSizeCharacters, indexSettings.ChunkOverlapCharacters, cancellationToken,
+                    progress => chunkProgressStore.Report(version.Id, progress));
+                chunkProgressStore.Report(version.Id, new DocumentChunkingProgress("SAVING", 0, producedChunks.Count));
+                var savedChunks = 0;
+                foreach (var chunk in producedChunks)
                 {
+                    if (chunk.Embedding is not null) generatedVectors.Add(chunk.Ordinal, chunk.Embedding);
                     var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(chunk.Text))).ToLowerInvariant();
                     var entity = DocumentChunk.Create(version.OrganizationId, version.Id, chunk.Ordinal, hash, clock.UtcNow,
                         "vie", chunk.Text.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length, null, chunk.Start, chunk.End);
@@ -64,6 +72,8 @@ public sealed class ProcessDocumentVersionCommandHandler(
                     store.InsertChunk(entity);
                     store.InsertChunkContent(DocumentChunkContent.Create(entity.Id, "minio", storageSettings.Bucket, objectKey, hash, clock.UtcNow));
                     chunks.Add(entity);
+                    chunkProgressStore.Report(version.Id,
+                        new DocumentChunkingProgress("SAVING", ++savedChunks, producedChunks.Count));
                 }
                 await unitOfWork.SaveChangesAsync(cancellationToken);
             }
@@ -113,22 +123,29 @@ public sealed class ProcessDocumentVersionCommandHandler(
                 }
 
                 IReadOnlyList<float[]> vectors;
-                while (true)
+                if (batch.All(chunk => generatedVectors.ContainsKey(chunk.Ordinal)))
                 {
-                    await batchScheduler.WaitForDocumentBatchAsync(cancellationToken);
-                    try
+                    vectors = batch.Select(chunk => generatedVectors[chunk.Ordinal]).ToArray();
+                }
+                else
+                {
+                    while (true)
                     {
-                        vectors = await embeddingProvider.EmbedAsync(texts, cancellationToken);
-                        batchScheduler.MarkDocumentBatchCompleted();
-                        break;
-                    }
-                    catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.TooManyRequests)
-                    {
-                        batchScheduler.MarkDocumentBatchCompleted();
-                        version.FailureCode = "EMBEDDING_RATE_LIMITED";
-                        await unitOfWork.SaveChangesAsync(cancellationToken);
-                        logger.LogWarning("Embedding quota reached for version {VersionId}; retrying.", version.Id);
-                        await batchScheduler.WaitAfterRateLimitAsync(cancellationToken);
+                        await batchScheduler.WaitForDocumentBatchAsync(cancellationToken);
+                        try
+                        {
+                            vectors = await embeddingProvider.EmbedAsync(texts, cancellationToken);
+                            batchScheduler.MarkDocumentBatchCompleted();
+                            break;
+                        }
+                        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.TooManyRequests)
+                        {
+                            batchScheduler.MarkDocumentBatchCompleted();
+                            version.FailureCode = "EMBEDDING_RATE_LIMITED";
+                            await unitOfWork.SaveChangesAsync(cancellationToken);
+                            logger.LogWarning("Embedding quota reached for version {VersionId}; retrying.", version.Id);
+                            await batchScheduler.WaitAfterRateLimitAsync(cancellationToken);
+                        }
                     }
                 }
 
@@ -172,6 +189,10 @@ public sealed class ProcessDocumentVersionCommandHandler(
                 document.SetStatus("FAILED");
             }
             await unitOfWork.SaveChangesAsync(CancellationToken.None);
+        }
+        finally
+        {
+            chunkProgressStore.Clear(version.Id);
         }
     }
 

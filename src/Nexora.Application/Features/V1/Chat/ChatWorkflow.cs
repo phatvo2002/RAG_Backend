@@ -149,18 +149,19 @@ public sealed class ChatWorkflow(
         var turns = await store.GetTurnsForMessagesAsync(organizationId, ids, ct);
         var citations = await store.GetCitationsAsync(organizationId, ids, ct);
         var accessible = await retrievalStore.GetAccessibleChunkSourcesAsync(organizationId, userId, clock.UtcNow,
-            citations.Select(x => x.ChunkId).Distinct().ToArray(), ct);
+            citations.Where(x => x.ChunkId.HasValue).Select(x => x.ChunkId!.Value).Distinct().ToArray(), ct);
         var sourceById = accessible.ToDictionary(x => x.ChunkId);
         var result = new List<ChatMessageDto>(rows.Count);
         foreach (var row in rows)
         {
             var ownCitations = citations.Where(x => x.AssistantMessageId == row.Id).ToArray();
-            if (ownCitations.Any(x => !sourceById.ContainsKey(x.ChunkId))) continue;
+            if (ownCitations.Any(x => !x.ChunkId.HasValue || !sourceById.ContainsKey(x.ChunkId.Value))) continue;
             var turn = turns.FirstOrDefault(x => x.RequestMessageId == row.Id || x.ResponseMessageId == row.Id);
             var sources = ownCitations.Select(x =>
             {
-                var source = sourceById[x.ChunkId];
-                return new ChatSourceDto(source.DocumentId, x.ChunkId, source.FileName, x.Score ?? 0,
+                var chunkId = x.ChunkId!.Value;
+                var source = sourceById[chunkId];
+                return new ChatSourceDto(source.DocumentId, chunkId, source.FileName, x.Score ?? 0,
                     x.PageNo, x.CharStart, x.CharEnd);
             }).ToArray();
             result.Add(new ChatMessageDto(row.Id, row.ConversationId, row.SenderType, cipher.Decrypt(row.ContentCiphertext),

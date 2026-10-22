@@ -26,9 +26,12 @@ public interface IEmbeddingBatchScheduler
     Task WaitAfterRateLimitAsync(CancellationToken cancellationToken);
 }
 
-public sealed record TextChunk(int Ordinal, string Text, int Start, int End);
+public sealed record TextChunk(int Ordinal, string Text, int? Start, int? End, float[]? Embedding = null);
+
+public sealed record DocumentChunkingProgress(string Phase, int Completed, int Total);
 
 public interface IDocumentTextChunker
 {
-    IReadOnlyList<TextChunk> Chunk(string text, int chunkSize, int overlap);
+    Task<IReadOnlyList<TextChunk>> ChunkAsync(string text, int chunkSize, int overlap,
+        CancellationToken cancellationToken, Action<DocumentChunkingProgress>? reportProgress = null);
 }

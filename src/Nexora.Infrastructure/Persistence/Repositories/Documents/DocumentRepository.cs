@@ -5,8 +5,58 @@ using Nexora.Application.Common.Results;
 
 namespace Nexora.Infrastructure.Persistence.Repositories.Documents;
 
-internal sealed class DocumentRepository(NexoraDbContext dbContext) : IDocumentRepository, IFolderOverviewRepository, IDocumentRetrievalStore
+internal sealed class DocumentRepository(NexoraDbContext dbContext) : IDocumentRepository, IFolderOverviewRepository, IDocumentRetrievalStore, IDocumentChunkReadStore
 {
+    public async Task<PagedResult<DocumentChunkReadRecord>?> GetAccessiblePageAsync(
+        Guid organizationId, Guid userId, DateTimeOffset now, Guid documentId,
+        int page, int pageSize, CancellationToken cancellationToken)
+    {
+        var documents = dbContext.Documents.IgnoreQueryFilters();
+        var folders = dbContext.DocumentFolders.IgnoreQueryFilters();
+        var versions = dbContext.DocumentVersions.IgnoreQueryFilters();
+        var grants = dbContext.DocumentFolderAccessGrants.IgnoreQueryFilters();
+        var memberships = dbContext.DepartmentMemberships.IgnoreQueryFilters();
+
+        var versionId = await (from document in documents
+                               join folder in folders on document.FolderId equals folder.Id
+                               join version in versions on document.CurrentVersionId equals version.Id
+                               where document.Id == documentId &&
+                                     document.OrganizationId == organizationId &&
+                                     folder.OrganizationId == organizationId &&
+                                     version.OrganizationId == organizationId &&
+                                     version.DocumentId == document.Id &&
+                                     document.DeletedAt == null && folder.DeletedAt == null &&
+                                     (document.OwnerUserId == userId || folder.OwnerUserId == userId ||
+                                      (folder.DepartmentId.HasValue && memberships.Any(membership =>
+                                          membership.OrganizationId == organizationId &&
+                                          membership.DepartmentId == folder.DepartmentId.Value &&
+                                          membership.UserId == userId && membership.LeftAt == null)) ||
+                                      grants.Any(grant =>
+                                          grant.OrganizationId == organizationId &&
+                                          grant.FolderId == folder.Id && grant.RevokedAt == null &&
+                                          grant.ValidFrom <= now && (grant.ExpiresAt == null || grant.ExpiresAt > now) &&
+                                          (grant.UserId == userId ||
+                                           (grant.DepartmentId.HasValue && memberships.Any(membership =>
+                                               membership.OrganizationId == organizationId &&
+                                               membership.DepartmentId == grant.DepartmentId.Value &&
+                                               membership.UserId == userId && membership.LeftAt == null)))))
+                               select (Guid?)version.Id).SingleOrDefaultAsync(cancellationToken);
+        if (!versionId.HasValue) return null;
+
+        var query = from chunk in dbContext.DocumentChunks.IgnoreQueryFilters()
+                    join content in dbContext.DocumentChunkContents.IgnoreQueryFilters() on chunk.Id equals content.ChunkId
+                    where chunk.OrganizationId == organizationId && chunk.DocumentVersionId == versionId.Value &&
+                          chunk.Status == "ACTIVE"
+                    select new DocumentChunkReadRecord(chunk.Id, chunk.Ordinal, chunk.PageNo,
+                        chunk.CharStart, chunk.CharEnd, chunk.LanguageCode,
+                        content.StorageBucket, content.ContentObjectKey);
+
+        var totalCount = await query.CountAsync(cancellationToken);
+        var items = await query.OrderBy(chunk => chunk.Ordinal)
+            .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(cancellationToken);
+        return new PagedResult<DocumentChunkReadRecord>(items, page, pageSize, totalCount);
+    }
+
     public Task<string?> GetOrganizationNameAsync(Guid organizationId, CancellationToken cancellationToken) =>
         dbContext.Organizations.IgnoreQueryFilters().AsNoTracking()
             .Where(organization => organization.Id == organizationId)

@@ -138,19 +138,20 @@ internal sealed class DocumentProcessingStore(NexoraDbContext dbContext) : IDocu
             .ToArray();
     }
 
-    public async Task MarkDocumentVectorRecordsDeletedAsync(Guid organizationId, Guid documentId, CancellationToken cancellationToken)
+    public async Task DeleteDocumentChunksAsync(Guid organizationId, Guid documentId, CancellationToken cancellationToken)
     {
-        var records = await (from record in dbContext.RagIndexRecords.IgnoreQueryFilters()
-                             join chunk in dbContext.DocumentChunks.IgnoreQueryFilters() on record.ChunkId equals chunk.Id
-                             join version in dbContext.DocumentVersions.IgnoreQueryFilters() on chunk.DocumentVersionId equals version.Id
-                             where record.OrganizationId == organizationId && version.OrganizationId == organizationId && version.DocumentId == documentId
-                             select record)
-            .ToListAsync(cancellationToken);
+        var chunkIds = await (from chunk in dbContext.DocumentChunks.IgnoreQueryFilters()
+                              join version in dbContext.DocumentVersions.IgnoreQueryFilters() on chunk.DocumentVersionId equals version.Id
+                              where chunk.OrganizationId == organizationId && version.OrganizationId == organizationId && version.DocumentId == documentId
+                              select chunk.Id).ToArrayAsync(cancellationToken);
 
-        foreach (var record in records)
-        {
-            record.MarkDeleted();
-        }
+        dbContext.DocumentChunkContents.RemoveRange(await dbContext.DocumentChunkContents
+            .Where(content => chunkIds.Contains(content.ChunkId)).ToListAsync(cancellationToken));
+        dbContext.RagIndexRecords.RemoveRange(await dbContext.RagIndexRecords.IgnoreQueryFilters()
+            .Where(record => record.OrganizationId == organizationId && chunkIds.Contains(record.ChunkId))
+            .ToListAsync(cancellationToken));
+        dbContext.DocumentChunks.RemoveRange(await dbContext.DocumentChunks.IgnoreQueryFilters()
+            .Where(chunk => chunkIds.Contains(chunk.Id)).ToListAsync(cancellationToken));
     }
 
     public async Task<bool> CanUploadToFolderAsync(DocumentFolder folder, Guid userId, DateTimeOffset utcNow, CancellationToken cancellationToken)

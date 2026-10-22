@@ -12,7 +12,7 @@ public class Citation : CreatedEntityBase
 
     public Guid AssistantMessageId { get; private set; }
 
-    public Guid ChunkId { get; private set; }
+    public Guid? ChunkId { get; private set; }
 
     public int CitationNo { get; set; }
 

@@ -34,6 +34,11 @@ public sealed class DocumentController(ISender sender) : BaseController
     [HttpGet("{documentId:guid}/status")]
     public async Task<IActionResult> GetStatus(Guid documentId, CancellationToken cancellationToken) => this.ToActionResult(await sender.Send(new GetDocumentStatusQuery(documentId), cancellationToken));
 
+    [HttpGet("{documentId:guid}/chunks")]
+    public async Task<IActionResult> GetChunks(Guid documentId, [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 25, CancellationToken cancellationToken = default) =>
+        this.ToActionResult(await sender.Send(new GetDocumentChunksQuery(documentId, page, pageSize), cancellationToken));
+
     [HttpPost]
     [EnableRateLimiting("write")]
     [RequestSizeLimit(26 * 1024 * 1024)]

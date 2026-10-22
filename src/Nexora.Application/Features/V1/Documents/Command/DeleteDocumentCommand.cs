@@ -58,7 +58,7 @@ public sealed class DeleteDocumentCommandHandler(
             await objectStorage.DeleteAsync(storedObject.Bucket, storedObject.ObjectKey, cancellationToken);
         }
 
-        await store.MarkDocumentVectorRecordsDeletedAsync(organizationId.Value, request.DocumentId, cancellationToken);
+        await store.DeleteDocumentChunksAsync(organizationId.Value, request.DocumentId, cancellationToken);
         if (document.DeletedAt is null)
             document.MarkDeleted(userId, clock.UtcNow);
         await unitOfWork.SaveChangesAsync(cancellationToken);

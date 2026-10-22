@@ -9,6 +9,7 @@ using Nexora.Application.Common.Abstractions.Rag;
 using Nexora.Application.Common.Abstractions.Repositories;
 using Nexora.Application.Features.V1.Documents.Command;
 using Nexora.Domain.Documents;
+using Nexora.Domain.Chat;
 using Nexora.Domain.Rag;
 using Nexora.Infrastructure.Services.DocumentProcessing;
 using Nexora.Infrastructure.Services.Integrations.Embeddings;
@@ -68,6 +69,27 @@ public sealed class DocumentProcessingWorkflowTests
 
         Assert.Equal([5, 1], vectorStore.BatchSizes);
         Assert.Equal(11, store.Records.Count);
+    }
+
+    [Fact]
+    public async Task New_chunks_reuse_semantic_vectors_when_indexing()
+    {
+        var store = new FakeStore(0);
+        store.Content["source"] = "first second";
+        var provider = new FakeEmbeddingProvider();
+        var vectorStore = new FakeVectorStore();
+        var handler = CreateHandler(store, provider, new FakeScheduler(), vectorStore,
+            chunker: new PresetChunker(), extractor: new PresetExtractor());
+
+        await handler.Handle(new ProcessDocumentVersionCommand(store.Version.Id), default);
+
+        Assert.Equal("READY", store.Version.ProcessingStatus);
+        Assert.Equal(2, store.Chunks.Count);
+        Assert.Equal(2, store.Contents.Count);
+        Assert.Equal(0, provider.Calls);
+        Assert.Equal([2], vectorStore.BatchSizes);
+        Assert.Equal([1f, 2f], vectorStore.Vectors.Select(vector => vector[0]));
+        Assert.Equal(2, store.Content.Keys.Count(key => key.StartsWith("chunks/")));
     }
 
     [Fact]
@@ -183,10 +205,53 @@ public sealed class DocumentProcessingWorkflowTests
         Assert.Equal(2, (await store.GetPendingVersionIdsAsync("gemini-embedding-001", default)).Count);
     }
 
+    [Fact]
+    public async Task Deleting_document_chunks_removes_only_its_chunk_rows_and_index_records()
+    {
+        var options = new DbContextOptionsBuilder<NexoraDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .ReplaceService<IModelCustomizer, TestModelCustomizer>()
+            .Options;
+        await using var db = new NexoraDbContext(options, clock: new TestClock());
+        var organizationId = Guid.NewGuid();
+        var ownerId = Guid.NewGuid();
+        var deletedDocumentId = Guid.NewGuid();
+        var retainedDocumentId = Guid.NewGuid();
+        var now = DateTimeOffset.UtcNow;
+        var index = RagIndex.Create(organizationId, "test", "qdrant", "test", "test", 2, "Cosine", new string('a', 64), now);
+        db.RagIndexes.Add(index);
+
+        foreach (var documentId in new[] { deletedDocumentId, retainedDocumentId })
+        {
+            var version = DocumentVersion.Create(organizationId, documentId, 1, "file.txt", "text/plain", 10,
+                "minio", "test", "source", new byte[32], ownerId, now);
+            var chunk = DocumentChunk.Create(organizationId, version.Id, 0, new string('b', 64), now);
+            db.DocumentVersions.Add(version);
+            db.DocumentChunks.Add(chunk);
+            db.DocumentChunkContents.Add(DocumentChunkContent.Create(chunk.Id, "minio", "test", "chunk", new string('b', 64), now));
+            db.RagIndexRecords.Add(RagIndexRecord.Create(organizationId, index.Id, chunk.Id, chunk.Id.ToString("D"), chunk.ContentHash, now));
+        }
+        await db.SaveChangesAsync();
+
+        await new DocumentProcessingStore(db).DeleteDocumentChunksAsync(organizationId, deletedDocumentId, default);
+        await db.SaveChangesAsync();
+
+        var retainedChunk = Assert.Single(db.DocumentChunks);
+        Assert.Equal(retainedDocumentId, db.DocumentVersions.Single(version => version.Id == retainedChunk.DocumentVersionId).DocumentId);
+        Assert.Equal(retainedChunk.Id, Assert.Single(db.DocumentChunkContents).ChunkId);
+        Assert.Equal(retainedChunk.Id, Assert.Single(db.RagIndexRecords).ChunkId);
+        Assert.Equal(DeleteBehavior.SetNull, db.Model.FindEntityType(typeof(Citation))!.GetForeignKeys()
+            .Single(fk => fk.PrincipalEntityType.ClrType == typeof(DocumentChunk)).DeleteBehavior);
+        Assert.Equal(DeleteBehavior.SetNull, db.Model.FindEntityType(typeof(RetrievalHit))!.GetForeignKeys()
+            .Single(fk => fk.PrincipalEntityType.ClrType == typeof(DocumentChunk)).DeleteBehavior);
+    }
+
     private static ProcessDocumentVersionCommandHandler CreateHandler(FakeStore store, FakeEmbeddingProvider provider,
-        FakeScheduler scheduler, FakeVectorStore vectorStore, IDocumentIndexSettings? indexSettings = null) => new(
-        new FakeUnitOfWork(), store, new FakeStorage(store), new UnusedExtractor(), provider, vectorStore,
-        new TestClock(), new TestStorageSettings(), indexSettings ?? new TestIndexSettings(), new DocumentTextChunker(), scheduler,
+        FakeScheduler scheduler, FakeVectorStore vectorStore, IDocumentIndexSettings? indexSettings = null,
+        IDocumentTextChunker? chunker = null, IDocumentTextExtractor? extractor = null) => new(
+        new FakeUnitOfWork(), store, new FakeStorage(store), extractor ?? new UnusedExtractor(), provider, vectorStore,
+        new TestClock(), new TestStorageSettings(), indexSettings ?? new TestIndexSettings(), chunker ?? new DocumentTextChunker(),
+        new DocumentChunkingProgressStore(), scheduler,
         NullLogger<ProcessDocumentVersionCommandHandler>.Instance);
 
     private sealed class FakeStore : IDocumentProcessingStore
@@ -194,6 +259,7 @@ public sealed class DocumentProcessingWorkflowTests
         public Document Document { get; }
         public DocumentVersion Version { get; }
         public List<DocumentChunk> Chunks { get; } = [];
+        public List<DocumentChunkContent> Contents { get; } = [];
         public List<RagIndexRecord> Records { get; } = [];
         public RagIndex? Index { get; private set; }
         public bool OtherDocumentsPending { get; set; }
@@ -225,7 +291,7 @@ public sealed class DocumentProcessingWorkflowTests
 
         public Task<DocumentVersion?> GetVersionAsync(Guid versionId, bool asTracking, CancellationToken ct) => Task.FromResult<DocumentVersion?>(Version);
         public Task<Document?> GetDocumentByIdAsync(Guid documentId, bool asTracking, CancellationToken ct) => Task.FromResult<Document?>(Document);
-        public Task<List<DocumentChunk>> GetChunksAsync(Guid versionId, bool asTracking, CancellationToken ct) => Task.FromResult(Chunks);
+        public Task<List<DocumentChunk>> GetChunksAsync(Guid versionId, bool asTracking, CancellationToken ct) => Task.FromResult(new List<DocumentChunk>(Chunks));
         public Task<RagIndex?> GetIndexAsync(Guid organizationId, string indexName, bool asTracking, CancellationToken ct) =>
             Task.FromResult(Index?.IndexName == indexName ? Index : null);
         public Task<RagIndexRecord?> GetIndexRecordAsync(Guid ragIndexId, Guid chunkId, bool asTracking, CancellationToken ct) =>
@@ -242,26 +308,46 @@ public sealed class DocumentProcessingWorkflowTests
         public Task<IReadOnlyList<DocumentVersion>> GetDocumentVersionsAsync(Guid organizationId, Guid documentId, CancellationToken ct) => throw new NotImplementedException();
         public Task<IReadOnlyList<StoredObjectReference>> GetChunkStorageObjectsAsync(Guid organizationId, Guid documentId, CancellationToken ct) => throw new NotImplementedException();
         public Task<IReadOnlyList<VectorPointReference>> GetDocumentVectorPointsAsync(Guid organizationId, Guid documentId, CancellationToken ct) => throw new NotImplementedException();
-        public Task MarkDocumentVectorRecordsDeletedAsync(Guid organizationId, Guid documentId, CancellationToken ct) => throw new NotImplementedException();
+        public Task DeleteDocumentChunksAsync(Guid organizationId, Guid documentId, CancellationToken ct) => throw new NotImplementedException();
         public Task<int> GetNextVersionNoAsync(Guid documentId, CancellationToken ct) => throw new NotImplementedException();
         public Task<DocumentChunkContent?> GetChunkContentAsync(Guid chunkId, bool asTracking, CancellationToken ct) => throw new NotImplementedException();
         public void InsertDocument(Document document) => throw new NotImplementedException();
         public void InsertVersion(DocumentVersion version) => throw new NotImplementedException();
-        public void InsertChunk(DocumentChunk chunk) => throw new NotImplementedException();
-        public void InsertChunkContent(DocumentChunkContent content) => throw new NotImplementedException();
+        public void InsertChunk(DocumentChunk chunk) => Chunks.Add(chunk);
+        public void InsertChunkContent(DocumentChunkContent content) => Contents.Add(content);
     }
 
     private sealed class FakeStorage(FakeStore store) : IObjectStorage
     {
         public Task<Stream> GetAsync(string bucket, string objectKey, CancellationToken ct) =>
             Task.FromResult<Stream>(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(store.Content[objectKey])));
-        public Task PutAsync(string bucket, string objectKey, Stream content, long sizeBytes, string contentType, CancellationToken ct) => throw new NotImplementedException();
+        public async Task PutAsync(string bucket, string objectKey, Stream content, long sizeBytes, string contentType, CancellationToken ct)
+        {
+            using var reader = new StreamReader(content, leaveOpen: true);
+            store.Content[objectKey] = await reader.ReadToEndAsync(ct);
+        }
         public Task DeleteAsync(string bucket, string objectKey, CancellationToken ct) => throw new NotImplementedException();
     }
 
     private sealed class UnusedExtractor : IDocumentTextExtractor
     {
         public Task<ExtractedDocumentText> ExtractAsync(string fileName, Stream content, CancellationToken ct) => throw new NotImplementedException();
+    }
+
+    private sealed class PresetExtractor : IDocumentTextExtractor
+    {
+        public Task<ExtractedDocumentText> ExtractAsync(string fileName, Stream content, CancellationToken ct) =>
+            Task.FromResult(new ExtractedDocumentText("first second", "test", "1"));
+    }
+
+    private sealed class PresetChunker : IDocumentTextChunker
+    {
+        public Task<IReadOnlyList<TextChunk>> ChunkAsync(string text, int chunkSize, int overlap,
+            CancellationToken ct, Action<DocumentChunkingProgress>? reportProgress = null) =>
+            Task.FromResult<IReadOnlyList<TextChunk>>([
+                new TextChunk(0, "first", 0, 5, [1f, 0f]),
+                new TextChunk(1, "second", 6, 12, [2f, 0f])
+            ]);
     }
 
     private sealed class FakeEmbeddingProvider(bool failFirst = false) : IEmbeddingProvider
@@ -287,11 +373,13 @@ public sealed class DocumentProcessingWorkflowTests
     {
         public List<int> BatchSizes { get; } = [];
         public List<string> Collections { get; } = [];
+        public List<float[]> Vectors { get; } = [];
         public Task EnsureCollectionAsync(string collectionName, int dimension, string distance, CancellationToken ct) => Task.CompletedTask;
         public Task UpsertAsync(string collectionName, IReadOnlyCollection<VectorPoint> points, CancellationToken ct)
         {
             BatchSizes.Add(points.Count);
             Collections.Add(collectionName);
+            Vectors.AddRange(points.Select(point => point.Vector));
             return Task.CompletedTask;
         }
         public Task<IReadOnlyList<VectorSearchResult>> SearchAsync(string collectionName, float[] vector, IReadOnlyCollection<Guid> allowedDocumentIds, int limit, CancellationToken ct) => throw new NotImplementedException();

@@ -136,7 +136,7 @@ internal sealed class CitationConfiguration : IEntityTypeConfiguration<Citation>
         builder.Property(x => x.Id).HasColumnName("id");
         builder.Property(x => x.OrganizationId).HasColumnName("organizationId").IsRequired();
         builder.Property(x => x.AssistantMessageId).HasColumnName("assistantMessageId").IsRequired();
-        builder.Property(x => x.ChunkId).HasColumnName("chunkId").IsRequired();
+        builder.Property(x => x.ChunkId).HasColumnName("chunkId");
         builder.Property(x => x.CitationNo).HasColumnName("citationNo").IsRequired();
         builder.Property(x => x.PageNo).HasColumnName("pageNo");
         builder.Property(x => x.CharStart).HasColumnName("charStart");
@@ -150,6 +150,6 @@ internal sealed class CitationConfiguration : IEntityTypeConfiguration<Citation>
 
         builder.HasOne<Organization>().WithMany().HasForeignKey(x => x.OrganizationId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Message>().WithMany().HasForeignKey(x => x.AssistantMessageId).OnDelete(DeleteBehavior.Restrict);
-        builder.HasOne<DocumentChunk>().WithMany().HasForeignKey(x => x.ChunkId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<DocumentChunk>().WithMany().HasForeignKey(x => x.ChunkId).OnDelete(DeleteBehavior.SetNull);
     }
 }

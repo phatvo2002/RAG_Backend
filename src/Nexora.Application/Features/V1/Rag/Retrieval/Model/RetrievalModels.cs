@@ -32,7 +32,7 @@ public sealed record RagContextPassage(
 
 public static class RagContextComposer
 {
-    public const string PromptVersion = "rag-context-v3";
+    public const string PromptVersion = "rag-context-v4";
 
     public static string ComposeWithoutSources(string question) =>
         $"User question:\n{question.Trim()}\n\nNo authorized source passages were retrieved.";

@@ -78,6 +78,28 @@ public sealed class RetrieveDocumentsQueryHandlerTests
         Assert.Equal("gemini-embedding-001", retrievalStore.LastIndexName);
     }
 
+    [Fact]
+    public async Task Sends_full_authorized_chunk_to_context_but_short_excerpt_to_client()
+    {
+        var documentId = Guid.NewGuid();
+        var chunkId = Guid.NewGuid();
+        var text = new string('A', 600) + "ANSWER_AT_END";
+        var storage = new FakeObjectStorage(text);
+        var handler = new RetrieveDocumentsQueryHandler(
+            new FakeOrganizationProvider(Guid.NewGuid()), new FakeUserContext(), new FakeProcessingStore(),
+            new FakeRetrievalStore(documentId, chunkId), new FakeEmbeddingProvider(),
+            new FakeVectorStore(new VectorSearchResult(documentId, chunkId, 0.91f)),
+            storage, new FakeClock(), new FakeScopeOptions(0.70f), new FakeIndexSettings());
+
+        var response = await handler.Handle(new RetrieveDocumentsQuery("question"), default);
+
+        Assert.Contains("ANSWER_AT_END", response.AugmentedContext);
+        Assert.DoesNotContain("ANSWER_AT_END", Assert.Single(response.Results).Excerpt);
+        Assert.Equal(601, response.Results[0].Excerpt.Length);
+        Assert.Equal("rag-context-v4", response.PromptVersion);
+        Assert.Equal(1, storage.ReadCount);
+    }
+
     private sealed class FakeOrganizationProvider(Guid organizationId) : IDefaultOrganizationProvider
     {
         public Task<Guid?> GetOrganizationIdAsync(CancellationToken cancellationToken) => Task.FromResult<Guid?>(organizationId);
@@ -138,7 +160,7 @@ public sealed class RetrieveDocumentsQueryHandlerTests
         {
             SearchCount++;
             Assert.Contains(companyMatch.DocumentId, allowedDocumentIds);
-            Assert.Equal(1, limit);
+            Assert.True(limit is 1 or 5);
             return Task.FromResult<IReadOnlyList<VectorSearchResult>>([companyMatch]);
         }
 
@@ -146,7 +168,7 @@ public sealed class RetrieveDocumentsQueryHandlerTests
             throw new NotImplementedException();
     }
 
-    private sealed class FakeObjectStorage : IObjectStorage
+    private sealed class FakeObjectStorage(string? content = null) : IObjectStorage
     {
         public int ReadCount { get; private set; }
 
@@ -156,14 +178,15 @@ public sealed class RetrieveDocumentsQueryHandlerTests
         public Task<Stream> GetAsync(string bucket, string objectKey, CancellationToken cancellationToken)
         {
             ReadCount++;
-            throw new InvalidOperationException("Inaccessible department content must not be loaded.");
+            if (content is null) throw new InvalidOperationException("Inaccessible department content must not be loaded.");
+            return Task.FromResult<Stream>(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(content)));
         }
 
         public Task DeleteAsync(string bucket, string objectKey, CancellationToken cancellationToken) =>
             throw new NotImplementedException();
     }
 
-    private sealed class FakeRetrievalStore(Guid inaccessibleDepartmentDocumentId) : IDocumentRetrievalStore
+    private sealed class FakeRetrievalStore(Guid inaccessibleDepartmentDocumentId, Guid? accessibleChunkId = null) : IDocumentRetrievalStore
     {
         public int SourceLookupCount { get; private set; }
         public string? LastIndexName { get; private set; }
@@ -178,13 +201,17 @@ public sealed class RetrieveDocumentsQueryHandlerTests
         }
 
         public Task<IReadOnlyList<Guid>> GetAccessibleIndexedDocumentIdsAsync(Guid organizationId, Guid userId, DateTimeOffset now, string indexName, CancellationToken cancellationToken) =>
-            Task.FromResult<IReadOnlyList<Guid>>([]);
+            Task.FromResult<IReadOnlyList<Guid>>(accessibleChunkId.HasValue ? [inaccessibleDepartmentDocumentId] : []);
 
         public Task<IReadOnlyList<RetrievalChunkSource>> GetAccessibleChunkSourcesAsync(Guid organizationId, Guid userId,
             DateTimeOffset now, IReadOnlyCollection<Guid> chunkIds, CancellationToken cancellationToken)
         {
             SourceLookupCount++;
-            throw new InvalidOperationException("No authorized source lookup is expected after an access denial.");
+            if (!accessibleChunkId.HasValue) throw new InvalidOperationException("No authorized source lookup is expected after an access denial.");
+            return Task.FromResult<IReadOnlyList<RetrievalChunkSource>>([
+                new RetrievalChunkSource(inaccessibleDepartmentDocumentId, accessibleChunkId.Value, "source.txt", null,
+                    null, 0, 613, "test", "chunk")
+            ]);
         }
     }
 
@@ -207,7 +234,7 @@ public sealed class RetrieveDocumentsQueryHandlerTests
         public Task<IReadOnlyList<DocumentVersion>> GetDocumentVersionsAsync(Guid organizationId, Guid documentId, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task<IReadOnlyList<StoredObjectReference>> GetChunkStorageObjectsAsync(Guid organizationId, Guid documentId, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task<IReadOnlyList<VectorPointReference>> GetDocumentVectorPointsAsync(Guid organizationId, Guid documentId, CancellationToken cancellationToken) => throw new NotImplementedException();
-        public Task MarkDocumentVectorRecordsDeletedAsync(Guid organizationId, Guid documentId, CancellationToken cancellationToken) => throw new NotImplementedException();
+        public Task DeleteDocumentChunksAsync(Guid organizationId, Guid documentId, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task<DocumentVersion?> GetVersionAsync(Guid versionId, bool asTracking, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task<int> GetNextVersionNoAsync(Guid documentId, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task<List<DocumentChunk>> GetChunksAsync(Guid versionId, bool asTracking, CancellationToken cancellationToken) => throw new NotImplementedException();

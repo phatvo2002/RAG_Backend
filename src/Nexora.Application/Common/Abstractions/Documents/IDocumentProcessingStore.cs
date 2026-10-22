@@ -21,7 +21,7 @@ public interface IDocumentProcessingStore
 
     Task<IReadOnlyList<VectorPointReference>> GetDocumentVectorPointsAsync(Guid organizationId, Guid documentId, CancellationToken cancellationToken);
 
-    Task MarkDocumentVectorRecordsDeletedAsync(Guid organizationId, Guid documentId, CancellationToken cancellationToken);
+    Task DeleteDocumentChunksAsync(Guid organizationId, Guid documentId, CancellationToken cancellationToken);
 
     Task<DocumentVersion?> GetVersionAsync(Guid versionId, bool asTracking, CancellationToken cancellationToken);
 

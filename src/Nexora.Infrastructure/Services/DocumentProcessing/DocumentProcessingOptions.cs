@@ -5,6 +5,10 @@ public sealed class DocumentProcessingOptions
     public const string SectionName = "DocumentProcessing";
     public int ChunkSizeCharacters { get; set; } = 1200;
     public int ChunkOverlapCharacters { get; set; } = 200;
+    public string ChunkingMode { get; set; } = "Semantic";
+    public int SemanticTokenLimit { get; set; } = 320;
+    public int SemanticBufferSize { get; set; } = 1;
+    public double SemanticBreakpointPercentile { get; set; } = 95;
     public int EmbeddingBatchSize { get; set; } = 5;
     public int BatchIntervalSeconds { get; set; } = 35;
     public int RateLimitRetrySeconds { get; set; } = 60;

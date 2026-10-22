@@ -90,7 +90,7 @@ internal sealed class RetrievalHitConfiguration : IEntityTypeConfiguration<Retri
         builder.Property(x => x.Id).HasColumnName("id");
         builder.Property(x => x.OrganizationId).HasColumnName("organizationId").IsRequired();
         builder.Property(x => x.RetrievalRunId).HasColumnName("retrievalRunId").IsRequired();
-        builder.Property(x => x.ChunkId).HasColumnName("chunkId").IsRequired();
+        builder.Property(x => x.ChunkId).HasColumnName("chunkId");
         builder.Property(x => x.RankNo).HasColumnName("rankNo").IsRequired();
         builder.Property(x => x.SimilarityScore).HasColumnName("similarityScore").HasColumnType("numeric(12,8)");
         builder.Property(x => x.RerankScore).HasColumnName("rerankScore").HasColumnType("numeric(12,8)");
@@ -102,6 +102,6 @@ internal sealed class RetrievalHitConfiguration : IEntityTypeConfiguration<Retri
 
         builder.HasOne<Organization>().WithMany().HasForeignKey(x => x.OrganizationId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<RetrievalRun>().WithMany().HasForeignKey(x => x.RetrievalRunId).OnDelete(DeleteBehavior.Restrict);
-        builder.HasOne<DocumentChunk>().WithMany().HasForeignKey(x => x.ChunkId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<DocumentChunk>().WithMany().HasForeignKey(x => x.ChunkId).OnDelete(DeleteBehavior.SetNull);
     }
 }

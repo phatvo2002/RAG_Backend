@@ -12,7 +12,7 @@ public class RetrievalHit : CreatedEntityBase
 
     public Guid RetrievalRunId { get; private set; }
 
-    public Guid ChunkId { get; private set; }
+    public Guid? ChunkId { get; private set; }
 
     public int RankNo { get; set; }
 

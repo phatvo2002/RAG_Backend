@@ -12,6 +12,7 @@ public sealed class GetDocumentProgressQueryHandler(
     IDefaultOrganizationProvider organizationProvider,
     IUserContext userContext,
     IClock clock,
+    IDocumentChunkingProgressStore chunkProgressStore,
     IDocumentIndexSettings indexSettings) : IRequestHandler<GetDocumentProgressQuery, IReadOnlyList<DocumentProgressResponse>>
 {
     public async Task<IReadOnlyList<DocumentProgressResponse>> Handle(GetDocumentProgressQuery request, CancellationToken cancellationToken)
@@ -24,6 +25,7 @@ public sealed class GetDocumentProgressQueryHandler(
             record.ProcessingStatus, indexSettings.ActiveProvider, record.IndexStatus, record.IndexedChunks, record.TotalChunks,
             record.FailureCode == "EMBEDDING_RATE_LIMITED",
             record.ProcessingStatus == "READY" && record.IndexedChunks < record.TotalChunks,
-            record.FailureCode, record.CreatedAt, record.ReadyAt)).ToArray();
+            record.FailureCode, record.CreatedAt, record.ReadyAt,
+            record.ProcessingStatus == "CHUNKING" ? chunkProgressStore.Get(record.VersionId) : null)).ToArray();
     }
 }
