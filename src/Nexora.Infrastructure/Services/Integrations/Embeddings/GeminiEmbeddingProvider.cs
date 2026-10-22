@@ -1,11 +1,12 @@
 using System.Net.Http.Json;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Logging;
 using Nexora.Application.Common.Abstractions.Rag;
 
 namespace Nexora.Infrastructure.Services.Integrations.Embeddings;
 
-internal sealed class GeminiEmbeddingProvider(HttpClient httpClient, IOptions<EmbeddingOptions> options, IEmbeddingRateLimiter limiter) : IEmbeddingProvider
+internal sealed class GeminiEmbeddingProvider(HttpClient httpClient, IOptions<EmbeddingOptions> options, IEmbeddingRateLimiter limiter, Microsoft.Extensions.Logging.ILogger<GeminiEmbeddingProvider> logger) : IEmbeddingProvider
 {
     public async Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyCollection<string> inputs, CancellationToken cancellationToken)
     {
@@ -30,7 +31,10 @@ internal sealed class GeminiEmbeddingProvider(HttpClient httpClient, IOptions<Em
                 new EmbeddingContent([new EmbeddingPart(input)]),
                 settings.Dimension))
             .ToArray()));
+        var started = System.Diagnostics.Stopwatch.StartNew();
         using var response = await httpClient.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        logger.LogInformation("Gemini embedding request: {InputCount} inputs, {ElapsedMs} ms, HTTP {StatusCode}.",
+            inputs.Count, started.ElapsedMilliseconds, (int)response.StatusCode);
         if (!response.IsSuccessStatusCode)
         {
             var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);

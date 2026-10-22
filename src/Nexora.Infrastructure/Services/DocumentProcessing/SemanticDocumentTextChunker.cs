@@ -1,5 +1,6 @@
 using ICU4N.Text;
 using Microsoft.Extensions.AI;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Nexora.Application.Common.Abstractions.Documents;
 using SemanticChunkerNET;
@@ -8,7 +9,8 @@ namespace Nexora.Infrastructure.Services.DocumentProcessing;
 
 public sealed class SemanticDocumentTextChunker(
     IEmbeddingGenerator<string, Embedding<float>> generator,
-    IOptions<DocumentProcessingOptions> options) : IDocumentTextChunker
+    IOptions<DocumentProcessingOptions> options,
+    Microsoft.Extensions.Logging.ILogger<SemanticDocumentTextChunker> logger) : IDocumentTextChunker
 {
     public async Task<IReadOnlyList<TextChunk>> ChunkAsync(
         string text, int chunkSize, int overlap, CancellationToken cancellationToken,
@@ -20,7 +22,9 @@ public sealed class SemanticDocumentTextChunker(
             settings.SemanticBreakpointPercentile is < 0 or > 100)
             throw new InvalidOperationException("Cấu hình semantic chunking không hợp lệ.");
 
+        var started = System.Diagnostics.Stopwatch.StartNew();
         var sentenceCount = CountSentences(text);
+        logger.LogInformation("Semantic chunking started for {SentenceCount} sentences.", sentenceCount);
         reportProgress?.Invoke(new DocumentChunkingProgress("ANALYZING", 0, sentenceCount));
         var completed = 0;
         var trackedGenerator = new ProgressEmbeddingGenerator(generator, count =>
@@ -70,6 +74,8 @@ public sealed class SemanticDocumentTextChunker(
         }
         if (text[sourcePosition..].Any(character => !char.IsWhiteSpace(character)))
             throw new InvalidOperationException("Semantic chunker đã bỏ sót nội dung tài liệu.");
+        logger.LogInformation("Semantic chunking completed: {SentenceCount} sentences, {ChunkCount} chunks, {ElapsedMs} ms.",
+            sentenceCount, result.Count, started.ElapsedMilliseconds);
         return result;
     }
 

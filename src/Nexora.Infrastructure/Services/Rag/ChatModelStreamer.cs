@@ -18,10 +18,11 @@ public sealed class ChatModelStreamer(HttpClient client, IOptions<ChatOptions> o
         if (hasGemini)
         {
             var configuredModel = options.Value.GeminiModel == "gemini-2.5-flash"
-                ? "gemini-3.8-flash"
+                ? "gemini-3.5-flash-lite"
                 : options.Value.GeminiModel;
             var defaultName = configuredModel switch
             {
+                "gemini-3.5-flash-lite" => "Gemini 3.5 Flash Lite",
                 "gemini-3.8-flash" => "Gemini 3.8 Flash",
                 "gemini-3.6-flash" => "Gemini 3.6 Flash",
                 "gemini-3.1-flash-lite" => "Gemini 3.1 Flash Lite",
@@ -29,6 +30,8 @@ public sealed class ChatModelStreamer(HttpClient client, IOptions<ChatOptions> o
                 _ => configuredModel
             };
             result.Add(new ChatModelChoice("gemini", defaultName, "Gemini", configuredModel));
+            if (configuredModel != "gemini-3.5-flash-lite")
+                result.Add(new ChatModelChoice("gemini-3.5-flash-lite", "Gemini 3.5 Flash Lite", "Gemini", "gemini-3.5-flash-lite"));
             if (configuredModel != "gemini-3.8-flash")
                 result.Add(new ChatModelChoice("gemini-3.8-flash", "Gemini 3.8 Flash", "Gemini", "gemini-3.8-flash"));
             if (configuredModel != "gemini-3.6-flash")

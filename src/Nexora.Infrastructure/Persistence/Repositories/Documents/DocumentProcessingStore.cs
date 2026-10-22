@@ -10,6 +10,37 @@ namespace Nexora.Infrastructure.Persistence.Repositories.Documents;
 
 internal sealed class DocumentProcessingStore(NexoraDbContext dbContext) : IDocumentProcessingStore
 {
+    public async Task SaveProcessingChangesAsync(CancellationToken cancellationToken) => await dbContext.SaveChangesAsync(cancellationToken);
+    public async Task<bool> ChangeProcessingStatusAsync(Guid versionId, string from, string to, string documentStatus, CancellationToken cancellationToken)
+    {
+        await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
+        var version = await dbContext.DocumentVersions.IgnoreQueryFilters()
+            .Where(item => item.Id == versionId && item.ProcessingStatus == from)
+            .Select(item => new { item.DocumentId, item.RowVersion }).SingleOrDefaultAsync(cancellationToken);
+        if (version is null) return false;
+        var changed = await dbContext.DocumentVersions.IgnoreQueryFilters()
+            .Where(item => item.Id == versionId && item.ProcessingStatus == from && item.RowVersion == version.RowVersion)
+            .ExecuteUpdateAsync(setters => setters
+                .SetProperty(item => item.ProcessingStatus, to)
+                .SetProperty(item => item.RowVersion, version.RowVersion + 1), cancellationToken);
+        if (changed == 0) return false;
+        await dbContext.Documents.IgnoreQueryFilters().Where(item => item.Id == version.DocumentId)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(item => item.Status, documentStatus)
+                .SetProperty(item => item.RowVersion, item => item.RowVersion + 1), cancellationToken);
+        await transaction.CommitAsync(cancellationToken);
+        return true;
+    }
+
+    public async Task<int> FinalizeStoppingAsync(CancellationToken cancellationToken)
+    {
+        var ids = await dbContext.DocumentVersions.IgnoreQueryFilters()
+            .Where(item => item.ProcessingStatus == "STOPPING").Select(item => item.Id).ToListAsync(cancellationToken);
+        var count = 0;
+        foreach (var id in ids)
+            if (await ChangeProcessingStatusAsync(id, "STOPPING", "STOPPED", "STOPPED", cancellationToken)) count++;
+        return count;
+    }
+
     public async Task<IReadOnlyList<Guid>> GetPendingVersionIdsAsync(string indexName, CancellationToken cancellationToken)
     {
         var documents = dbContext.Documents.IgnoreQueryFilters();

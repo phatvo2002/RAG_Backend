@@ -1,21 +1,23 @@
 using Microsoft.Extensions.Options;
+using Microsoft.Extensions.Logging;
 using Nexora.Application.Common.Abstractions.Documents;
 using Nexora.Application.Common.Abstractions.Rag;
 using Nexora.Infrastructure.Services.DocumentProcessing;
 
 namespace Nexora.Infrastructure.Services.Integrations.Embeddings;
 
-internal sealed class EmbeddingRateLimiter(IOptions<DocumentProcessingOptions> options, TimeProvider timeProvider)
+internal sealed class EmbeddingRateLimiter(IOptions<DocumentProcessingOptions> options, TimeProvider timeProvider, Microsoft.Extensions.Logging.ILogger<EmbeddingRateLimiter> logger)
     : IEmbeddingRateLimiter, IEmbeddingBatchScheduler
 {
     private static readonly TimeSpan Window = TimeSpan.FromMinutes(1);
-    private const int MaxInputsPerWindow = 12;
+    private const int MaxInputsPerWindow = 24;
     private readonly SemaphoreSlim gate = new(1, 1);
     private readonly Queue<DateTimeOffset> requests = new();
     private DateTimeOffset? lastDocumentBatchCompleted;
 
     public async Task WaitAsync(int inputCount, CancellationToken cancellationToken)
     {
+        var started = System.Diagnostics.Stopwatch.StartNew();
         if (inputCount < 1 || inputCount > MaxInputsPerWindow)
             throw new ArgumentOutOfRangeException(nameof(inputCount));
 
@@ -31,6 +33,7 @@ internal sealed class EmbeddingRateLimiter(IOptions<DocumentProcessingOptions> o
                 if (requests.Count + inputCount <= MaxInputsPerWindow)
                 {
                     for (var i = 0; i < inputCount; i++) requests.Enqueue(now);
+                    logger.LogInformation("Embedding quota granted for {InputCount} inputs after {WaitMs} ms.", inputCount, started.ElapsedMilliseconds);
                     return;
                 }
 
@@ -72,6 +75,10 @@ internal sealed class EmbeddingRateLimiter(IOptions<DocumentProcessingOptions> o
 
     public void MarkDocumentBatchCompleted() => lastDocumentBatchCompleted = timeProvider.GetUtcNow();
 
-    public Task WaitAfterRateLimitAsync(CancellationToken cancellationToken) =>
-        Task.Delay(TimeSpan.FromSeconds(Math.Max(0, options.Value.RateLimitRetrySeconds)), timeProvider, cancellationToken);
+    public async Task WaitAfterRateLimitAsync(CancellationToken cancellationToken)
+    {
+        var delay = TimeSpan.FromSeconds(Math.Max(0, options.Value.RateLimitRetrySeconds));
+        logger.LogWarning("Embedding provider rate limited; waiting {WaitMs} ms before retry.", delay.TotalMilliseconds);
+        await Task.Delay(delay, timeProvider, cancellationToken);
+    }
 }

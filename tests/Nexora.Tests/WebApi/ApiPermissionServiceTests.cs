@@ -38,7 +38,51 @@ public sealed class ApiPermissionServiceTests
         Assert.False(hasAccess);
     }
 
-    private static async Task<TestContext> CreateContextAsync()
+    [Fact]
+    public async Task Active_document_chunks_catalog_entry_allows_exact_get_route()
+    {
+        await using var context = await CreateContextAsync(includeDocumentChunks: true);
+
+        var hasAccess = await context.Service.HasAccessAsync(
+            new ApiRequestDescriptor("GET", "/api/documents/{documentId:guid}/chunks"),
+            CancellationToken.None);
+
+        Assert.True(hasAccess);
+    }
+
+    [Fact]
+    public async Task Document_chunks_route_is_denied_when_catalog_entry_is_missing_or_inactive()
+    {
+        await using var missing = await CreateContextAsync();
+        var missingAccess = await missing.Service.HasAccessAsync(
+            new ApiRequestDescriptor("GET", "/api/documents/{documentId:guid}/chunks"),
+            CancellationToken.None);
+        Assert.False(missingAccess);
+
+        await using var inactive = await CreateContextAsync(includeDocumentChunks: true, documentChunksActive: false);
+        var inactiveAccess = await inactive.Service.HasAccessAsync(
+            new ApiRequestDescriptor("GET", "/api/documents/{documentId:guid}/chunks"),
+            CancellationToken.None);
+        Assert.False(inactiveAccess);
+    }
+
+    [Fact]
+    public async Task Document_chunks_catalog_entry_requires_matching_method_and_route()
+    {
+        await using var context = await CreateContextAsync(includeDocumentChunks: true);
+
+        var wrongMethod = await context.Service.HasAccessAsync(
+            new ApiRequestDescriptor("POST", "/api/documents/{documentId:guid}/chunks"),
+            CancellationToken.None);
+        var wrongRoute = await context.Service.HasAccessAsync(
+            new ApiRequestDescriptor("GET", "/api/documents/{documentId:guid}/content"),
+            CancellationToken.None);
+
+        Assert.False(wrongMethod);
+        Assert.False(wrongRoute);
+    }
+
+    private static async Task<TestContext> CreateContextAsync(bool includeDocumentChunks = false, bool documentChunksActive = true)
     {
         var userContext = new TestUserContext();
         var clock = new TestClock();
@@ -56,6 +100,20 @@ public sealed class ApiPermissionServiceTests
             ApiActionType.Write,
             ApiRiskLevel.Medium,
             Now.AddDays(-1)));
+        if (includeDocumentChunks)
+        {
+            var documentChunks = ApiFunction.Create(
+                "DOCUMENT.CHUNKS.READ",
+                "Document",
+                "Get document chunks",
+                ApiHttpMethod.Get,
+                "/api/documents/{documentId:guid}/chunks",
+                ApiActionType.Read,
+                ApiRiskLevel.Low,
+                Now.AddDays(-1));
+            if (!documentChunksActive) documentChunks.Deactivate();
+            db.ApiFunctions.Add(documentChunks);
+        }
         await db.SaveChangesAsync();
 
         return new TestContext(db, new ApiPermissionService(db));

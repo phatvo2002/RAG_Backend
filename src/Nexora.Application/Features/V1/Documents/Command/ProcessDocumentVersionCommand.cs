@@ -31,22 +31,26 @@ public sealed class ProcessDocumentVersionCommandHandler(
     public async Task Handle(ProcessDocumentVersionCommand request, CancellationToken cancellationToken)
     {
         var version = await store.GetVersionAsync(request.VersionId, true, cancellationToken);
-        if (version is null || version.ProcessingStatus == "FAILED") return;
+        if (version is null || version.ProcessingStatus is "FAILED" or "STOPPING" or "STOPPED") return;
         var document = await store.GetDocumentByIdAsync(version.DocumentId, true, cancellationToken);
         if (document is null || document.DeletedAt != null) return;
 
         var reindexing = version.ProcessingStatus == "READY";
+        var processStarted = System.Diagnostics.Stopwatch.GetTimestamp();
         try
         {
             var chunks = await store.GetChunksAsync(version.Id, true, cancellationToken);
             var generatedVectors = new Dictionary<int, float[]>();
             if (chunks.Count == 0)
             {
+                var phaseStarted = System.Diagnostics.Stopwatch.GetTimestamp();
                 version.SetProcessingStatus("EXTRACTING");
                 await unitOfWork.SaveChangesAsync(cancellationToken);
                 await using var source = await objectStorage.GetAsync(version.StorageBucket, version.StorageObjectKey, cancellationToken);
                 var extracted = await textExtractor.ExtractAsync(version.OriginalFileName, source, cancellationToken);
                 var normalizedText = extracted.Text.Trim();
+                logger.LogInformation("Document extraction completed for version {VersionId} in {ElapsedMs} ms.",
+                    version.Id, System.Diagnostics.Stopwatch.GetElapsedTime(phaseStarted).TotalMilliseconds);
                 if (string.IsNullOrWhiteSpace(normalizedText))
                     throw new InvalidOperationException("Không thể trích xuất nội dung văn bản từ tài liệu.");
 
@@ -55,9 +59,13 @@ public sealed class ProcessDocumentVersionCommandHandler(
                 version.ParserVersion = extracted.ParserVersion;
                 version.SetProcessingStatus("CHUNKING");
                 await unitOfWork.SaveChangesAsync(cancellationToken);
+                phaseStarted = System.Diagnostics.Stopwatch.GetTimestamp();
                 var producedChunks = await chunker.ChunkAsync(normalizedText,
                     indexSettings.ChunkSizeCharacters, indexSettings.ChunkOverlapCharacters, cancellationToken,
                     progress => chunkProgressStore.Report(version.Id, progress));
+                logger.LogInformation("Document chunking completed for version {VersionId}: {ChunkCount} chunks in {ElapsedMs} ms.",
+                    version.Id, producedChunks.Count, System.Diagnostics.Stopwatch.GetElapsedTime(phaseStarted).TotalMilliseconds);
+                phaseStarted = System.Diagnostics.Stopwatch.GetTimestamp();
                 chunkProgressStore.Report(version.Id, new DocumentChunkingProgress("SAVING", 0, producedChunks.Count));
                 var savedChunks = 0;
                 foreach (var chunk in producedChunks)
@@ -68,16 +76,30 @@ public sealed class ProcessDocumentVersionCommandHandler(
                         "vie", chunk.Text.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length, null, chunk.Start, chunk.End);
                     var objectKey = ChunkObjectKey(version.Id, chunk.Ordinal, hash);
                     await using var content = new MemoryStream(Encoding.UTF8.GetBytes(chunk.Text));
-                    await objectStorage.PutAsync(storageSettings.Bucket, objectKey, content, content.Length, "text/plain; charset=utf-8", cancellationToken);
-                    store.InsertChunk(entity);
-                    store.InsertChunkContent(DocumentChunkContent.Create(entity.Id, "minio", storageSettings.Bucket, objectKey, hash, clock.UtcNow));
+                    try
+                    {
+                        await objectStorage.PutAsync(storageSettings.Bucket, objectKey, content, content.Length, "text/plain; charset=utf-8", cancellationToken);
+                        store.InsertChunk(entity);
+                        store.InsertChunkContent(DocumentChunkContent.Create(entity.Id, "minio", storageSettings.Bucket, objectKey, hash, clock.UtcNow));
+                        await unitOfWork.SaveChangesAsync(CancellationToken.None);
+                    }
+                    catch
+                    {
+                        try { await objectStorage.DeleteAsync(storageSettings.Bucket, objectKey, CancellationToken.None); }
+                        catch (Exception cleanupError) { logger.LogWarning(cleanupError, "Could not clean up chunk object for version {VersionId}.", version.Id); }
+                        throw;
+                    }
+                    cancellationToken.ThrowIfCancellationRequested();
                     chunks.Add(entity);
                     chunkProgressStore.Report(version.Id,
                         new DocumentChunkingProgress("SAVING", ++savedChunks, producedChunks.Count));
                 }
                 await unitOfWork.SaveChangesAsync(cancellationToken);
+                logger.LogInformation("Document chunk storage completed for version {VersionId}: {ChunkCount} chunks in {ElapsedMs} ms.",
+                    version.Id, savedChunks, System.Diagnostics.Stopwatch.GetElapsedTime(phaseStarted).TotalMilliseconds);
             }
 
+            var indexStarted = System.Diagnostics.Stopwatch.GetTimestamp();
             if (!reindexing)
             {
                 version.SetProcessingStatus("INDEXING");
@@ -178,6 +200,10 @@ public sealed class ProcessDocumentVersionCommandHandler(
                 index.Status = "ACTIVE";
                 await unitOfWork.SaveChangesAsync(cancellationToken);
             }
+            logger.LogInformation("Document processing completed for version {VersionId} in {ElapsedMs} ms, {ChunkCount} chunks.",
+                version.Id, System.Diagnostics.Stopwatch.GetElapsedTime(processStarted).TotalMilliseconds, chunks.Count);
+            logger.LogInformation("Document indexing completed for version {VersionId} in {ElapsedMs} ms.",
+                version.Id, System.Diagnostics.Stopwatch.GetElapsedTime(indexStarted).TotalMilliseconds);
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {

@@ -48,7 +48,7 @@ public sealed class GeminiEmbeddingProviderTests
             Endpoint = "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:batchEmbedContents",
             ApiKey = "test-key",
             Dimension = 768
-        }), new NoWaitLimiter());
+        }), new NoWaitLimiter(), Microsoft.Extensions.Logging.Abstractions.NullLogger<GeminiEmbeddingProvider>.Instance);
 
     private sealed class NoWaitLimiter : IEmbeddingRateLimiter
     {

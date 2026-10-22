@@ -11,6 +11,26 @@ class FakeVad:
 
 
 class AudioSegmenterTests(unittest.TestCase):
+    def test_partial_before_pause_uses_same_segment_as_final(self):
+        segmenter = AudioSegmenter(FakeVad())
+        now = datetime(2026, 1, 1, tzinfo=timezone.utc)
+        partials = []
+        for index in range(260):
+            frame_end = now + timedelta(milliseconds=(index + 1) * 20)
+            self.assertIsNone(segmenter.advance(bytes([1]) * FRAME_BYTES, frame_end))
+            snapshot = segmenter.partial_snapshot()
+            if snapshot:
+                partials.append(snapshot)
+        self.assertEqual(2, len(partials))
+        self.assertLess(partials[0].sequence, partials[1].sequence)
+        self.assertEqual(partials[0].segment_id, partials[1].segment_id)
+        final = None
+        for index in range(25):
+            final = segmenter.advance(bytes(FRAME_BYTES), now + timedelta(milliseconds=(261 + index) * 20))
+        self.assertIsNotNone(final)
+        self.assertEqual(partials[0].segment_id, final.segment_id)
+        self.assertGreater(final.sequence, partials[-1].sequence)
+
     def test_two_tracks_produce_separate_turns(self):
         first = AudioSegmenter(FakeVad())
         second = AudioSegmenter(FakeVad())

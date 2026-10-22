@@ -23,7 +23,7 @@ public sealed class UploadDocumentCommandValidator : AbstractValidator<UploadDoc
 public sealed class ListDocumentsQueryValidator : AbstractValidator<ListDocumentsQuery>
 {
     private static readonly string[] AllowedFileTypes = ["pdf", "txt", "md", "docx"];
-    private static readonly string[] AllowedProcessingStatuses = ["QUEUED", "PROCESSING", "EXTRACTING", "CHUNKING", "INDEXING", "READY", "FAILED"];
+    private static readonly string[] AllowedProcessingStatuses = ["QUEUED", "PROCESSING", "EXTRACTING", "CHUNKING", "INDEXING", "STOPPING", "STOPPED", "READY", "FAILED"];
 
     public ListDocumentsQueryValidator()
     {

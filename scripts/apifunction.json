@@ -456,6 +456,18 @@
     "requiresConfirmation": false
   },
   {
+    "id": "d9c9c603-b1d1-4d4a-bde3-7ca35d0a09e8",
+    "code": "DOCUMENT.CHUNKS.READ",
+    "module": "Document",
+    "name": "Xem các chunk của tài liệu",
+    "description": null,
+    "httpMethod": "GET",
+    "routeTemplate": "/api/documents/{documentId:guid}/chunks",
+    "actionType": "READ",
+    "riskLevel": "LOW",
+    "requiresConfirmation": false
+  },
+  {
     "id": "f8b1598f-61c1-4ac7-a03f-9c1ff0ec32d9",
     "code": "DOCUMENT.PROGRESS",
     "module": "Document",
@@ -478,6 +490,30 @@
     "actionType": "WRITE",
     "riskLevel": "HIGH",
     "requiresConfirmation": true
+  },
+  {
+    "id": "3a13a92a-9221-46a5-bd29-2b84a881db47",
+    "code": "DOCUMENT.PROCESSING.STOP",
+    "module": "Document",
+    "name": "Dừng xử lý tài liệu",
+    "description": null,
+    "httpMethod": "POST",
+    "routeTemplate": "/api/documents/{documentId:guid}/stop",
+    "actionType": "WRITE",
+    "riskLevel": "MEDIUM",
+    "requiresConfirmation": true
+  },
+  {
+    "id": "b3814f8a-ae86-453e-a1c2-3b934034bdea",
+    "code": "DOCUMENT.PROCESSING.RESTART",
+    "module": "Document",
+    "name": "Xử lý lại tài liệu đã dừng",
+    "description": null,
+    "httpMethod": "POST",
+    "routeTemplate": "/api/documents/{documentId:guid}/restart",
+    "actionType": "WRITE",
+    "riskLevel": "MEDIUM",
+    "requiresConfirmation": false
   },
   {
     "id": "9f4a7bf2-8ce2-4b35-9b06-d3aa2a648278",

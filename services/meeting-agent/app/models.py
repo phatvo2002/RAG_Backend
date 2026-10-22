@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from uuid import UUID, uuid4
 
@@ -20,6 +20,8 @@ class SpeechChunk:
     audio: bytes
     started_at: datetime
     ended_at: datetime
+    segment_id: UUID = field(default_factory=uuid4)
+    sequence: int = 0
 
 
 @dataclass(frozen=True)
@@ -33,7 +35,7 @@ class TranscriptSegment:
 
     @classmethod
     def create(cls, speaker_user_id: UUID, chunk: SpeechChunk, language: str, text: str) -> "TranscriptSegment":
-        return cls(uuid4(), speaker_user_id, chunk.started_at, chunk.ended_at, language, text)
+        return cls(chunk.segment_id, speaker_user_id, chunk.started_at, chunk.ended_at, language, text)
 
     def payload(self) -> dict:
         def iso(value: datetime) -> str:
@@ -48,5 +50,5 @@ class TranscriptSegment:
             "text": self.text,
         }
 
-    def event(self) -> dict:
-        return {"type": "final", **self.payload()}
+    def event(self, kind: str = "final", sequence: int = 0) -> dict:
+        return {"type": kind, "sequence": sequence, **self.payload()}

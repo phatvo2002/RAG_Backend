@@ -111,7 +111,7 @@ public sealed class SemanticDocumentTextChunkerTests
             {
                 SemanticTokenLimit = 320,
                 SemanticBreakpointPercentile = percentile
-            }));
+            }), Microsoft.Extensions.Logging.Abstractions.NullLogger<SemanticDocumentTextChunker>.Instance);
 
     private static string Squash(string text) => new(text.Where(character => !char.IsWhiteSpace(character)).ToArray());
 

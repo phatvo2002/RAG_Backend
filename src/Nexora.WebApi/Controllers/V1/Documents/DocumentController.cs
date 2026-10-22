@@ -53,4 +53,14 @@ public sealed class DocumentController(ISender sender) : BaseController
     [EnableRateLimiting("write")]
     public async Task<IActionResult> Delete(Guid documentId, CancellationToken cancellationToken) =>
         this.ToActionResult(await sender.Send(new DeleteDocumentCommand(documentId), cancellationToken));
+
+    [HttpPost("{documentId:guid}/stop")]
+    [EnableRateLimiting("write")]
+    public async Task<IActionResult> Stop(Guid documentId, CancellationToken cancellationToken) =>
+        this.ToActionResult(await sender.Send(new StopDocumentProcessingCommand(documentId), cancellationToken));
+
+    [HttpPost("{documentId:guid}/restart")]
+    [EnableRateLimiting("write")]
+    public async Task<IActionResult> Restart(Guid documentId, CancellationToken cancellationToken) =>
+        this.ToActionResult(await sender.Send(new RestartDocumentProcessingCommand(documentId), cancellationToken));
 }

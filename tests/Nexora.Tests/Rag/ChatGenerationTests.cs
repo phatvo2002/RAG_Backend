@@ -28,6 +28,19 @@ public sealed class ChatGenerationTests
     }
 
     [Fact]
+    public void Gemini_3_5_flash_lite_is_the_default_chat_model()
+    {
+        var streamer = new ChatModelStreamer(new HttpClient(), Options.Create(new ChatOptions()));
+
+        var models = streamer.AvailableModels(hasGemini: true, hasClaude: false);
+
+        Assert.Equal("gemini", models[0].Id);
+        Assert.Equal("gemini-3.5-flash-lite", models[0].Model);
+        Assert.Equal("Gemini 3.5 Flash Lite", models[0].Name);
+        Assert.Contains(models, model => model.Model == "gemini-3.8-flash");
+    }
+
+    [Fact]
     public void Cipher_encrypts_and_decrypts_with_a_durable_key()
     {
         var options = Options.Create(new ChatOptions { EncryptionKeyBase64 = Convert.ToBase64String(Enumerable.Range(0, 32).Select(x => (byte)x).ToArray()) });

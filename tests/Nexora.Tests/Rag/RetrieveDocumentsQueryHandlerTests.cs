@@ -217,6 +217,9 @@ public sealed class RetrieveDocumentsQueryHandlerTests
 
     private sealed class FakeProcessingStore(bool missingGeminiIndex = false) : IDocumentProcessingStore
     {
+        public Task<bool> ChangeProcessingStatusAsync(Guid versionId, string from, string to, string documentStatus, CancellationToken cancellationToken) => throw new NotImplementedException();
+        public Task<int> FinalizeStoppingAsync(CancellationToken cancellationToken) => throw new NotImplementedException();
+        public Task SaveProcessingChangesAsync(CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task<IReadOnlyList<Guid>> GetPendingVersionIdsAsync(string indexName, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task<bool> IsIndexCompleteAsync(Guid organizationId, Guid indexId, CancellationToken cancellationToken) => throw new NotImplementedException();
         public Task<IReadOnlyList<DocumentProgressRecord>> GetAccessibleProgressAsync(Guid organizationId, Guid userId, DateTimeOffset now, string indexName, CancellationToken cancellationToken) => throw new NotImplementedException();

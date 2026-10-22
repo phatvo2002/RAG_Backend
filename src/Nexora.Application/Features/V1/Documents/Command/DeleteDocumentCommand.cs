@@ -67,5 +67,6 @@ public sealed class DeleteDocumentCommandHandler(
 
     private static bool IsTerminal(string status) =>
         string.Equals(status, "READY", StringComparison.OrdinalIgnoreCase) ||
-        string.Equals(status, "FAILED", StringComparison.OrdinalIgnoreCase);
+        string.Equals(status, "FAILED", StringComparison.OrdinalIgnoreCase) ||
+        string.Equals(status, "STOPPED", StringComparison.OrdinalIgnoreCase);
 }

@@ -7,6 +7,9 @@ namespace Nexora.Application.Common.Abstractions.Documents;
 public interface IDocumentProcessingStore
 {
     Task<IReadOnlyList<Guid>> GetPendingVersionIdsAsync(string indexName, CancellationToken cancellationToken);
+    Task<bool> ChangeProcessingStatusAsync(Guid versionId, string from, string to, string documentStatus, CancellationToken cancellationToken);
+    Task<int> FinalizeStoppingAsync(CancellationToken cancellationToken);
+    Task SaveProcessingChangesAsync(CancellationToken cancellationToken);
     Task<bool> IsIndexCompleteAsync(Guid organizationId, Guid indexId, CancellationToken cancellationToken);
     Task<IReadOnlyList<DocumentProgressRecord>> GetAccessibleProgressAsync(Guid organizationId, Guid userId, DateTimeOffset now, string indexName, CancellationToken cancellationToken);
     Task<Document?> GetDocumentAsync(Guid userId, Guid documentId, bool asTracking, CancellationToken cancellationToken);

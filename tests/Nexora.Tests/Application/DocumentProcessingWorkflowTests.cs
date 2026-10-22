@@ -23,6 +23,24 @@ namespace Nexora.Tests.Application;
 
 public sealed class DocumentProcessingWorkflowTests
 {
+    [Theory]
+    [InlineData("STOPPING")]
+    [InlineData("STOPPED")]
+    public async Task Stopped_version_is_not_processed_again(string status)
+    {
+        var store = new FakeStore(1);
+        store.Version.SetProcessingStatus(status);
+        var provider = new FakeEmbeddingProvider();
+        var vectors = new FakeVectorStore();
+
+        await CreateHandler(store, provider, new FakeScheduler(), vectors)
+            .Handle(new ProcessDocumentVersionCommand(store.Version.Id), default);
+
+        Assert.Equal(status, store.Version.ProcessingStatus);
+        Assert.Equal(0, provider.Calls);
+        Assert.Empty(vectors.BatchSizes);
+    }
+
     [Fact]
     public void Gemini_settings_select_the_new_index_and_collection()
     {
@@ -131,10 +149,10 @@ public sealed class DocumentProcessingWorkflowTests
     }
 
     [Fact]
-    public async Task Shared_limiter_rejects_a_thirteenth_input_until_window_opens()
+    public async Task Shared_limiter_rejects_a_twenty_fifth_input_until_window_opens()
     {
-        var limiter = new EmbeddingRateLimiter(Options.Create(new DocumentProcessingOptions()), TimeProvider.System);
-        await limiter.WaitAsync(12, default);
+        var limiter = new EmbeddingRateLimiter(Options.Create(new DocumentProcessingOptions()), TimeProvider.System, Microsoft.Extensions.Logging.Abstractions.NullLogger<EmbeddingRateLimiter>.Instance);
+        await limiter.WaitAsync(24, default);
         using var timeout = new CancellationTokenSource(TimeSpan.FromMilliseconds(50));
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => limiter.WaitAsync(1, timeout.Token));
     }
@@ -142,7 +160,7 @@ public sealed class DocumentProcessingWorkflowTests
     [Fact]
     public async Task Document_batches_wait_for_configured_interval()
     {
-        var limiter = new EmbeddingRateLimiter(Options.Create(new DocumentProcessingOptions { BatchIntervalSeconds = 35 }), TimeProvider.System);
+        var limiter = new EmbeddingRateLimiter(Options.Create(new DocumentProcessingOptions { BatchIntervalSeconds = 35 }), TimeProvider.System, Microsoft.Extensions.Logging.Abstractions.NullLogger<EmbeddingRateLimiter>.Instance);
         await limiter.WaitForDocumentBatchAsync(default);
         limiter.MarkDocumentBatchCompleted();
         using var timeout = new CancellationTokenSource(TimeSpan.FromMilliseconds(50));
@@ -256,6 +274,9 @@ public sealed class DocumentProcessingWorkflowTests
 
     private sealed class FakeStore : IDocumentProcessingStore
     {
+        public Task<bool> ChangeProcessingStatusAsync(Guid versionId, string from, string to, string documentStatus, CancellationToken cancellationToken) => throw new NotImplementedException();
+        public Task<int> FinalizeStoppingAsync(CancellationToken cancellationToken) => throw new NotImplementedException();
+        public Task SaveProcessingChangesAsync(CancellationToken cancellationToken) => throw new NotImplementedException();
         public Document Document { get; }
         public DocumentVersion Version { get; }
         public List<DocumentChunk> Chunks { get; } = [];

@@ -222,6 +222,7 @@ public static class DependencyInjection
         });
         services.AddSingleton<DocumentProcessingQueue>();
         services.AddSingleton<IDocumentProcessingQueue>(serviceProvider => serviceProvider.GetRequiredService<DocumentProcessingQueue>());
+        services.AddSingleton<IDocumentProcessingControl>(serviceProvider => serviceProvider.GetRequiredService<DocumentProcessingQueue>());
         services.AddHostedService<DocumentProcessingWorker>();
 
         services.AddScoped<IApiRequestPermissionChecker, ApiPermissionService>();

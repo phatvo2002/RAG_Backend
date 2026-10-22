@@ -47,13 +47,15 @@ internal sealed class DocumentRepository(NexoraDbContext dbContext) : IDocumentR
                     join content in dbContext.DocumentChunkContents.IgnoreQueryFilters() on chunk.Id equals content.ChunkId
                     where chunk.OrganizationId == organizationId && chunk.DocumentVersionId == versionId.Value &&
                           chunk.Status == "ACTIVE"
-                    select new DocumentChunkReadRecord(chunk.Id, chunk.Ordinal, chunk.PageNo,
-                        chunk.CharStart, chunk.CharEnd, chunk.LanguageCode,
-                        content.StorageBucket, content.ContentObjectKey);
+                    select new { Chunk = chunk, Content = content };
 
         var totalCount = await query.CountAsync(cancellationToken);
-        var items = await query.OrderBy(chunk => chunk.Ordinal)
-            .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync(cancellationToken);
+        var items = await query.OrderBy(item => item.Chunk.Ordinal)
+            .Skip((page - 1) * pageSize).Take(pageSize)
+            .Select(item => new DocumentChunkReadRecord(item.Chunk.Id, item.Chunk.Ordinal, item.Chunk.PageNo,
+                item.Chunk.CharStart, item.Chunk.CharEnd, item.Chunk.LanguageCode,
+                item.Content.StorageBucket, item.Content.ContentObjectKey))
+            .ToListAsync(cancellationToken);
         return new PagedResult<DocumentChunkReadRecord>(items, page, pageSize, totalCount);
     }
 
@@ -274,8 +276,8 @@ internal sealed class DocumentRepository(NexoraDbContext dbContext) : IDocumentR
                 group.Count(),
                 group.Sum(item => item.SizeBytes),
                 group.Count(item => item.ProcessingStatus == "READY"),
-                group.Count(item => item.ProcessingStatus != "READY" && item.ProcessingStatus != "FAILED"),
-                group.Count(item => item.ProcessingStatus == "FAILED"),
+                group.Count(item => item.ProcessingStatus != "READY" && item.ProcessingStatus != "FAILED" && item.ProcessingStatus != "STOPPED"),
+                group.Count(item => item.ProcessingStatus == "FAILED" || item.ProcessingStatus == "STOPPED"),
                 group.Max(item => (DateTimeOffset?)item.UpdatedAt)))
             .ToListAsync(cancellationToken);
     }
@@ -347,7 +349,7 @@ internal sealed class DocumentRepository(NexoraDbContext dbContext) : IDocumentR
         {
             var status = filter.ProcessingStatus.Trim().ToUpperInvariant();
             query = status == "PROCESSING"
-                ? query.Where(item => item.version != null && new[] { "PROCESSING", "EXTRACTING", "CHUNKING", "INDEXING" }.Contains(item.version.ProcessingStatus))
+                ? query.Where(item => item.version != null && new[] { "PROCESSING", "EXTRACTING", "CHUNKING", "INDEXING", "STOPPING" }.Contains(item.version.ProcessingStatus))
                 : query.Where(item => item.version != null && item.version.ProcessingStatus == status);
         }
 

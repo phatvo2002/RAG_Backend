@@ -65,6 +65,7 @@ VALUES
     ('DOCUMENT.LIST', 'Document', 'Xem danh sách tài liệu', 'GET', '/api/documents', 'READ', 'LOW'),
     ('DOCUMENT.READ', 'Document', 'Xem trạng thái tài liệu', 'GET', '/api/documents/{documentId:guid}', 'READ', 'LOW'),
     ('DOCUMENT.STATUS', 'Document', 'Xem trạng thái xử lý tài liệu', 'GET', '/api/documents/{documentId:guid}/status', 'READ', 'LOW'),
+    ('DOCUMENT.CHUNKS.READ', 'Document', 'Xem các chunk của tài liệu', 'GET', '/api/documents/{documentId:guid}/chunks', 'READ', 'LOW'),
     ('DOCUMENT.DELETE', 'Document', 'Xóa tài liệu', 'DELETE', '/api/documents/{documentId:guid}', 'WRITE', 'HIGH'),
     ('RAG.RETRIEVAL', 'RAG', 'Tìm kiếm đoạn tài liệu liên quan', 'POST', '/api/rag/retrieval', 'READ', 'LOW'),
     ('CHAT.MODELS', 'Chat', 'Xem mô hình hội thoại', 'GET', '/api/chat/models', 'READ', 'LOW'),
