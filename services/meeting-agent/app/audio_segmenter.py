@@ -8,7 +8,7 @@ from .models import SpeechChunk
 FRAME_MS = 20
 FRAME_BYTES = 640  # 16 kHz, mono, signed 16-bit PCM
 PRE_ROLL_FRAMES = 10
-MIN_VOICE_FRAMES = 8
+MIN_VOICE_FRAMES = 15
 END_SILENCE_FRAMES = 25
 MAX_FRAMES = 1000
 PARTIAL_INTERVAL_FRAMES = 100
@@ -18,7 +18,7 @@ class AudioSegmenter:
     def __init__(self, vad=None):
         if vad is None:
             import webrtcvad
-            vad = webrtcvad.Vad(2)
+            vad = webrtcvad.Vad(3)
         self._vad = vad
         self._pre_roll: deque[tuple[bytes, datetime]] = deque(maxlen=PRE_ROLL_FRAMES)
         self._frames: list[tuple[bytes, datetime]] = []

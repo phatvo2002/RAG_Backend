@@ -34,7 +34,7 @@ internal sealed class MeetingTranscriptStore(NexoraDbContext db) : IMeetingTrans
 
     public async Task<IReadOnlyList<Meeting>> ListActiveForAgentAsync(CancellationToken cancellationToken) =>
         await db.Meetings.IgnoreQueryFilters().AsNoTracking()
-            .Where(m => m.DeletedAt == null && (m.Status == "Live" || m.Status == "Ending") && m.RoomExternalId != null)
+            .Where(m => m.DeletedAt == null && m.Status == "Live" && m.RoomExternalId != null)
             .OrderBy(m => m.Id).ToListAsync(cancellationToken);
 
     public Task<string?> GetSpeakerLanguageForAgentAsync(Guid organizationId, Guid meetingId, Guid userId, CancellationToken cancellationToken) =>

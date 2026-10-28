@@ -71,6 +71,7 @@ public sealed class MeetingTranscriptTests
         Assert.Equal("worker-token", job.Token);
 
         meeting.BeginEnding();
+        Assert.Empty(await handler.Handle(new GetAgentTranscriptionJobsQuery(), CancellationToken.None));
         meeting.Finish(now.AddMinutes(1));
         Assert.Empty(await handler.Handle(new GetAgentTranscriptionJobsQuery(), CancellationToken.None));
     }
@@ -95,7 +96,7 @@ public sealed class MeetingTranscriptTests
         public Task<Meeting?> FindMeetingForAgentAsync(Guid meetingId, CancellationToken cancellationToken) =>
             Task.FromResult<Meeting?>(meetingId == meeting.Id ? meeting : null);
         public Task<IReadOnlyList<Meeting>> ListActiveForAgentAsync(CancellationToken cancellationToken) =>
-            Task.FromResult<IReadOnlyList<Meeting>>(meeting.Status is "Live" or "Ending" ? [meeting] : []);
+            Task.FromResult<IReadOnlyList<Meeting>>(meeting.Status == "Live" ? [meeting] : []);
         public Task<string?> GetSpeakerLanguageForAgentAsync(Guid organizationId, Guid meetingId, Guid userId, CancellationToken cancellationToken) =>
             Task.FromResult<string?>(organizationId == meeting.OrganizationId && meetingId == meeting.Id && userId == allowedSpeaker ? "vi" : null);
         public Task<bool> SaveFinalAsync(MeetingTranscriptSegment segment, CancellationToken cancellationToken)
