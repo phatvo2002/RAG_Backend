@@ -11,10 +11,10 @@ Worker nền thực hiện:
 3. Nếu PDF không có text layer, chạy OCRmyPDF với Tesseract `vie+eng` rồi đọc text lại bằng `pdftotext`.
 4. Chuẩn hóa và chia nội dung thành chunk 1.200 ký tự, overlap 200 ký tự.
 5. Lưu nội dung chunk trong MinIO và metadata trong `document.DocumentChunks`/`document.DocumentChunkContents`.
-6. Gọi embedding provider tương thích OpenAI, upsert vector vào Qdrant.
+6. Gọi Ollama embedding `qwen3-embedding:0.6b`, upsert vector 1024 chiều vào Qdrant.
 7. Lưu `rag.RagIndexes`/`rag.RagIndexRecords` và chuyển `DocumentVersion` cùng `Document` sang `READY`.
 
-Nếu một bước thất bại, version và document chuyển sang `FAILED`. Queue hiện tại là in-memory theo đúng MVP; restart process sẽ không tự khôi phục item chưa xử lý.
+Nếu một bước thất bại, version và document chuyển sang `FAILED`. Worker phục hồi công việc còn chờ khi WebApi khởi động lại.
 
 ## Cấu hình local
 
@@ -26,12 +26,12 @@ $env:Storage__SecretKey = "admin123456"
 $env:Storage__Endpoint = "http://localhost:9000"
 $env:Storage__Bucket = "nexora-documents"
 $env:Qdrant__Endpoint = "http://localhost:6333"
-$env:Qdrant__CollectionName = "nexora_documents"
+$env:Qdrant__CollectionName = "nexora_documents_qwen3_embedding_06b_1024_v1"
 $env:Qdrant__ApiKey = ""
-$env:Embedding__Endpoint = "https://api.openai.com/v1/embeddings"
-$env:Embedding__ApiKey = "<embedding-api-key>"
-$env:Embedding__Model = "text-embedding-3-small"
-$env:Embedding__Dimension = "1536"
+$env:Ollama__Url = "http://localhost:11434/"
+$env:Embedding__Model = "qwen3-embedding:0.6b"
+$env:Embedding__Dimension = "1024"
+$env:Qdrant__EmbeddingDimension = "1024"
 ```
 
 `Storage__*` là cấu hình của Web API; `MINIO_ROOT_USER`, `MINIO_ROOT_PASSWORD` trong Compose chỉ là credential khởi tạo MinIO. Nếu dùng Qdrant API key, cấu hình cùng một giá trị cho `QDRANT_API_KEY` và `Qdrant__ApiKey`.

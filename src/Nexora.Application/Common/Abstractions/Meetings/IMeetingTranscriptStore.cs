@@ -6,6 +6,8 @@ public interface IMeetingTranscriptStore
 {
     Task<string?> GetMyLanguageAsync(Guid organizationId, Guid meetingId, Guid userId, CancellationToken cancellationToken);
     Task<bool> SetMyLanguageAsync(Guid organizationId, Guid meetingId, Guid userId, string language, CancellationToken cancellationToken);
+    Task<string?> GetMyTargetLanguageAsync(Guid organizationId, Guid meetingId, Guid userId, CancellationToken cancellationToken);
+    Task<bool> SetMyTargetLanguageAsync(Guid organizationId, Guid meetingId, Guid userId, string language, CancellationToken cancellationToken);
     Task<IReadOnlyList<MeetingTranscriptSegment>> ListAsync(Guid organizationId, Guid meetingId, CancellationToken cancellationToken);
     Task<Meeting?> FindMeetingForAgentAsync(Guid meetingId, CancellationToken cancellationToken);
     Task<IReadOnlyList<Meeting>> ListActiveForAgentAsync(CancellationToken cancellationToken);

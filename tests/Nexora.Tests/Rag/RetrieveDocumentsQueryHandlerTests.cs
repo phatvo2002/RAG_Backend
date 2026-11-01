@@ -96,8 +96,31 @@ public sealed class RetrieveDocumentsQueryHandlerTests
         Assert.Contains("ANSWER_AT_END", response.AugmentedContext);
         Assert.DoesNotContain("ANSWER_AT_END", Assert.Single(response.Results).Excerpt);
         Assert.Equal(601, response.Results[0].Excerpt.Length);
-        Assert.Equal("rag-context-v4", response.PromptVersion);
+        Assert.Equal("rag-context-v5", response.PromptVersion);
         Assert.Equal(1, storage.ReadCount);
+        Assert.Equal(text, Assert.Single(response.Candidates).Text);
+    }
+
+    [Fact]
+    public async Task Does_not_load_or_return_chunk_below_minimum_relevance_score()
+    {
+        var documentId = Guid.NewGuid();
+        var chunkId = Guid.NewGuid();
+        var storage = new FakeObjectStorage("must not be read");
+        var retrievalStore = new FakeRetrievalStore(documentId, chunkId);
+        var handler = new RetrieveDocumentsQueryHandler(
+            new FakeOrganizationProvider(Guid.NewGuid()), new FakeUserContext(), new FakeProcessingStore(),
+            retrievalStore, new FakeEmbeddingProvider(),
+            new FakeVectorStore(new VectorSearchResult(documentId, chunkId, 0.64f)),
+            storage, new FakeClock(), new FakeScopeOptions(0.70f), new FakeIndexSettings());
+
+        var response = await handler.Handle(new RetrieveDocumentsQuery("question"), default);
+
+        Assert.Empty(response.Results);
+        Assert.Empty(response.AugmentedContext);
+        Assert.Equal(0.64f, response.TopScore);
+        Assert.Equal(0, retrievalStore.SourceLookupCount);
+        Assert.Equal(0, storage.ReadCount);
     }
 
     private sealed class FakeOrganizationProvider(Guid organizationId) : IDefaultOrganizationProvider
@@ -119,6 +142,7 @@ public sealed class RetrieveDocumentsQueryHandlerTests
     private sealed class FakeScopeOptions(float departmentMatchThreshold) : IDepartmentScopeOptions
     {
         public float DepartmentMatchThreshold { get; } = departmentMatchThreshold;
+        public float MinimumRagScore { get; } = 0.65f;
     }
 
     private sealed class FakeIndexSettings : IDocumentIndexSettings

@@ -1,25 +1,32 @@
 using MediatR;
 using Nexora.Application.Common.Abstractions.Chat;
-using Nexora.Application.Features.V1.Account;
 using Nexora.Application.Features.V1.Chat.Model;
 
 namespace Nexora.Application.Features.V1.Chat.Query;
 
 public sealed record GetChatConfigurationQuery : IRequest<ChatRuntimeConfiguration>;
 
-public sealed class GetChatConfigurationQueryHandler(IChatProviderService providerService, ISender sender)
+public sealed class GetChatConfigurationQueryHandler(IChatProviderService providerService,
+    ISystemPromptStore? prompts = null, Nexora.Application.Common.Abstractions.IDefaultOrganizationProvider? organizations = null)
     : IRequestHandler<GetChatConfigurationQuery, ChatRuntimeConfiguration>
 {
     public async Task<ChatRuntimeConfiguration> Handle(GetChatConfigurationQuery request, CancellationToken cancellationToken)
     {
-        var keys = await sender.Send(new GetProviderKeysQuery(), cancellationToken);
-        var choices = providerService.IsChatCipherConfigured && providerService.IsProviderCipherConfigured
-            ? providerService.AvailableModels(keys.Keys.Any(x => x.Provider == "gemini"),
-                keys.Keys.Any(x => x.Provider == "claude" && keys.ClaudeEndpoints.Any(e => e.Id == x.EndpointId)))
-            : [];
+        var choices = providerService.IsChatCipherConfigured ? providerService.AvailableModels() : [];
         var error = !providerService.IsChatCipherConfigured ? "Chưa cấu hình khóa mã hóa lịch sử chat trên máy chủ." :
-            !providerService.IsProviderCipherConfigured ? "Chưa cấu hình khóa mã hóa API của người dùng trên máy chủ." :
-            choices.Count == 0 ? "Hãy thêm khóa Gemini hoặc Claude trong Thông tin cá nhân để bắt đầu chat." : null;
-        return new ChatRuntimeConfiguration(providerService.IsChatCipherConfigured, providerService.IsProviderCipherConfigured, choices, error);
+            choices.Count == 0 ? "Chưa cấu hình mô hình Ollama trên máy chủ." : null;
+        var estimatedSystemPromptTokens = providerService.EstimatedSystemPromptTokens;
+        if (prompts is not null && organizations is not null)
+        {
+            var organizationId = await organizations.GetOrganizationIdAsync(cancellationToken);
+            if (organizationId.HasValue)
+            {
+                var active = await prompts.GetActiveVersionAsync(organizationId.Value, SystemPromptTypes.Chat, cancellationToken);
+                estimatedSystemPromptTokens = providerService.EstimatePromptTokens([], string.Empty, active.Instructions);
+            }
+        }
+        return new ChatRuntimeConfiguration(providerService.IsChatCipherConfigured, choices, error,
+            providerService.ContextWindowTokens, providerService.MaxOutputTokens,
+            providerService.EstimatedRetrievedContextTokens, estimatedSystemPromptTokens, 2000);
     }
 }

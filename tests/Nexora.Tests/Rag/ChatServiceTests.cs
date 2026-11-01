@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Options;
 using Nexora.Application.Common.Abstractions;
+using Nexora.Application.Common.Abstractions.Chat;
 using Nexora.Application.Common.Abstractions.Rag;
 using Nexora.Application.Features.V1.Chat.Model;
 using Nexora.Application.Features.V1.Chat;
@@ -12,6 +13,7 @@ using Nexora.Infrastructure.Services.Rag;
 using Nexora.Infrastructure.Persistence;
 using Nexora.Infrastructure.Persistence.Repositories.Chat;
 using Nexora.Domain.Organizations;
+using Nexora.Domain.Chat;
 using Nexora.Domain.Security;
 
 namespace Nexora.Tests.Rag;
@@ -27,7 +29,7 @@ public sealed class ChatStoreTests
         using var db = CreateDatabase();
         var access = new FakeAccess();
         var first = CreateService(db, OwnerId, access);
-        var turn = await first.StartTurnAsync(null, "What is in the report?", "gemini", Guid.NewGuid(), default);
+        var turn = await first.StartTurnAsync(null, "What is in the report?", "ollama", Guid.NewGuid(), default);
         await first.CompleteTurnAsync(turn, "No supporting document found.", [], true, default);
 
         var second = CreateService(db, OwnerId, access);
@@ -45,7 +47,7 @@ public sealed class ChatStoreTests
     {
         using var db = CreateDatabase();
         var access = new FakeAccess();
-        var turn = await CreateService(db, OwnerId, access).StartTurnAsync(null, "Question", "gemini", Guid.NewGuid(), default);
+        var turn = await CreateService(db, OwnerId, access).StartTurnAsync(null, "Question", "ollama", Guid.NewGuid(), default);
         var outsiderId = Guid.NewGuid();
         AddMember(db, outsiderId);
         var outsider = CreateService(db, outsiderId, access);
@@ -59,13 +61,13 @@ public sealed class ChatStoreTests
     {
         using var db = CreateDatabase();
         var service = CreateService(db, OwnerId, new FakeAccess());
-        var turn = await service.StartTurnAsync(null, "Private question", "gemini", Guid.NewGuid(), default);
+        var turn = await service.StartTurnAsync(null, "Private question", "ollama", Guid.NewGuid(), default);
 
         Assert.True(await service.DeleteConversationAsync(turn.ConversationId, default));
         Assert.Empty(await service.ListConversationsAsync(0, default));
         Assert.NotNull(db.Conversations.IgnoreQueryFilters().Single(x => x.Id == turn.ConversationId).DeletedAt);
         await Assert.ThrowsAsync<KeyNotFoundException>(() => service.ListMessagesAsync(turn.ConversationId, null, default));
-        await Assert.ThrowsAsync<KeyNotFoundException>(() => service.StartTurnAsync(turn.ConversationId, "Follow up", "gemini", Guid.NewGuid(), default));
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => service.StartTurnAsync(turn.ConversationId, "Follow up", "ollama", Guid.NewGuid(), default));
     }
 
     [Fact]
@@ -73,7 +75,7 @@ public sealed class ChatStoreTests
     {
         using var db = CreateDatabase();
         var service = CreateService(db, Guid.NewGuid(), new FakeAccess());
-        var turn = await service.StartTurnAsync(null, "Question", "gemini", Guid.NewGuid(), default);
+        var turn = await service.StartTurnAsync(null, "Question", "ollama", Guid.NewGuid(), default);
 
         Assert.NotEqual(Guid.Empty, turn.ConversationId);
     }
@@ -83,10 +85,10 @@ public sealed class ChatStoreTests
     {
         using var db = CreateDatabase();
         var service = CreateService(db, OwnerId, new FakeAccess());
-        var first = await service.StartTurnAsync(null, "Private question", "gemini", Guid.NewGuid(), default);
+        var first = await service.StartTurnAsync(null, "Private question", "ollama", Guid.NewGuid(), default);
         await service.CompleteTurnAsync(first, "No source", [], true, default);
         Assert.True(await service.DeleteMessageAsync(first.ConversationId, first.RequestMessageId, default));
-        var second = await service.StartTurnAsync(first.ConversationId, "Follow up", "gemini", Guid.NewGuid(), default);
+        var second = await service.StartTurnAsync(first.ConversationId, "Follow up", "ollama", Guid.NewGuid(), default);
         var history = await PromptHistoryAsync(service, second.ConversationId, second.RequestMessageId);
         Assert.DoesNotContain(history, x => x.Content == "Private question");
         Assert.DoesNotContain(await service.ListMessagesAsync(first.ConversationId, null, default), x => x.Id == first.RequestMessageId);
@@ -98,7 +100,7 @@ public sealed class ChatStoreTests
         using var db = CreateDatabase();
         var access = new FakeAccess();
         var service = CreateService(db, OwnerId, access);
-        var first = await service.StartTurnAsync(null, "Who is the director?", "gemini", Guid.NewGuid(), default);
+        var first = await service.StartTurnAsync(null, "Who is the director?", "ollama", Guid.NewGuid(), default);
         var source = new RetrievedChunkResponse(Guid.NewGuid(), Guid.NewGuid(), "report.pdf", "excerpt", 0.83f, 2, null, null);
         access.Allowed[source.ChunkId] = new RetrievalChunkSource(source.DocumentId, source.ChunkId, source.FileName, null, 2, null, null, "bucket", "key");
         await service.CompleteTurnAsync(first, "The director is named in the report.", [source], false, default);
@@ -108,9 +110,9 @@ public sealed class ChatStoreTests
         var visible = await service.ListMessagesAsync(first.ConversationId, null, default);
         Assert.Single(visible);
         Assert.Equal("user", visible[0].Role);
-        var second = await service.StartTurnAsync(first.ConversationId, "Any update?", "claude", Guid.NewGuid(), default);
-        Assert.Equal("Gemini", db.AiTurns.IgnoreQueryFilters().Single(x => x.Id == first.TurnId).ModelProvider);
-        Assert.Equal("Claude", db.AiTurns.IgnoreQueryFilters().Single(x => x.Id == second.TurnId).ModelProvider);
+        var second = await service.StartTurnAsync(first.ConversationId, "Any update?", "ollama", Guid.NewGuid(), default);
+        Assert.Equal("Ollama", db.AiTurns.IgnoreQueryFilters().Single(x => x.Id == first.TurnId).ModelProvider);
+        Assert.Equal("Ollama", db.AiTurns.IgnoreQueryFilters().Single(x => x.Id == second.TurnId).ModelProvider);
         var history = await PromptHistoryAsync(service, first.ConversationId, second.RequestMessageId);
         Assert.DoesNotContain(history, x => x.Content.Contains("director is named"));
     }
@@ -121,7 +123,7 @@ public sealed class ChatStoreTests
         using var db = CreateDatabase();
         var access = new FakeAccess();
         var service = CreateService(db, OwnerId, access);
-        var turn = await service.StartTurnAsync(null, "Question", "gemini", Guid.NewGuid(), default);
+        var turn = await service.StartTurnAsync(null, "Question", "ollama", Guid.NewGuid(), default);
         var source = new RetrievedChunkResponse(Guid.NewGuid(), Guid.NewGuid(), "file.pdf", "excerpt", 0.9f, 1, null, null);
         var handler = new CompleteChatTurnCommandHandler(service, access, new FakeOrganization(), new FakeUser(OwnerId), new FixedClock());
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => handler.Handle(new CompleteChatTurnCommand(turn, "Answer", [source], false), default));
@@ -134,8 +136,8 @@ public sealed class ChatStoreTests
         using var db = CreateDatabase();
         var service = CreateService(db, OwnerId, new FakeAccess());
         var requestId = Guid.NewGuid();
-        await service.StartTurnAsync(null, "Question", "gemini", requestId, default);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => service.StartTurnAsync(null, "Question", "gemini", requestId, default));
+        await service.StartTurnAsync(null, "Question", "ollama", requestId, default);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.StartTurnAsync(null, "Question", "ollama", requestId, default));
         Assert.Single(db.Messages.IgnoreQueryFilters());
     }
 
@@ -144,7 +146,7 @@ public sealed class ChatStoreTests
     {
         using var db = CreateDatabase();
         var service = CreateService(db, OwnerId, new FakeAccess());
-        var turn = await service.StartTurnAsync(null, "Question", "gemini", Guid.NewGuid(), default);
+        var turn = await service.StartTurnAsync(null, "Question", "ollama", Guid.NewGuid(), default);
         var fallbackModel = new ChatModelChoice("gemini-3.6-flash", "Gemini 3.6 Flash", "Gemini", "gemini-3.6-flash");
 
         var message = await service.CompleteTurnAsync(turn with { Model = fallbackModel }, "Answer", [], true, default);
@@ -182,7 +184,21 @@ public sealed class ChatStoreTests
             EncryptionKeyBase64 = Convert.ToBase64String(Enumerable.Range(0, 32).Select(x => (byte)x).ToArray()),
         });
         return new ChatWorkflow(new ChatStore(db), new FakeOrganization(), new FakeUser(userId), access, new FixedClock(),
-            new ChatCipher(options), new ChatModelStreamer(new HttpClient(), options));
+            new ChatCipher(options), new ChatModelStreamer(new HttpClient(), options, new LocalInferenceScheduler()),
+            new FakeSystemPromptStore());
+    }
+
+    private sealed class FakeSystemPromptStore : ISystemPromptStore
+    {
+        private static readonly Guid VersionId = Guid.NewGuid();
+        public Task<IReadOnlyList<SystemPromptData>> GetAllAsync(Guid organizationId, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<SystemPromptData>>([]);
+        public Task<SystemPromptData?> GetAsync(Guid organizationId, string promptType, CancellationToken cancellationToken) => Task.FromResult<SystemPromptData?>(null);
+        public Task<IReadOnlyList<SystemPromptVersionData>> GetVersionsAsync(Guid organizationId, string promptType, CancellationToken cancellationToken) => Task.FromResult<IReadOnlyList<SystemPromptVersionData>>([]);
+        public Task<SystemPromptVersionData> GetActiveVersionAsync(Guid organizationId, string promptType, CancellationToken cancellationToken) =>
+            Task.FromResult(new SystemPromptVersionData(VersionId, 1, SystemPromptDefaults.Chat, SystemPromptVersion.PublishedStatus, null, DateTimeOffset.UtcNow, null, DateTimeOffset.UtcNow));
+        public Task<SystemPromptVersionData> SaveDraftAsync(Guid organizationId, string promptType, string instructions, Guid userId, CancellationToken cancellationToken) => throw new NotImplementedException();
+        public Task<SystemPromptVersionData?> PublishDraftAsync(Guid organizationId, string promptType, Guid userId, CancellationToken cancellationToken) => throw new NotImplementedException();
+        public Task<SystemPromptVersionData?> RestoreAsync(Guid organizationId, string promptType, Guid versionId, Guid userId, CancellationToken cancellationToken) => throw new NotImplementedException();
     }
 
     private static Task<IReadOnlyList<ChatPromptMessage>> PromptHistoryAsync(ChatWorkflow store, Guid conversationId, Guid requestMessageId) =>

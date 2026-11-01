@@ -52,3 +52,7 @@ class TranscriptSegment:
 
     def event(self, kind: str = "final", sequence: int = 0) -> dict:
         return {"type": kind, "sequence": sequence, **self.payload()}
+
+    def translation_event(self, target_language: str, text: str) -> dict:
+        return {"type": "translation", "segmentId": str(self.segment_id),
+                "targetLanguage": target_language, "text": text}

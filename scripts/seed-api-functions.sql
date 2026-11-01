@@ -101,7 +101,14 @@ VALUES
     ('ORGANIZATION.UPDATE', 'Organization', 'Cập nhật tổ chức', 'PUT', '/api/organizations/{organizationId:guid}', 'ADMIN', 'HIGH'),
     ('ORGANIZATION.SUSPEND', 'Organization', 'Tạm ngưng tổ chức', 'POST', '/api/organizations/{organizationId:guid}/suspend', 'ADMIN', 'HIGH'),
     ('ORGANIZATION.ACTIVATE', 'Organization', 'Kích hoạt tổ chức', 'POST', '/api/organizations/{organizationId:guid}/activate', 'ADMIN', 'HIGH'),
-    ('ORGANIZATION.ARCHIVE', 'Organization', 'Lưu trữ tổ chức', 'POST', '/api/organizations/{organizationId:guid}/archive', 'ADMIN', 'HIGH');
+    ('ORGANIZATION.ARCHIVE', 'Organization', 'Lưu trữ tổ chức', 'POST', '/api/organizations/{organizationId:guid}/archive', 'ADMIN', 'HIGH'),
+    ('SYSTEM_PROMPT', 'SystemPrompt', 'System Prompt', 'ANY', '#', 'READ', 'LOW'),
+    ('SYSTEM_PROMPT.READ', 'SystemPrompt', 'Đọc system prompt', 'GET', '/api/system-prompts', 'READ', 'LOW'),
+    ('SYSTEM_PROMPT.READ.VERSIONS', 'SystemPrompt', 'Đọc lịch sử phiên bản prompt', 'GET', '/api/system-prompts/{promptType}/versions', 'READ', 'LOW'),
+    ('SYSTEM_PROMPT.DRAFT.UPDATE', 'SystemPrompt', 'Lưu bản nháp prompt', 'PUT', '/api/system-prompts/{promptType}/draft', 'WRITE', 'MEDIUM'),
+    ('SYSTEM_PROMPT.PREVIEW', 'SystemPrompt', 'Thử system prompt', 'POST', '/api/system-prompts/{promptType}/preview', 'WRITE', 'MEDIUM'),
+    ('SYSTEM_PROMPT.PUBLISH', 'SystemPrompt', 'Xuất bản system prompt', 'POST', '/api/system-prompts/{promptType}/publish', 'ADMIN', 'HIGH'),
+    ('SYSTEM_PROMPT.RESTORE', 'SystemPrompt', 'Khôi phục phiên bản prompt', 'POST', '/api/system-prompts/{promptType}/versions/{versionId:guid}/restore', 'ADMIN', 'HIGH');
 
 DO $$
 DECLARE

@@ -3,6 +3,7 @@ using MediatR;
 using Nexora.Application.Common.Abstractions;
 using Nexora.Application.Common.Abstractions.Rag;
 using Nexora.Application.Features.V1.Rag.Retrieval.Model;
+using Nexora.Application.Common.Abstractions.Chat;
 
 namespace Nexora.Application.Features.V1.Rag.Retrieval.Query;
 
@@ -57,7 +58,7 @@ public sealed class RetrieveDocumentsQueryHandler(
             indexName,
             cancellationToken);
 
-        var vectors = await embeddingProvider.EmbedAsync([request.Query.Trim()], cancellationToken);
+        var vectors = await embeddingProvider.EmbedQueryAsync([request.Query.Trim()], cancellationToken);
         if (vectors.Count != 1 || vectors[0].Length != index.EmbeddingDimension)
         {
             throw new InvalidOperationException("Query embedding does not match the active RAG index dimension.");
@@ -75,7 +76,7 @@ public sealed class RetrieveDocumentsQueryHandler(
                 allowedDocumentIds.ToHashSet(),
                 indexedDocuments.Where(document => document.IsDepartmentScoped).Select(document => document.DocumentId).ToHashSet()))
         {
-            return DepartmentAccessDeniedResponse();
+            return DepartmentAccessDeniedResponse(topCompanyMatch.FirstOrDefault()?.Score);
         }
 
         if (allowedDocumentIds.Count == 0)
@@ -94,6 +95,13 @@ public sealed class RetrieveDocumentsQueryHandler(
             return EmptyResponse();
         }
 
+        var topScore = matches.Max(match => match.Score);
+        matches = matches.Where(match => match.Score >= scopeOptions.MinimumRagScore).ToArray();
+        if (matches.Count == 0)
+        {
+            return EmptyResponse() with { TopScore = topScore };
+        }
+
         var sources = await retrievalStore.GetAccessibleChunkSourcesAsync(
             organizationId.Value,
             userContext.UserId.Value,
@@ -103,6 +111,7 @@ public sealed class RetrieveDocumentsQueryHandler(
         var sourceByChunkId = sources.ToDictionary(source => source.ChunkId);
         var results = new List<RetrievedChunkResponse>(ResultLimit);
         var contextPassages = new List<RagContextPassage>(ResultLimit);
+        var candidates = new List<ChatEvidenceCandidate>(ResultLimit);
 
         foreach (var match in matches)
         {
@@ -115,6 +124,7 @@ public sealed class RetrieveDocumentsQueryHandler(
             using var reader = new StreamReader(content);
             var text = (await reader.ReadToEndAsync(cancellationToken)).Trim();
             var excerpt = text.Length <= ExcerptLength ? text : $"{text[..ExcerptLength]}…";
+            candidates.Add(new ChatEvidenceCandidate(source.ChunkId, text));
             contextPassages.Add(new RagContextPassage(
                 source.FileName,
                 source.DepartmentName,
@@ -135,15 +145,21 @@ public sealed class RetrieveDocumentsQueryHandler(
 
         return new RetrievalResponse(results,
             RagContextComposer.Compose(organizationName, request.Query, contextPassages),
-            RagContextComposer.PromptVersion);
+            RagContextComposer.PromptVersion)
+        {
+            TopScore = topScore,
+            OrganizationName = organizationName,
+            Candidates = candidates
+        };
     }
 
     private static RetrievalResponse EmptyResponse() =>
         new(Array.Empty<RetrievedChunkResponse>(), string.Empty, RagContextComposer.PromptVersion);
 
-    private static RetrievalResponse DepartmentAccessDeniedResponse() =>
+    private static RetrievalResponse DepartmentAccessDeniedResponse(float? topScore) =>
         new(Array.Empty<RetrievedChunkResponse>(), string.Empty, RagContextComposer.PromptVersion)
         {
-            DepartmentAccessDenied = true
+            DepartmentAccessDenied = true,
+            TopScore = topScore
         };
 }

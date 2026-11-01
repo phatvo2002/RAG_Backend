@@ -1,4 +1,3 @@
-using System.Net;
 using System.Security.Cryptography;
 using System.Text;
 using MediatR;
@@ -25,7 +24,6 @@ public sealed class ProcessDocumentVersionCommandHandler(
     IDocumentIndexSettings indexSettings,
     IDocumentTextChunker chunker,
     IDocumentChunkingProgressStore chunkProgressStore,
-    IEmbeddingBatchScheduler batchScheduler,
     ILogger<ProcessDocumentVersionCommandHandler> logger) : IRequestHandler<ProcessDocumentVersionCommand>
 {
     public async Task Handle(ProcessDocumentVersionCommand request, CancellationToken cancellationToken)
@@ -151,24 +149,7 @@ public sealed class ProcessDocumentVersionCommandHandler(
                 }
                 else
                 {
-                    while (true)
-                    {
-                        await batchScheduler.WaitForDocumentBatchAsync(cancellationToken);
-                        try
-                        {
-                            vectors = await embeddingProvider.EmbedAsync(texts, cancellationToken);
-                            batchScheduler.MarkDocumentBatchCompleted();
-                            break;
-                        }
-                        catch (HttpRequestException exception) when (exception.StatusCode == HttpStatusCode.TooManyRequests)
-                        {
-                            batchScheduler.MarkDocumentBatchCompleted();
-                            version.FailureCode = "EMBEDDING_RATE_LIMITED";
-                            await unitOfWork.SaveChangesAsync(cancellationToken);
-                            logger.LogWarning("Embedding quota reached for version {VersionId}; retrying.", version.Id);
-                            await batchScheduler.WaitAfterRateLimitAsync(cancellationToken);
-                        }
-                    }
+                    vectors = await embeddingProvider.EmbedAsync(texts, cancellationToken);
                 }
 
                 if (vectors.Count != batch.Length || vectors.Any(vector => vector.Length != index.EmbeddingDimension))

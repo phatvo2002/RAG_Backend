@@ -24,6 +24,8 @@ public class AiTurn : EntityBase
 
     public string? PromptVersion { get; set; }
 
+    public Guid? SystemPromptVersionId { get; private set; }
+
     public int? InputTokens { get; set; }
 
     public int? OutputTokens { get; set; }
@@ -41,7 +43,7 @@ public class AiTurn : EntityBase
     public string? ErrorCode { get; set; }
 
     public static AiTurn Create(Guid id, Guid organizationId, Guid conversationId, Guid requestMessageId,
-        string correlationId, string provider, string model, string promptVersion, DateTimeOffset now) => new(id)
+        string correlationId, string provider, string model, string promptVersion, Guid systemPromptVersionId, DateTimeOffset now) => new(id)
     {
         OrganizationId = organizationId,
         ConversationId = conversationId,
@@ -50,6 +52,7 @@ public class AiTurn : EntityBase
         ModelProvider = provider,
         ModelName = model,
         PromptVersion = promptVersion,
+        SystemPromptVersionId = systemPromptVersionId,
         Status = "PENDING",
         StartedAt = now
     };

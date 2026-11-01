@@ -40,8 +40,13 @@ public interface IChatStore
 public interface IChatProviderService
 {
     bool IsChatCipherConfigured { get; }
-    bool IsProviderCipherConfigured { get; }
-    IReadOnlyList<ChatModelChoice> AvailableModels(bool hasGeminiKey, bool hasClaudeKey);
+    int ContextWindowTokens { get; }
+    int MaxOutputTokens { get; }
+    int EstimatedRetrievedContextTokens { get; }
+    int EstimatedSystemPromptTokens { get; }
+    int EstimatePromptTokens(IReadOnlyList<ChatPromptMessage> history, string augmentedContext, string customInstructions = "");
+    IReadOnlyList<ChatModelChoice> AvailableModels();
     IAsyncEnumerable<string> StreamAsync(ChatModelChoice model, IReadOnlyList<ChatPromptMessage> history,
-        string augmentedContext, ProviderCredential credential, CancellationToken cancellationToken);
+        string augmentedContext, string customInstructions, CancellationToken cancellationToken);
+    Task<string> PreviewTranslationAsync(string text, string customInstructions, CancellationToken cancellationToken);
 }

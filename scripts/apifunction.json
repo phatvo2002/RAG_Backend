@@ -1138,5 +1138,95 @@
     "actionType": "READ",
     "riskLevel": "LOW",
     "requiresConfirmation": false
+  },
+  {
+    "id": "091d27a0-57f4-49b8-8f61-1851d3dfde9f",
+    "code": "MEETING.SET_TARGET_LANGUAGE",
+    "module": "Meeting",
+    "name": "Chọn ngôn ngữ phụ đề",
+    "description": null,
+    "httpMethod": "PUT",
+    "routeTemplate": "/api/meetings/{id:guid}/my-target-language",
+    "actionType": "WRITE",
+    "riskLevel": "LOW",
+    "requiresConfirmation": false
+  },
+  {
+    "id": "4622ac34-77e6-4ae9-8018-1bc1d32abb9e",
+    "actionType": "READ",
+    "description": "Organization system prompt management",
+    "riskLevel": "LOW",
+    "httpMethod": "ANY",
+    "module": "SystemPrompt",
+    "routeTemplate": "#",
+    "requiresConfirmation": false,
+    "code": "SYSTEM_PROMPT",
+    "name": "System Prompt"
+  },
+  {
+    "id": "4049e33f-13eb-4204-8015-c474b900618d",
+    "routeTemplate": "/api/system-prompts",
+    "requiresConfirmation": false,
+    "name": "Read system prompts",
+    "module": "SystemPrompt",
+    "actionType": "READ",
+    "code": "SYSTEM_PROMPT.READ",
+    "riskLevel": "LOW",
+    "httpMethod": "GET"
+  },
+  {
+    "id": "0f535791-53d9-427d-86ca-f84a8a46f049",
+    "routeTemplate": "/api/system-prompts/{promptType}/versions",
+    "requiresConfirmation": false,
+    "name": "Read system prompt versions",
+    "module": "SystemPrompt",
+    "actionType": "READ",
+    "code": "SYSTEM_PROMPT.READ.VERSIONS",
+    "riskLevel": "LOW",
+    "httpMethod": "GET"
+  },
+  {
+    "id": "68f94a38-26e0-4515-86c1-ae55f124aabf",
+    "routeTemplate": "/api/system-prompts/{promptType}/draft",
+    "requiresConfirmation": false,
+    "name": "Save system prompt draft",
+    "module": "SystemPrompt",
+    "actionType": "WRITE",
+    "code": "SYSTEM_PROMPT.DRAFT.UPDATE",
+    "riskLevel": "MEDIUM",
+    "httpMethod": "PUT"
+  },
+  {
+    "id": "5b32288d-b276-4ec6-b5d7-087f79f5a6d6",
+    "routeTemplate": "/api/system-prompts/{promptType}/preview",
+    "requiresConfirmation": false,
+    "name": "Preview system prompt",
+    "module": "SystemPrompt",
+    "actionType": "WRITE",
+    "code": "SYSTEM_PROMPT.PREVIEW",
+    "riskLevel": "MEDIUM",
+    "httpMethod": "POST"
+  },
+  {
+    "id": "5b4f533f-26e7-4565-8c1c-91fe81bd10eb",
+    "routeTemplate": "/api/system-prompts/{promptType}/publish",
+    "requiresConfirmation": false,
+    "name": "Publish system prompt",
+    "module": "SystemPrompt",
+    "actionType": "ADMIN",
+    "code": "SYSTEM_PROMPT.PUBLISH",
+    "riskLevel": "HIGH",
+    "httpMethod": "POST"
+  },
+  {
+    "id": "9d8d0f28-a9fb-4676-b7b0-98c8fe8ed284",
+    "routeTemplate": "/api/system-prompts/{promptType}/versions/{versionId:guid}/restore",
+    "requiresConfirmation": false,
+    "name": "Restore system prompt version",
+    "module": "SystemPrompt",
+    "actionType": "ADMIN",
+    "code": "SYSTEM_PROMPT.RESTORE",
+    "riskLevel": "HIGH",
+    "httpMethod": "POST"
   }
 ]

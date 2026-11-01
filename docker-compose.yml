@@ -58,6 +58,11 @@ services:
       AllowedHosts: localhost;webapi
       Storage__Endpoint: http://minio:9000
       Qdrant__Endpoint: http://qdrant:6333
+      Ollama__Url: http://ollama:11434/
+      Chat__Model: ${OLLAMA_CHAT_MODEL:-qwen3.5:4b}
+      Chat__ContextWindowTokens: ${OLLAMA_CHAT_CONTEXT_WINDOW_TOKENS:-8192}
+      Chat__EstimatedRetrievedContextTokens: ${OLLAMA_CHAT_RETRIEVAL_TOKEN_RESERVE:-2048}
+      Embedding__Model: ${OLLAMA_EMBEDDING_MODEL:-qwen3-embedding:0.6b}
 
   meeting-agent:
     build:
@@ -75,6 +80,17 @@ services:
       MEETING_AGENT_BACKEND_URL: http://webapi:8080
       MEETING_AGENT_API_KEY: ${MeetingAgent__ApiKey:-}
       WHISPER_MODEL_PATH: /opt/models/whisper-small
+      MEETING_AGENT_OLLAMA_URL: http://ollama:11434
+      OLLAMA_TRANSLATION_MODEL: ${OLLAMA_TRANSLATION_MODEL:-qwen3.5:4b}
+
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    volumes:
+      - ollama_models:/root/.ollama
+    environment:
+      OLLAMA_NUM_PARALLEL: "1"
+      OLLAMA_MAX_LOADED_MODELS: "1"
 
   frontend:
     build:
@@ -90,3 +106,6 @@ services:
       - "3000:80"
     environment:
       PUBLIC_API_URL: http://localhost:8081
+
+volumes:
+  ollama_models:

@@ -8,11 +8,21 @@ using Microsoft.AspNetCore.Routing.Patterns;
 using Nexora.Application.Common.Permissions;
 using Nexora.WebApi.Controllers;
 using Nexora.WebApi.Middleware;
+using Nexora.WebApi.Controllers.V1.SystemManagements;
 
 namespace Nexora.Tests.WebApi;
 
 public sealed class ApiPermissionMiddlewareTests
 {
+    [Fact]
+    public void Role_and_system_prompt_controllers_use_base_controller_without_duplicate_filter()
+    {
+        Assert.True(typeof(BaseController).IsAssignableFrom(typeof(RoleController)));
+        Assert.True(typeof(BaseController).IsAssignableFrom(typeof(SystemPromptController)));
+        Assert.DoesNotContain(typeof(SystemPromptController).GetMethods(), method =>
+            method.GetCustomAttributes(typeof(RequireApiFunctionAttribute), inherit: true).Length > 0);
+    }
+
     [Fact]
     public async Task PublicController_ShouldSkipPermissionChecker()
     {

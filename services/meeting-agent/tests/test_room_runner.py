@@ -55,6 +55,20 @@ class FakeTranscriber:
         return "Hello"
 
 
+class FakeTranslator:
+    def __init__(self):
+        self.custom_instructions = []
+
+    async def translate(self, text, source_language, target_language, custom_instructions=""):
+        self.custom_instructions.append(custom_instructions)
+        return "Xin chào"
+
+
+class FailingTranslator:
+    async def translate(self, text, source_language, target_language, custom_instructions=""):
+        raise RuntimeError("Ollama unavailable")
+
+
 class SlowTranscriber:
     def __init__(self):
         self.started = asyncio.Event()
@@ -67,6 +81,45 @@ class SlowTranscriber:
 
 
 class RoomRunnerTests(unittest.IsolatedAsyncioTestCase):
+    async def test_final_translation_uses_same_segment_and_does_not_block_transcription(self):
+        meeting_id, speaker_id = uuid4(), uuid4()
+        room = FakeRoom()
+        translator_client = FakeTranslator()
+        runner = RoomRunner(FakeBackend(), FakeTranscriber(), translator=translator_client)
+        queue, translations = asyncio.Queue(), asyncio.Queue()
+        now = datetime.now(timezone.utc)
+        await queue.put((speaker_id, SpeechChunk(b"audio", now, now + timedelta(seconds=1))))
+        await queue.put(None)
+        job = Job(meeting_id, "room", "wss://example", "token")
+        await runner._process(job, room, queue, translations=translations)
+        self.assertEqual(["final"], [event[0]["type"] for event in room.local_participant.events])
+        translator = asyncio.create_task(runner._translate(job, room, translations, "Use formal Vietnamese", "version-1"))
+        await translations.join()
+        translator.cancel()
+        await asyncio.gather(translator, return_exceptions=True)
+        original, translated = [event[0] for event in room.local_participant.events]
+        self.assertEqual("translation", translated["type"])
+        self.assertEqual(original["segmentId"], translated["segmentId"])
+        self.assertEqual("vi", translated["targetLanguage"])
+        self.assertEqual("Xin chào", translated["text"])
+        self.assertEqual(["Use formal Vietnamese"], translator_client.custom_instructions)
+
+    async def test_translation_failure_keeps_original_caption(self):
+        meeting_id, speaker_id = uuid4(), uuid4()
+        room = FakeRoom()
+        runner = RoomRunner(FakeBackend(), FakeTranscriber(), translator=FailingTranslator())
+        queue, translations = asyncio.Queue(), asyncio.Queue()
+        now = datetime.now(timezone.utc)
+        await queue.put((speaker_id, SpeechChunk(b"audio", now, now + timedelta(seconds=1))))
+        await queue.put(None)
+        job = Job(meeting_id, "room", "wss://example", "token")
+        await runner._process(job, room, queue, translations=translations)
+        translator = asyncio.create_task(runner._translate(job, room, translations))
+        await translations.join()
+        translator.cancel()
+        await asyncio.gather(translator, return_exceptions=True)
+        self.assertEqual(["final"], [event[0]["type"] for event in room.local_participant.events])
+
     async def test_completed_turn_is_processed_before_waiting_partial(self):
         meeting_id, first_speaker, second_speaker = uuid4(), uuid4(), uuid4()
         backend, room = FakeBackend(), FakeRoom()

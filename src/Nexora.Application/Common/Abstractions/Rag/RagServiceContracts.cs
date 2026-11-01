@@ -3,11 +3,14 @@ namespace Nexora.Application.Common.Abstractions.Rag;
 public interface IEmbeddingProvider
 {
     Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyCollection<string> inputs, CancellationToken cancellationToken);
+    Task<IReadOnlyList<float[]>> EmbedQueryAsync(IReadOnlyCollection<string> inputs, CancellationToken cancellationToken) =>
+        EmbedAsync(inputs, cancellationToken);
 }
 
 public interface IDepartmentScopeOptions
 {
     float DepartmentMatchThreshold { get; }
+    float MinimumRagScore { get; }
 }
 
 public sealed record VectorPoint(string Id, float[] Vector, Guid DocumentId, Guid VersionId, Guid ChunkId, string ContentHash, string FileName);

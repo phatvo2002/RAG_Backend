@@ -23,6 +23,21 @@ internal sealed class MeetingTranscriptStore(NexoraDbContext db) : IMeetingTrans
         return true;
     }
 
+    public Task<string?> GetMyTargetLanguageAsync(Guid organizationId, Guid meetingId, Guid userId, CancellationToken cancellationToken) =>
+        db.MeetingParticipants.AsNoTracking()
+            .Where(p => p.OrganizationId == organizationId && p.MeetingId == meetingId && p.UserId == userId && p.GuestEmail == null)
+            .Select(p => p.TargetLanguage).SingleOrDefaultAsync(cancellationToken);
+
+    public async Task<bool> SetMyTargetLanguageAsync(Guid organizationId, Guid meetingId, Guid userId, string language, CancellationToken cancellationToken)
+    {
+        var participant = await db.MeetingParticipants.SingleOrDefaultAsync(p => p.OrganizationId == organizationId &&
+            p.MeetingId == meetingId && p.UserId == userId && p.GuestEmail == null, cancellationToken);
+        if (participant is null) return false;
+        participant.TargetLanguage = language;
+        await db.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
     public async Task<IReadOnlyList<MeetingTranscriptSegment>> ListAsync(Guid organizationId, Guid meetingId, CancellationToken cancellationToken) =>
         await db.MeetingTranscriptSegments.AsNoTracking()
             .Where(s => s.OrganizationId == organizationId && s.MeetingId == meetingId)

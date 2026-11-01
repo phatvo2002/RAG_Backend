@@ -4,12 +4,13 @@ using Microsoft.AspNetCore.RateLimiting;
 using Nexora.Application.Features.V1.SystemManagements.Role.Command;
 using Nexora.Application.Features.V1.SystemManagements.Role.Model;
 using Nexora.Application.Features.V1.SystemManagements.Role.Query;
+using Nexora.WebApi.Controllers;
 
 namespace Nexora.WebApi.Controllers.V1.SystemManagements;
 
 [ApiController]
 [Route("api/roles")]
-public class RoleController(ISender sender) : ControllerBase
+public class RoleController(ISender sender) : BaseController
 {
     [HttpGet]
     public async Task<IActionResult> GetRoles([FromQuery] int page = 1, [FromQuery] int pageSize = 20, CancellationToken cancellationToken = default) => this.ToSuccessResponse(await sender.Send(new GetRolesQuery(page, pageSize), cancellationToken), "Lấy danh sách Role thành công.");

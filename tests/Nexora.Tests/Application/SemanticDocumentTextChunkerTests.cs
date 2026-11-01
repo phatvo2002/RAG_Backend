@@ -106,7 +106,7 @@ public sealed class SemanticDocumentTextChunkerTests
     }
 
     private static SemanticDocumentTextChunker CreateChunker(FakeProvider provider, double percentile = 95) =>
-        new(new GeminiEmbeddingGeneratorAdapter(provider, new FakeScheduler()),
+        new(new EmbeddingGeneratorAdapter(provider),
             Options.Create(new DocumentProcessingOptions
             {
                 SemanticTokenLimit = 320,
@@ -129,10 +129,4 @@ public sealed class SemanticDocumentTextChunkerTests
         }
     }
 
-    private sealed class FakeScheduler : IEmbeddingBatchScheduler
-    {
-        public Task WaitForDocumentBatchAsync(CancellationToken cancellationToken) => Task.CompletedTask;
-        public void MarkDocumentBatchCompleted() { }
-        public Task WaitAfterRateLimitAsync(CancellationToken cancellationToken) => Task.CompletedTask;
-    }
 }

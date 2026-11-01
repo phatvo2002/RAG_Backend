@@ -56,6 +56,12 @@ public sealed class MeetingController(ISender sender) : BaseController
         CancellationToken cancellationToken) =>
         this.ToActionResult(await sender.Send(new SetMeetingSourceLanguageCommand(id, request.Language), cancellationToken));
 
+    [HttpPut("{id:guid}/my-target-language")]
+    [EnableRateLimiting("write")]
+    public async Task<IActionResult> SetMyTargetLanguage(Guid id, [FromBody] SetMeetingTargetLanguageRequest request,
+        CancellationToken cancellationToken) =>
+        this.ToActionResult(await sender.Send(new SetMeetingTargetLanguageCommand(id, request.Language), cancellationToken));
+
     [HttpGet("{id:guid}/transcript")]
     public async Task<IActionResult> Transcript(Guid id, CancellationToken cancellationToken) =>
         this.ToActionResult(await sender.Send(new GetMeetingTranscriptQuery(id), cancellationToken));

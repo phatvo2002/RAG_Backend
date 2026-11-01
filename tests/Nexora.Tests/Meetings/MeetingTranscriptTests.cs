@@ -1,4 +1,5 @@
 using Nexora.Application.Common.Abstractions.Meetings;
+using Nexora.Application.Common.Abstractions;
 using Nexora.Application.Common.Results;
 using Nexora.Application.Features.V1.Meetings.Command;
 using Nexora.Application.Features.V1.Meetings.Query;
@@ -8,6 +9,30 @@ namespace Nexora.Tests.Meetings;
 
 public sealed class MeetingTranscriptTests
 {
+    [Fact]
+    public async Task ParticipantCanChooseTargetLanguageButOutsiderAndInvalidValueCannot()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var organization = Guid.NewGuid();
+        var speaker = Guid.NewGuid();
+        var meeting = Meeting.Create(organization, speaker, "Test", now.AddMinutes(-1), now.AddHours(1), now.AddMinutes(-2));
+        var transcriptStore = new FakeTranscriptStore(meeting, speaker);
+        var meetingStore = new FakeMeetingStore(meeting, speaker);
+        var handler = new SetMeetingTargetLanguageCommandHandler(meetingStore, transcriptStore,
+            new TestUserContext(speaker), new TestTenantContext(organization));
+
+        Assert.True((await handler.Handle(new SetMeetingTargetLanguageCommand(meeting.Id, "vi"), CancellationToken.None)).IsSuccess);
+        Assert.Equal("vi", transcriptStore.TargetLanguage);
+        Assert.Equal(Error.Validation("language").Code,
+            (await handler.Handle(new SetMeetingTargetLanguageCommand(meeting.Id, "fr"), CancellationToken.None)).Error!.Code);
+
+        var outsider = new SetMeetingTargetLanguageCommandHandler(meetingStore, transcriptStore,
+            new TestUserContext(Guid.NewGuid()), new TestTenantContext(organization));
+        Assert.Equal(Error.Forbidden("participant").Code,
+            (await outsider.Handle(new SetMeetingTargetLanguageCommand(meeting.Id, "en"), CancellationToken.None)).Error!.Code);
+        Assert.Equal("vi", transcriptStore.TargetLanguage);
+    }
+
     [Fact]
     public async Task AgentCanSaveFinalSegmentIdempotentlyForParticipant()
     {
@@ -84,13 +109,50 @@ public sealed class MeetingTranscriptTests
         public MeetingJoinToken IssueTranscriptWorkerToken(string roomName, Guid meetingId) => new("wss://example", "worker-token");
     }
 
+    private sealed class TestUserContext(Guid userId) : IUserContext
+    {
+        public Guid? UserId => userId;
+        public bool IsAuthenticated => true;
+    }
+
+    private sealed class TestTenantContext(Guid organizationId) : ITenantContext
+    {
+        public Guid? OrganizationId => organizationId;
+    }
+
+    private sealed class FakeMeetingStore(Meeting meeting, Guid participantId) : IMeetingStore
+    {
+        public Task<Meeting?> GetAsync(Guid organizationId, Guid meetingId, CancellationToken cancellationToken) =>
+            Task.FromResult<Meeting?>(organizationId == meeting.OrganizationId && meetingId == meeting.Id ? meeting : null);
+        public Task<bool> IsParticipantAsync(Guid organizationId, Guid meetingId, Guid userId, CancellationToken cancellationToken) =>
+            Task.FromResult(organizationId == meeting.OrganizationId && meetingId == meeting.Id && userId == participantId);
+        public Task<IReadOnlyList<Meeting>> ListAsync(Guid organizationId, Guid userId, CancellationToken cancellationToken) => throw new NotImplementedException();
+        public Task<bool> AreActiveMembersAsync(Guid organizationId, IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken) => throw new NotImplementedException();
+        public Task<IReadOnlyList<MeetingUserOption>> GetParticipantUsersAsync(Guid organizationId, Guid meetingId, CancellationToken cancellationToken) => throw new NotImplementedException();
+        public Task<PagedResult<MeetingUserOption>> FindEligibleUsersAsync(Guid organizationId, string? search, int page, int pageSize, CancellationToken cancellationToken) => throw new NotImplementedException();
+        public Task SyncParticipantUsersAsync(Meeting meeting, IReadOnlyCollection<Guid> userIds, CancellationToken cancellationToken) => throw new NotImplementedException();
+        public Task<bool> TrySaveUpdateAsync(CancellationToken cancellationToken) => throw new NotImplementedException();
+        public void Add(Meeting meeting, IReadOnlyCollection<MeetingParticipant> participants) => throw new NotImplementedException();
+        public Task SaveAsync(CancellationToken cancellationToken) => throw new NotImplementedException();
+    }
+
     private sealed class FakeTranscriptStore(Meeting meeting, Guid allowedSpeaker) : IMeetingTranscriptStore
     {
         public List<MeetingTranscriptSegment> Segments { get; } = [];
+        public string? TargetLanguage { get; private set; }
         public Task<string?> GetMyLanguageAsync(Guid organizationId, Guid meetingId, Guid userId, CancellationToken cancellationToken) =>
             Task.FromResult<string?>(userId == allowedSpeaker ? "vi" : null);
         public Task<bool> SetMyLanguageAsync(Guid organizationId, Guid meetingId, Guid userId, string language, CancellationToken cancellationToken) =>
             Task.FromResult(userId == allowedSpeaker);
+        public Task<string?> GetMyTargetLanguageAsync(Guid organizationId, Guid meetingId, Guid userId, CancellationToken cancellationToken) =>
+            Task.FromResult(userId == allowedSpeaker ? TargetLanguage : null);
+        public Task<bool> SetMyTargetLanguageAsync(Guid organizationId, Guid meetingId, Guid userId, string language, CancellationToken cancellationToken)
+        {
+            if (organizationId != meeting.OrganizationId || meetingId != meeting.Id || userId != allowedSpeaker)
+                return Task.FromResult(false);
+            TargetLanguage = language;
+            return Task.FromResult(true);
+        }
         public Task<IReadOnlyList<MeetingTranscriptSegment>> ListAsync(Guid organizationId, Guid meetingId, CancellationToken cancellationToken) =>
             Task.FromResult<IReadOnlyList<MeetingTranscriptSegment>>(Segments);
         public Task<Meeting?> FindMeetingForAgentAsync(Guid meetingId, CancellationToken cancellationToken) =>

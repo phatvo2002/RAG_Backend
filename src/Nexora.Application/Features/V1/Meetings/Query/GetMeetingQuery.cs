@@ -21,6 +21,10 @@ public sealed class GetMeetingQueryHandler(IMeetingStore store, IMeetingTranscri
             return Result<MeetingDetailResponse>.Failure(Error.Forbidden("Không có quyền xem cuộc họp."));
         var participants = await store.GetParticipantUsersAsync(organizationId, meeting.Id, cancellationToken);
         var language = await transcripts.GetMyLanguageAsync(organizationId, meeting.Id, userId, cancellationToken);
-        return Result<MeetingDetailResponse>.Success(MeetingDetailResponse.FromMeeting(meeting, participants) with { MySourceLanguage = language });
+        var targetLanguage = await transcripts.GetMyTargetLanguageAsync(organizationId, meeting.Id, userId, cancellationToken);
+        return Result<MeetingDetailResponse>.Success(MeetingDetailResponse.FromMeeting(meeting, participants) with
+        {
+            MySourceLanguage = language, MyTargetLanguage = targetLanguage
+        });
     }
 }

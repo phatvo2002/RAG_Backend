@@ -551,6 +551,10 @@ namespace Nexora.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(30)")
                         .HasColumnName("status");
 
+                    b.Property<Guid?>("SystemPromptVersionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("systemPromptVersionId");
+
                     b.HasKey("Id");
 
                     b.HasIndex("ConversationId");
@@ -558,6 +562,8 @@ namespace Nexora.Infrastructure.Persistence.Migrations
                     b.HasIndex("RequestMessageId");
 
                     b.HasIndex("ResponseMessageId");
+
+                    b.HasIndex("SystemPromptVersionId");
 
                     b.HasIndex("OrganizationId", "CorrelationId")
                         .IsUnique();
@@ -837,6 +843,125 @@ namespace Nexora.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("Messages", "chat");
+                });
+
+            modelBuilder.Entity("Nexora.Domain.Chat.OrganizationSystemPrompt", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("ActiveVersionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("activeVersionId");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("createdAt");
+
+                    b.Property<Guid>("OrganizationId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("organizationId");
+
+                    b.Property<string>("PromptType")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("promptType");
+
+                    b.Property<long>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasDefaultValue(1L)
+                        .HasColumnName("rowVersion");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("updatedAt");
+
+                    b.Property<Guid?>("UpdatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("updatedByUserId");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ActiveVersionId");
+
+                    b.HasIndex("UpdatedByUserId");
+
+                    b.HasIndex("OrganizationId", "PromptType")
+                        .IsUnique();
+
+                    b.ToTable("OrganizationSystemPrompts", "organization", t =>
+                        {
+                            t.HasCheckConstraint("ck_organization_system_prompt_type", "\"promptType\" IN ('CHAT', 'MEETING_TRANSLATION')");
+                        });
+                });
+
+            modelBuilder.Entity("Nexora.Domain.Chat.SystemPromptVersion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("createdAt");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("createdByUserId");
+
+                    b.Property<string>("Instructions")
+                        .IsRequired()
+                        .HasMaxLength(8000)
+                        .HasColumnType("character varying(8000)")
+                        .HasColumnName("instructions");
+
+                    b.Property<DateTimeOffset?>("PublishedAt")
+                        .HasColumnType("timestamptz")
+                        .HasColumnName("publishedAt");
+
+                    b.Property<Guid?>("PublishedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("publishedByUserId");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("status");
+
+                    b.Property<Guid>("SystemPromptId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("systemPromptId");
+
+                    b.Property<int>("VersionNo")
+                        .HasColumnType("integer")
+                        .HasColumnName("versionNo");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedByUserId");
+
+                    b.HasIndex("PublishedByUserId");
+
+                    b.HasIndex("SystemPromptId")
+                        .IsUnique()
+                        .HasFilter("\"status\" = 'DRAFT'");
+
+                    b.HasIndex("SystemPromptId", "VersionNo")
+                        .IsUnique();
+
+                    b.ToTable("OrganizationSystemPromptVersions", "organization", t =>
+                        {
+                            t.HasCheckConstraint("ck_organization_system_prompt_version_number", "\"versionNo\" > 0");
+
+                            t.HasCheckConstraint("ck_organization_system_prompt_version_status", "\"status\" IN ('DRAFT', 'PUBLISHED')");
+                        });
                 });
 
             modelBuilder.Entity("Nexora.Domain.Documents.Document", b =>
@@ -3313,6 +3438,11 @@ namespace Nexora.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("ResponseMessageId")
                         .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Nexora.Domain.Chat.SystemPromptVersion", null)
+                        .WithMany()
+                        .HasForeignKey("SystemPromptVersionId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("Nexora.Domain.Chat.Citation", b =>
@@ -3419,6 +3549,48 @@ namespace Nexora.Infrastructure.Persistence.Migrations
                         .WithMany()
                         .HasForeignKey("SenderUserId")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Nexora.Domain.Chat.OrganizationSystemPrompt", b =>
+                {
+                    b.HasOne("Nexora.Domain.Chat.SystemPromptVersion", "ActiveVersion")
+                        .WithMany()
+                        .HasForeignKey("ActiveVersionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Nexora.Domain.Organizations.Organization", null)
+                        .WithMany()
+                        .HasForeignKey("OrganizationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Nexora.Infrastructure.Services.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("UpdatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("ActiveVersion");
+                });
+
+            modelBuilder.Entity("Nexora.Domain.Chat.SystemPromptVersion", b =>
+                {
+                    b.HasOne("Nexora.Infrastructure.Services.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("CreatedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Nexora.Infrastructure.Services.Identity.ApplicationUser", null)
+                        .WithMany()
+                        .HasForeignKey("PublishedByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Nexora.Domain.Chat.OrganizationSystemPrompt", "SystemPrompt")
+                        .WithMany()
+                        .HasForeignKey("SystemPromptId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("SystemPrompt");
                 });
 
             modelBuilder.Entity("Nexora.Domain.Documents.Document", b =>

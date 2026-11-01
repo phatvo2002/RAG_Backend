@@ -89,6 +89,10 @@ public sealed class NexoraDbContext : IdentityDbContext<ApplicationUser, Applica
 
     public DbSet<AiTurn> AiTurns => Set<AiTurn>();
 
+    public DbSet<OrganizationSystemPrompt> OrganizationSystemPrompts => Set<OrganizationSystemPrompt>();
+
+    public DbSet<SystemPromptVersion> SystemPromptVersions => Set<SystemPromptVersion>();
+
     public DbSet<Citation> Citations => Set<Citation>();
 
     public DbSet<Meeting> Meetings => Set<Meeting>();
@@ -143,6 +147,8 @@ public sealed class NexoraDbContext : IdentityDbContext<ApplicationUser, Applica
         builder.Entity<ConversationContext>().HasQueryFilter(x => x.OrganizationId == TenantOrganizationId);
         builder.Entity<Message>().HasQueryFilter(x => x.OrganizationId == TenantOrganizationId);
         builder.Entity<AiTurn>().HasQueryFilter(x => x.OrganizationId == TenantOrganizationId);
+        builder.Entity<OrganizationSystemPrompt>().HasQueryFilter(x => x.OrganizationId == TenantOrganizationId);
+        builder.Entity<SystemPromptVersion>().HasQueryFilter(x => x.SystemPrompt.OrganizationId == TenantOrganizationId);
         builder.Entity<Citation>().HasQueryFilter(x => x.OrganizationId == TenantOrganizationId);
         builder.Entity<Meeting>().HasQueryFilter(x => x.OrganizationId == TenantOrganizationId && x.DeletedAt == null);
         builder.Entity<MeetingParticipant>().HasQueryFilter(x => x.OrganizationId == TenantOrganizationId);

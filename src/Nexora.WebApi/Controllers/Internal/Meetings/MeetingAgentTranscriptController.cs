@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Nexora.Application.Features.V1.Meetings.Command;
 using Nexora.Application.Features.V1.Meetings.Model;
 using Nexora.Application.Features.V1.Meetings.Query;
+using Nexora.Application.Features.V1.SystemPrompts.Model;
 using Nexora.WebApi.Authentication;
 using Nexora.WebApi.Controllers;
 
@@ -21,6 +22,10 @@ public sealed class MeetingAgentTranscriptController(ISender sender) : Controlle
     [HttpGet("speakers/{speakerId:guid}/source-language")]
     public async Task<IActionResult> GetSourceLanguage(Guid id, Guid speakerId, CancellationToken cancellationToken) =>
         this.ToActionResult(await sender.Send(new GetAgentSpeakerLanguageQuery(id, speakerId), cancellationToken));
+
+    [HttpGet("translation-prompt")]
+    public async Task<IActionResult> GetTranslationPrompt(Guid id, CancellationToken cancellationToken) =>
+        this.ToActionResult(await sender.Send(new GetAgentMeetingTranslationPromptQuery(id), cancellationToken));
 
     [HttpPut("transcript/{segmentId:guid}")]
     public async Task<IActionResult> Save(Guid id, Guid segmentId, [FromBody] SaveMeetingTranscriptRequest request,

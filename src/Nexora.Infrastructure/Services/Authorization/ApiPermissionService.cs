@@ -1,12 +1,16 @@
-using Microsoft.EntityFrameworkCore;
+using Nexora.Application.Common.Abstractions;
+using Nexora.Application.Common.Abstractions.Repositories;
 using Nexora.Application.Common.Permissions;
 using Nexora.Domain.Authorization.Enums;
 using Nexora.Domain.Common.ValueObjects;
-using Nexora.Infrastructure.Persistence;
 
 namespace Nexora.Infrastructure.Services.Authorization;
 
-internal sealed class ApiPermissionService(NexoraDbContext dbContext) : IApiRequestPermissionChecker
+internal sealed class ApiPermissionService(
+    IApiFunctionRepository functions,
+    IDefaultOrganizationProvider organizations,
+    IUserContext userContext,
+    IClock clock) : IApiRequestPermissionChecker
 {
     public async Task<bool> HasAccessAsync(ApiRequestDescriptor request, CancellationToken cancellationToken)
     {
@@ -23,16 +27,18 @@ internal sealed class ApiPermissionService(NexoraDbContext dbContext) : IApiRequ
             return false;
         }
 
+        if (!userContext.IsAuthenticated || !userContext.UserId.HasValue)
+            return false;
+        var organizationId = await organizations.GetOrganizationIdAsync(cancellationToken);
+        if (!organizationId.HasValue)
+            return false;
+
         var canonicalRoute = RouteTemplate.Create(routeTemplate);
-        return await dbContext.ApiFunctions
-            .IgnoreQueryFilters()
-            .AsNoTracking()
-            .AnyAsync(
-                function =>
-                    function.Status == ApiFunctionStatus.Active &&
-                    (function.HttpMethod == httpMethod || function.HttpMethod == ApiHttpMethod.Any) &&
-                    function.RouteTemplate == canonicalRoute,
-                cancellationToken);
+        var effective = await functions.GetEffectiveByUserAsync(organizationId.Value, userContext.UserId.Value,
+            clock.UtcNow, cancellationToken);
+        return effective.Any(function =>
+            (function.HttpMethod == httpMethod || function.HttpMethod == ApiHttpMethod.Any) &&
+            function.RouteTemplate == canonicalRoute);
     }
 
     private static bool TryParseHttpMethod(string value, out ApiHttpMethod httpMethod)

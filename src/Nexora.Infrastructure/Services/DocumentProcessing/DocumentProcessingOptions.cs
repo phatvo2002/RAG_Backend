@@ -10,8 +10,6 @@ public sealed class DocumentProcessingOptions
     public int SemanticBufferSize { get; set; } = 1;
     public double SemanticBreakpointPercentile { get; set; } = 95;
     public int EmbeddingBatchSize { get; set; } = 5;
-    public int BatchIntervalSeconds { get; set; } = 35;
-    public int RateLimitRetrySeconds { get; set; } = 60;
     public string TesseractPath { get; set; } = "tesseract";
     public string OcrLanguage { get; set; } = "vie+eng";
     public int PdfOcrDpi { get; set; } = 200;

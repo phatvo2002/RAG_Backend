@@ -8,6 +8,7 @@ from uuid import UUID
 from .audio_segmenter import AudioSegmenter
 from .backend_client import BackendClient
 from .models import Job, SpeechChunk, TranscriptSegment
+from .ollama_client import OllamaClient
 from .transcriber import Transcriber
 
 
@@ -31,10 +32,12 @@ async def publish_segment(room, segment: TranscriptSegment, kind: str = "final",
 
 
 class RoomRunner:
-    def __init__(self, backend: BackendClient, transcriber: Transcriber, poll_seconds: float = 5.0):
+    def __init__(self, backend: BackendClient, transcriber: Transcriber, poll_seconds: float = 5.0,
+                 translator: OllamaClient | None = None):
         self._backend = backend
         self._transcriber = transcriber
         self._poll_seconds = poll_seconds
+        self._translator = translator
 
     async def run(self, job: Job, stopping: asyncio.Event) -> None:
         from livekit import rtc
@@ -46,7 +49,9 @@ class RoomRunner:
         partials: dict[UUID, tuple[UUID, SpeechChunk]] = {}
         completed: set[UUID] = set()
         wake = asyncio.Event()
-        processor = asyncio.create_task(self._process(job, room, queue, partials, completed, wake))
+        translations: asyncio.Queue[TranscriptSegment] = asyncio.Queue(maxsize=32)
+        translation_task = None
+        processor = asyncio.create_task(self._process(job, room, queue, partials, completed, wake, translations))
 
         def subscribed(track, publication, participant) -> None:
             if publication.source != rtc.TrackSource.SOURCE_MICROPHONE or publication.sid in tracks:
@@ -69,6 +74,15 @@ class RoomRunner:
         try:
             await room.connect(job.url, job.token)
             LOG.info("Transcript worker joined meeting=%s", job.meeting_id)
+            if self._translator:
+                try:
+                    translation_version_id, translation_prompt = await self._backend.translation_prompt(job.meeting_id)
+                except Exception:
+                    LOG.exception("Could not load meeting translation prompt; using built-in instructions meeting=%s", job.meeting_id)
+                    translation_version_id = "unavailable"
+                    translation_prompt = ""
+                LOG.info("Meeting translation prompt loaded meeting=%s version=%s", job.meeting_id, translation_version_id)
+                translation_task = asyncio.create_task(self._translate(job, room, translations, translation_prompt, translation_version_id))
             for participant in room.remote_participants.values():
                 for publication in participant.track_publications.values():
                     if publication.track is not None:
@@ -99,6 +113,9 @@ class RoomRunner:
                 await queue.put(None)
                 wake.set()
                 await processor
+            if translation_task:
+                translation_task.cancel()
+                await asyncio.gather(translation_task, return_exceptions=True)
             await room.disconnect()
             LOG.info("Transcript worker left meeting=%s", job.meeting_id)
 
@@ -147,7 +164,8 @@ class RoomRunner:
 
     async def _process(self, job: Job, room, queue: asyncio.Queue[tuple[UUID, SpeechChunk] | None],
                        partials: dict[UUID, tuple[UUID, SpeechChunk]] | None = None,
-                       completed: set[UUID] | None = None, wake: asyncio.Event | None = None) -> None:
+                       completed: set[UUID] | None = None, wake: asyncio.Event | None = None,
+                       translations: asyncio.Queue[TranscriptSegment] | None = None) -> None:
         partials = partials if partials is not None else {}
         completed = completed if completed is not None else set()
         wake = wake if wake is not None else asyncio.Event()
@@ -196,8 +214,34 @@ class RoomRunner:
                              (datetime.now(timezone.utc) - chunk.ended_at).total_seconds())
                 except Exception:
                     LOG.warning("Could not publish transcript event: meeting=%s segment=%s", job.meeting_id, segment.segment_id)
+                if is_final and translations is not None:
+                    try:
+                        translations.put_nowait(segment)
+                    except asyncio.QueueFull:
+                        LOG.warning("Translation queue full: meeting=%s segment=%s", job.meeting_id, segment.segment_id)
             except Exception:
                 LOG.exception("Transcript processing failed: meeting=%s", job.meeting_id)
             finally:
                 if is_final:
                     queue.task_done()
+
+    async def _translate(self, job: Job, room, queue: asyncio.Queue[TranscriptSegment],
+                         custom_instructions: str = "", prompt_version_id: str = "untracked") -> None:
+        while True:
+            segment = await queue.get()
+            try:
+                target = "en" if segment.source_language == "vi" else "vi"
+                started = perf_counter()
+                translated = await self._translator.translate(segment.text, segment.source_language, target, custom_instructions)
+                await room.local_participant.publish_data(
+                    json.dumps(segment.translation_event(target, translated), ensure_ascii=False),
+                    reliable=True, topic=TOPIC,
+                )
+                LOG.info("Translation published meeting=%s segment=%s version=%s target=%s latency_seconds=%.2f waiting=%s",
+                         job.meeting_id, segment.segment_id, prompt_version_id, target, perf_counter() - started, queue.qsize())
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                LOG.exception("Translation failed: meeting=%s segment=%s", job.meeting_id, segment.segment_id)
+            finally:
+                queue.task_done()

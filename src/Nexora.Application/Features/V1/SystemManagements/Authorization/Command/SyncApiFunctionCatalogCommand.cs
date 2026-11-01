@@ -26,6 +26,7 @@ public sealed class SyncApiFunctionCatalogCommandHandler(IUnitOfWork unitOfWork,
             ["authorization"] = new(null, 6, true, false, "#"),
             ["department"] = new(null, 7, true, false, "#"),
             ["organization"] = new(null, 8, true, false, "#"),
+            ["system_prompt"] = new(null, 9, true, false, "/catalog/system-prompts"),
             ["auth.login"] = new("AUTH", 1, false),
             ["auth.refresh"] = new("AUTH", 2, false),
             ["auth.logout"] = new("AUTH", 3, false),
@@ -96,7 +97,13 @@ public sealed class SyncApiFunctionCatalogCommandHandler(IUnitOfWork unitOfWork,
             ["organization.update"] = new("ORGANIZATION", 30),
             ["organization.suspend"] = new("ORGANIZATION", 40),
             ["organization.activate"] = new("ORGANIZATION", 50),
-            ["organization.archive"] = new("ORGANIZATION", 60)
+            ["organization.archive"] = new("ORGANIZATION", 60),
+            ["system_prompt.read"] = new("SYSTEM_PROMPT", 10),
+            ["system_prompt.read.versions"] = new("SYSTEM_PROMPT", 11),
+            ["system_prompt.draft.update"] = new("SYSTEM_PROMPT", 20),
+            ["system_prompt.preview"] = new("SYSTEM_PROMPT", 30),
+            ["system_prompt.publish"] = new("SYSTEM_PROMPT", 40),
+            ["system_prompt.restore"] = new("SYSTEM_PROMPT", 50)
         };
 
     private static readonly IReadOnlyList<ApiFunctionDefinition> Definitions =
@@ -109,6 +116,7 @@ public sealed class SyncApiFunctionCatalogCommandHandler(IUnitOfWork unitOfWork,
         new("AUTHORIZATION", "Authorization", "Authorization", ApiHttpMethod.Any, "#", ApiActionType.Read, ApiRiskLevel.Low, "ApiFunction controller"),
         new("DEPARTMENT", "Department", "Department", ApiHttpMethod.Any, "#", ApiActionType.Read, ApiRiskLevel.Low, "Department controller"),
         new("ORGANIZATION", "Organization", "Organization", ApiHttpMethod.Any, "#", ApiActionType.Read, ApiRiskLevel.Low, "Organization controller"),
+        new("SYSTEM_PROMPT", "SystemPrompt", "System Prompt", ApiHttpMethod.Any, "#", ApiActionType.Read, ApiRiskLevel.Low, "Organization system prompt management"),
         new("auth.login", "Auth", "Login", ApiHttpMethod.Post, "/api/auth/login", ApiActionType.Write, ApiRiskLevel.Medium),
         new("auth.refresh", "Auth", "Refresh token", ApiHttpMethod.Post, "/api/auth/refresh", ApiActionType.Write, ApiRiskLevel.Medium),
         new("auth.logout", "Auth", "Logout", ApiHttpMethod.Post, "/api/auth/logout", ApiActionType.Write, ApiRiskLevel.Medium),
@@ -180,7 +188,13 @@ public sealed class SyncApiFunctionCatalogCommandHandler(IUnitOfWork unitOfWork,
         new("organization.update", "Organization", "Update organization", ApiHttpMethod.Put, "/api/organizations/{organizationId:guid}", ApiActionType.Admin, ApiRiskLevel.High),
         new("organization.suspend", "Organization", "Suspend organization", ApiHttpMethod.Post, "/api/organizations/{organizationId:guid}/suspend", ApiActionType.Admin, ApiRiskLevel.High),
         new("organization.activate", "Organization", "Activate organization", ApiHttpMethod.Post, "/api/organizations/{organizationId:guid}/activate", ApiActionType.Admin, ApiRiskLevel.High),
-        new("organization.archive", "Organization", "Archive organization", ApiHttpMethod.Post, "/api/organizations/{organizationId:guid}/archive", ApiActionType.Admin, ApiRiskLevel.High)
+        new("organization.archive", "Organization", "Archive organization", ApiHttpMethod.Post, "/api/organizations/{organizationId:guid}/archive", ApiActionType.Admin, ApiRiskLevel.High),
+        new("system_prompt.read", "SystemPrompt", "Read system prompts", ApiHttpMethod.Get, "/api/system-prompts", ApiActionType.Read, ApiRiskLevel.Low),
+        new("system_prompt.read.versions", "SystemPrompt", "Read system prompt versions", ApiHttpMethod.Get, "/api/system-prompts/{promptType}/versions", ApiActionType.Read, ApiRiskLevel.Low),
+        new("system_prompt.draft.update", "SystemPrompt", "Save system prompt draft", ApiHttpMethod.Put, "/api/system-prompts/{promptType}/draft", ApiActionType.Write, ApiRiskLevel.Medium),
+        new("system_prompt.preview", "SystemPrompt", "Preview system prompt", ApiHttpMethod.Post, "/api/system-prompts/{promptType}/preview", ApiActionType.Write, ApiRiskLevel.Medium),
+        new("system_prompt.publish", "SystemPrompt", "Publish system prompt", ApiHttpMethod.Post, "/api/system-prompts/{promptType}/publish", ApiActionType.Admin, ApiRiskLevel.High),
+        new("system_prompt.restore", "SystemPrompt", "Restore system prompt version", ApiHttpMethod.Post, "/api/system-prompts/{promptType}/versions/{versionId:guid}/restore", ApiActionType.Admin, ApiRiskLevel.High)
     ];
 
     public async Task<Result> Handle(SyncApiFunctionCatalogCommand request, CancellationToken cancellationToken)

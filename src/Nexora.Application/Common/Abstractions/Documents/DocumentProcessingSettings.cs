@@ -19,13 +19,6 @@ public interface IDocumentIndexSettings
     string Distance { get; }
 }
 
-public interface IEmbeddingBatchScheduler
-{
-    Task WaitForDocumentBatchAsync(CancellationToken cancellationToken);
-    void MarkDocumentBatchCompleted();
-    Task WaitAfterRateLimitAsync(CancellationToken cancellationToken);
-}
-
 public sealed record TextChunk(int Ordinal, string Text, int? Start, int? End, float[]? Embedding = null);
 
 public sealed record DocumentChunkingProgress(string Phase, int Completed, int Total);

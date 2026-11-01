@@ -1,4 +1,3 @@
-using System.Net;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -33,7 +32,7 @@ public sealed class DocumentProcessingWorkflowTests
         var provider = new FakeEmbeddingProvider();
         var vectors = new FakeVectorStore();
 
-        await CreateHandler(store, provider, new FakeScheduler(), vectors)
+        await CreateHandler(store, provider, vectors)
             .Handle(new ProcessDocumentVersionCommand(store.Version.Id), default);
 
         Assert.Equal(status, store.Version.ProcessingStatus);
@@ -42,35 +41,33 @@ public sealed class DocumentProcessingWorkflowTests
     }
 
     [Fact]
-    public void Gemini_settings_select_the_new_index_and_collection()
+    public void Ollama_settings_select_the_new_index_and_collection()
     {
         var settings = new DocumentIndexSettings(
             Options.Create(new DocumentProcessingOptions()),
-            Options.Create(new EmbeddingOptions { Dimension = 768 }),
-            Options.Create(new QdrantOptions { CollectionName = "nexora_documents_gemini_001", EmbeddingDimension = 768 }));
+            Options.Create(new EmbeddingOptions { Model = "qwen3-embedding:0.6b", Dimension = 1024 }),
+            Options.Create(new QdrantOptions { CollectionName = "nexora_documents_qwen3_embedding_06b_1024_v1", EmbeddingDimension = 1024 }));
 
-        Assert.Equal("Gemini", settings.ActiveProvider);
-        Assert.Equal("gemini-embedding-001", settings.IndexName);
-        Assert.Equal("gemini-embedding-001", settings.EmbeddingModel);
-        Assert.Equal("nexora_documents_gemini_001", settings.CollectionName);
-        Assert.Equal(768, settings.EmbeddingDimension);
+        Assert.Equal("Ollama", settings.ActiveProvider);
+        Assert.Equal("qwen3-embedding_0.6b_1024_v1", settings.IndexName);
+        Assert.Equal("qwen3-embedding:0.6b", settings.EmbeddingModel);
+        Assert.Equal("nexora_documents_qwen3_embedding_06b_1024_v1", settings.CollectionName);
+        Assert.Equal(1024, settings.EmbeddingDimension);
     }
 
     [Fact]
-    public async Task Indexes_five_chunks_per_batch_and_retries_429_without_duplicates()
+    public async Task Indexes_five_chunks_per_batch_without_duplicates()
     {
         var store = new FakeStore(11);
-        var provider = new FakeEmbeddingProvider(failFirst: true);
-        var scheduler = new FakeScheduler();
+        var provider = new FakeEmbeddingProvider();
         var vectorStore = new FakeVectorStore();
-        var handler = CreateHandler(store, provider, scheduler, vectorStore);
+        var handler = CreateHandler(store, provider, vectorStore);
 
         await handler.Handle(new ProcessDocumentVersionCommand(store.Version.Id), default);
         await handler.Handle(new ProcessDocumentVersionCommand(store.Version.Id), default);
 
         Assert.Equal([5, 5, 1], vectorStore.BatchSizes);
-        Assert.Equal(4, provider.Calls);
-        Assert.Equal(1, scheduler.RetryCount);
+        Assert.Equal(3, provider.Calls);
         Assert.Equal(11, store.Records.Count);
         Assert.Equal("READY", store.Version.ProcessingStatus);
         Assert.Null(store.Version.FailureCode);
@@ -81,7 +78,7 @@ public sealed class DocumentProcessingWorkflowTests
     {
         var store = new FakeStore(11, alreadyIndexed: 5);
         var vectorStore = new FakeVectorStore();
-        var handler = CreateHandler(store, new FakeEmbeddingProvider(), new FakeScheduler(), vectorStore);
+        var handler = CreateHandler(store, new FakeEmbeddingProvider(), vectorStore);
 
         await handler.Handle(new ProcessDocumentVersionCommand(store.Version.Id), default);
 
@@ -96,7 +93,7 @@ public sealed class DocumentProcessingWorkflowTests
         store.Content["source"] = "first second";
         var provider = new FakeEmbeddingProvider();
         var vectorStore = new FakeVectorStore();
-        var handler = CreateHandler(store, provider, new FakeScheduler(), vectorStore,
+        var handler = CreateHandler(store, provider, vectorStore,
             chunker: new PresetChunker(), extractor: new PresetExtractor());
 
         await handler.Handle(new ProcessDocumentVersionCommand(store.Version.Id), default);
@@ -111,19 +108,19 @@ public sealed class DocumentProcessingWorkflowTests
     }
 
     [Fact]
-    public async Task Gemini_index_becomes_active_only_after_all_documents_are_indexed()
+    public async Task Ollama_index_becomes_active_only_after_all_documents_are_indexed()
     {
         var store = new FakeStore(6) { OtherDocumentsPending = true };
         store.Version.SetProcessingStatus("READY");
         store.Document.SetStatus("READY");
         var vectorStore = new FakeVectorStore();
-        var handler = CreateHandler(store, new FakeEmbeddingProvider(), new FakeScheduler(), vectorStore);
+        var handler = CreateHandler(store, new FakeEmbeddingProvider(), vectorStore);
 
         await handler.Handle(new ProcessDocumentVersionCommand(store.Version.Id), default);
-        Assert.Equal("gemini-embedding-001", store.Index!.IndexName);
-        Assert.Equal("nexora_documents_gemini_001", store.Index.CollectionName);
+        Assert.Equal("qwen3-embedding_0.6b_1024_v1", store.Index!.IndexName);
+        Assert.Equal("nexora_documents_qwen3_embedding_06b_1024_v1", store.Index.CollectionName);
         Assert.Equal("BUILDING", store.Index.Status);
-        Assert.Equal(["nexora_documents_gemini_001", "nexora_documents_gemini_001"], vectorStore.Collections);
+        Assert.Equal(["nexora_documents_qwen3_embedding_06b_1024_v1", "nexora_documents_qwen3_embedding_06b_1024_v1"], vectorStore.Collections);
 
         store.OtherDocumentsPending = false;
         await handler.Handle(new ProcessDocumentVersionCommand(store.Version.Id), default);
@@ -133,38 +130,19 @@ public sealed class DocumentProcessingWorkflowTests
     }
 
     [Fact]
-    public async Task Creates_Gemini_index_without_reusing_legacy_model_index()
+    public async Task Creates_Ollama_index_without_reusing_legacy_model_index()
     {
         var store = new FakeStore(2, legacyIndex: true);
         var legacyId = store.Index!.Id;
-        var handler = CreateHandler(store, new FakeEmbeddingProvider(), new FakeScheduler(), new FakeVectorStore());
+        var handler = CreateHandler(store, new FakeEmbeddingProvider(), new FakeVectorStore());
 
         await handler.Handle(new ProcessDocumentVersionCommand(store.Version.Id), default);
 
         Assert.NotEqual(legacyId, store.Index!.Id);
-        Assert.Equal("gemini-embedding-001", store.Index.IndexName);
-        Assert.Equal("nexora_documents_gemini_001", store.Index.CollectionName);
+        Assert.Equal("qwen3-embedding_0.6b_1024_v1", store.Index.IndexName);
+        Assert.Equal("nexora_documents_qwen3_embedding_06b_1024_v1", store.Index.CollectionName);
         Assert.Equal(2, store.Records.Count);
         Assert.Equal("READY", store.Version.ProcessingStatus);
-    }
-
-    [Fact]
-    public async Task Shared_limiter_rejects_a_twenty_fifth_input_until_window_opens()
-    {
-        var limiter = new EmbeddingRateLimiter(Options.Create(new DocumentProcessingOptions()), TimeProvider.System, Microsoft.Extensions.Logging.Abstractions.NullLogger<EmbeddingRateLimiter>.Instance);
-        await limiter.WaitAsync(24, default);
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMilliseconds(50));
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => limiter.WaitAsync(1, timeout.Token));
-    }
-
-    [Fact]
-    public async Task Document_batches_wait_for_configured_interval()
-    {
-        var limiter = new EmbeddingRateLimiter(Options.Create(new DocumentProcessingOptions { BatchIntervalSeconds = 35 }), TimeProvider.System, Microsoft.Extensions.Logging.Abstractions.NullLogger<EmbeddingRateLimiter>.Instance);
-        await limiter.WaitForDocumentBatchAsync(default);
-        limiter.MarkDocumentBatchCompleted();
-        using var timeout = new CancellationTokenSource(TimeSpan.FromMilliseconds(50));
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => limiter.WaitForDocumentBatchAsync(timeout.Token));
     }
 
     [Fact]
@@ -265,11 +243,11 @@ public sealed class DocumentProcessingWorkflowTests
     }
 
     private static ProcessDocumentVersionCommandHandler CreateHandler(FakeStore store, FakeEmbeddingProvider provider,
-        FakeScheduler scheduler, FakeVectorStore vectorStore, IDocumentIndexSettings? indexSettings = null,
+        FakeVectorStore vectorStore, IDocumentIndexSettings? indexSettings = null,
         IDocumentTextChunker? chunker = null, IDocumentTextExtractor? extractor = null) => new(
         new FakeUnitOfWork(), store, new FakeStorage(store), extractor ?? new UnusedExtractor(), provider, vectorStore,
         new TestClock(), new TestStorageSettings(), indexSettings ?? new TestIndexSettings(), chunker ?? new DocumentTextChunker(),
-        new DocumentChunkingProgressStore(), scheduler,
+        new DocumentChunkingProgressStore(),
         NullLogger<ProcessDocumentVersionCommandHandler>.Instance);
 
     private sealed class FakeStore : IDocumentProcessingStore
@@ -295,9 +273,9 @@ public sealed class DocumentProcessingWorkflowTests
             Document.SetCurrentVersion(Version.Id);
             Version.SetProcessingStatus("INDEXING");
             if (alreadyIndexed > 0 || legacyIndex)
-                Index = RagIndex.Create(org, legacyIndex ? "default" : "gemini-embedding-001", "qdrant",
-                    legacyIndex ? "nexora_documents" : "nexora_documents_gemini_001",
-                    legacyIndex ? "text-embedding-004" : "gemini-embedding-001", 2, "Cosine",
+                Index = RagIndex.Create(org, legacyIndex ? "default" : "qwen3-embedding_0.6b_1024_v1", "qdrant",
+                    legacyIndex ? "nexora_documents" : "nexora_documents_qwen3_embedding_06b_1024_v1",
+                    legacyIndex ? "text-embedding-004" : "qwen3-embedding:0.6b", 2, "Cosine",
                     new string('a', 64), DateTimeOffset.UtcNow);
             for (var i = 0; i < chunkCount; i++)
             {
@@ -371,23 +349,14 @@ public sealed class DocumentProcessingWorkflowTests
             ]);
     }
 
-    private sealed class FakeEmbeddingProvider(bool failFirst = false) : IEmbeddingProvider
+    private sealed class FakeEmbeddingProvider : IEmbeddingProvider
     {
         public int Calls { get; private set; }
         public Task<IReadOnlyList<float[]>> EmbedAsync(IReadOnlyCollection<string> inputs, CancellationToken ct)
         {
             Calls++;
-            if (failFirst && Calls == 1) throw new HttpRequestException("rate limited", null, HttpStatusCode.TooManyRequests);
             return Task.FromResult<IReadOnlyList<float[]>>(inputs.Select(_ => new float[] { 1, 2 }).ToArray());
         }
-    }
-
-    private sealed class FakeScheduler : IEmbeddingBatchScheduler
-    {
-        public int RetryCount { get; private set; }
-        public Task WaitForDocumentBatchAsync(CancellationToken ct) => Task.CompletedTask;
-        public void MarkDocumentBatchCompleted() { }
-        public Task WaitAfterRateLimitAsync(CancellationToken ct) { RetryCount++; return Task.CompletedTask; }
     }
 
     private sealed class FakeVectorStore : IVectorStore
@@ -411,15 +380,15 @@ public sealed class DocumentProcessingWorkflowTests
     private sealed class TestStorageSettings : IDocumentStorageSettings { public string Bucket => "test"; }
     private sealed class TestIndexSettings : IDocumentIndexSettings
     {
-        public string ActiveProvider => "Gemini";
-        public string IndexName => "gemini-embedding-001";
+        public string ActiveProvider => "Ollama";
+        public string IndexName => "qwen3-embedding_0.6b_1024_v1";
         public int BatchSize => 5;
         public int ChunkSizeCharacters => 1200;
         public int ChunkOverlapCharacters => 200;
         public int EmbeddingDimension => 2;
         public int VectorDimension => 2;
-        public string CollectionName => "nexora_documents_gemini_001";
-        public string EmbeddingModel => "gemini-embedding-001";
+        public string CollectionName => "nexora_documents_qwen3_embedding_06b_1024_v1";
+        public string EmbeddingModel => "qwen3-embedding:0.6b";
         public string Distance => "Cosine";
     }
 

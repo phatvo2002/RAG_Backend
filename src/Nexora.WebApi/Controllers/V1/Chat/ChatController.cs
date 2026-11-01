@@ -1,8 +1,10 @@
 using System.Text.Json;
-using System.Net;
+using System.Diagnostics;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using Nexora.Application.Features.V1.Chat.Command;
+using Nexora.Application.Features.V1.Chat;
+using Nexora.Application.Common.Abstractions.Chat;
 using Nexora.Application.Features.V1.Chat.Model;
 using Nexora.Application.Features.V1.Chat.Query;
 using Nexora.Application.Features.V1.Rag.Retrieval.Query;
@@ -15,6 +17,7 @@ namespace Nexora.WebApi.Controllers.V1.Chat;
 [Route("api/chat")]
 public sealed class ChatController(ISender sender, ILogger<ChatController> logger) : BaseController
 {
+    private static readonly ChatIntentRouter IntentRouter = new();
     [HttpGet("models")]
     public async Task<IActionResult> Models(CancellationToken cancellationToken)
     {
@@ -23,7 +26,12 @@ public sealed class ChatController(ISender sender, ILogger<ChatController> logge
         {
             defaultModel = configuration.Models.FirstOrDefault()?.Id ?? "",
             models = configuration.Models,
-            configurationError = configuration.ConfigurationError
+            configurationError = configuration.ConfigurationError,
+            contextWindowTokens = configuration.ContextWindowTokens,
+            maxOutputTokens = configuration.MaxOutputTokens,
+            estimatedRetrievedContextTokens = configuration.EstimatedRetrievedContextTokens,
+            estimatedSystemPromptTokens = configuration.EstimatedSystemPromptTokens,
+            maxQuestionCharacters = configuration.MaxQuestionCharacters
         });
     }
 
@@ -56,7 +64,7 @@ public sealed class ChatController(ISender sender, ILogger<ChatController> logge
     public async Task Stream([FromBody] ChatTurnRequest request, CancellationToken cancellationToken)
     {
         var configuration = await sender.Send(new GetChatConfigurationQuery(), cancellationToken);
-        if (!configuration.ChatEncryptionConfigured || !configuration.ProviderKeyEncryptionConfigured)
+        if (!configuration.ChatEncryptionConfigured)
         {
             Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
             return;
@@ -72,9 +80,6 @@ public sealed class ChatController(ISender sender, ILogger<ChatController> logge
             Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
             return;
         }
-        var credential = await sender.Send(new GetChatCredentialQuery(chosen.Provider), cancellationToken);
-        if (credential is null) { Response.StatusCode = StatusCodes.Status400BadRequest; return; }
-
         ChatTurnStart start;
         try
         {
@@ -97,26 +102,48 @@ public sealed class ChatController(ISender sender, ILogger<ChatController> logge
         await EmitAsync("started", new { start.ConversationId, start.RequestMessageId, start.TurnId, start.Model }, cancellationToken);
         try
         {
-            var retrieval = await sender.Send(new RetrieveDocumentsQuery(request.Question), cancellationToken);
-            await EmitAsync("sources", retrieval.Results, cancellationToken);
+            var history = await sender.Send(new GetChatPromptHistoryQuery(start.ConversationId, start.RequestMessageId), cancellationToken);
+            var isGreeting = IntentRouter.IsStandaloneSmallTalk(request.Question);
+            var previousUserQuestion = history.LastOrDefault(message => message.Role == "user")?.Content;
+            var retrievalQuestion = IntentRouter.RetrievalQuestion(request.Question, previousUserQuestion);
+            var retrieval = isGreeting
+                ? null
+                : await sender.Send(new RetrieveDocumentsQuery(retrievalQuestion), cancellationToken);
+            var assessmentTimer = Stopwatch.StartNew();
+            var decision = retrieval is null || retrieval.DepartmentAccessDenied
+                ? null
+                : await sender.Send(new AssessChatEvidenceQuery(request.Question, retrieval,
+                    retrievalQuestion == request.Question ? null : previousUserQuestion), cancellationToken);
+            assessmentTimer.Stop();
+            var sources = decision?.Sources ?? Array.Empty<RetrievedChunkResponse>();
+            await EmitAsync("sources", sources, cancellationToken);
+            logger.LogInformation("Chat turn {TurnId} evidence mode {Mode}; top retrieval score {TopScore}; candidates {CandidateCount}; accepted sources {SourceCount}; assessment {AssessmentMs} ms.",
+                start.TurnId, decision?.Mode.ToString() ?? (isGreeting ? "Greeting" : "Denied"),
+                retrieval?.TopScore, retrieval?.Results.Count ?? 0, sources.Count, assessmentTimer.ElapsedMilliseconds);
             string answer;
             var completedTurn = start;
-            if (retrieval.DepartmentAccessDenied)
+            if (retrieval?.DepartmentAccessDenied == true)
             {
-                answer = "No access";
+                answer = "You do not have access to the relevant department documents.";
+                await EmitAsync("delta", new { text = answer }, cancellationToken);
+            }
+            else if (decision?.Mode is ChatEvidenceMode.Missing or ChatEvidenceMode.Clarify)
+            {
+                answer = ChatEvidenceResponses.ForQuestion(request.Question, decision.Mode);
                 await EmitAsync("delta", new { text = answer }, cancellationToken);
             }
             else
             {
-                var history = await sender.Send(new GetChatPromptHistoryQuery(start.ConversationId, start.RequestMessageId), cancellationToken);
                 var candidates = configuration.Models
                     .Where(model => string.Equals(model.Provider, chosen.Provider, StringComparison.OrdinalIgnoreCase))
                     .ToArray();
                 var result = await ChatModelFallbackRunner.RunAsync(
                     candidates,
                     (model, token) => sender.Send(new StreamChatGenerationQuery(model, history,
-                        retrieval.Results.Count == 0 ? RagContextComposer.ComposeWithoutSources(request.Question) : retrieval.AugmentedContext,
-                        credential), token),
+                        decision is null || decision.Mode == ChatEvidenceMode.General
+                            ? RagContextComposer.ComposeGeneralQuestion(request.Question)
+                            : decision.Context,
+                        start.SystemPromptInstructions), token),
                     (delta, token) => EmitAsync("delta", new { text = delta }, token),
                     (model, token) => EmitAsync("reset", new { modelName = model.Name }, token),
                     (failedModel, nextModel, exception) => logger.LogWarning(exception,
@@ -126,7 +153,7 @@ public sealed class ChatController(ISender sender, ILogger<ChatController> logge
                 completedTurn = start with { Model = result.Model };
             }
 
-            var message = await sender.Send(new CompleteChatTurnCommand(completedTurn, answer, retrieval.Results, retrieval.Results.Count == 0), cancellationToken);
+            var message = await sender.Send(new CompleteChatTurnCommand(completedTurn, answer, sources, sources.Count == 0), cancellationToken);
             await EmitAsync("completed", message, cancellationToken);
         }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -139,8 +166,10 @@ public sealed class ChatController(ISender sender, ILogger<ChatController> logge
             await sender.Send(new FailChatTurnCommand(start, "GENERATION_FAILED"), CancellationToken.None);
             if (!cancellationToken.IsCancellationRequested)
             {
-                var message = exception is HttpRequestException { StatusCode: HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden }
-                    ? "Khóa API của mô hình hiện tại không hợp lệ hoặc không có quyền truy cập. Hãy cập nhật khóa trong Thông tin cá nhân."
+                var message = exception is ChatContextWindowExceededException contextException
+                    ? $"Tin nhắn này vượt context window ước tính ({contextException.EstimatedTokens:N0}/{contextException.MaximumPromptTokens:N0} token khả dụng). Hãy rút ngắn câu hỏi hoặc bắt đầu hội thoại mới."
+                    : exception is HttpRequestException
+                    ? "Không thể kết nối Ollama hoặc model chưa được tải. Vui lòng liên hệ quản trị viên."
                     : "Không thể tạo câu trả lời lúc này. Vui lòng thử lại.";
                 await EmitAsync("error", new { message }, cancellationToken);
             }

@@ -1,23 +1,34 @@
-# Step 4 chat configuration
+# Chat với tài liệu bằng Ollama
 
-Apply the `AddChatMessageDeletionAndSources` EF migration before enabling the new chat API. Existing indexed documents and the Step 2/3 retrieval endpoint are unchanged.
+WebApi dùng `qwen3.5:4b` để tạo câu trả lời và `qwen3-embedding:0.6b` để tìm tài liệu. Cả hai chạy trên Ollama nội bộ; người dùng không cần cấu hình API key Gemini hoặc Claude.
 
-Configure these server-side environment variables (double underscores map to configuration colons):
+## Cấu hình
 
-| Variable | Purpose |
+| Biến | Mục đích |
 | --- | --- |
-| `Chat__EncryptionKeyBase64` | Required stable base64 encoding of 32 random bytes. Back it up securely; losing or rotating it without re-encryption makes stored chat content unreadable. |
-| `Chat__DepartmentMatchThreshold` | Minimum Qdrant cosine score for treating the best company-wide match as a relevant department-scoped document. Defaults to `0.70`; valid values are from `0` to `1`. |
-| `Chat__GeminiApiKey` | Gemini generation key. If empty, the server uses the existing `Embedding__ApiKey`. |
-| `Chat__GeminiModel` | Default Gemini model ID; defaults to `gemini-3.5-flash-lite`. The chat model list also offers Gemini 3.8 Flash, Gemini 3.6 Flash, Gemini 3.1 Flash Lite, and Gemini 2.5 Flash Lite when a Gemini key is configured. `gemini-2.5-flash` is no longer offered; an existing override with that value falls back to `gemini-3.5-flash-lite`. |
-| `Chat__ClaudeApiKey` | Claude generation key. Claude is hidden from the selector while this is empty. |
-| `Chat__ClaudeBaseUrl` | Anthropic-compatible API base URL; defaults to `https://api.anthropic.com/v1`. For the gateway shown by the user, use `https://api.mwapi.dev/v1`. The server appends `/messages`. |
-| `Chat__ClaudeModel` | Claude Sonnet model ID; defaults to `claude-sonnet-5`. |
+| `Chat__EncryptionKeyBase64` | Base64 của 32 byte ngẫu nhiên, giữ ổn định để đọc lịch sử chat đã mã hóa. |
+| `Ollama__Url` | URL Ollama mà WebApi truy cập được; Compose dùng `http://ollama:11434/`. |
+| `Chat__Model` | Model trả lời, mặc định `qwen3.5:4b`. |
+| `Embedding__Model` | Model tạo vector, mặc định `qwen3-embedding:0.6b`. |
+| `Chat__DepartmentMatchThreshold` | Ngưỡng kiểm tra tài liệu thuộc phòng ban, mặc định `0.70`. |
+| `Chat__MinimumRagScore` | Điểm cosine thấp nhất để một chunk được đưa vào context và danh sách nguồn, mặc định `0.65`. |
+| `Chat__EvidenceAssessmentTimeoutSeconds` | Giới hạn thời gian cho lần gọi Ollama kiểm tra căn cứ, mặc định 60 giây. |
 
-Generate a key once with `([Convert]::ToBase64String([Security.Cryptography.RandomNumberGenerator]::GetBytes(32)))` in PowerShell and store it in the deployment secret store. Do not commit it to appsettings. The configured chat key remains stable across deployments and restarts.
+Tải model một lần vào volume Ollama:
 
-For local development with an Anthropic-compatible gateway, set `Chat:ClaudeBaseUrl` and `Chat:ClaudeApiKey` in the Web API user secrets. Use a newly rotated gateway key, and set `Chat:ClaudeModel` to a model ID that the gateway supports. This gateway receives the retrieved document passages used to generate each answer.
+```powershell
+docker compose up -d ollama
+docker compose exec ollama ollama pull qwen3.5:4b
+docker compose exec ollama ollama pull qwen3-embedding:0.6b
+```
 
-`GET /api/chat/models` lists enabled choices. The browser sends the selected model ID, a question, and a UUID request ID to `POST /api/chat/turns/stream`. Generation stays on the server and streams SSE events. A new conversation is created on its first message. Chat requests require an active organization membership; conversation and message reads are scoped to the signed-in owner. Old assistant answers are omitted when their cited chunks are no longer accessible.
+`GET /api/chat/models` trả model local mà không đọc khóa của từng người dùng. `POST /api/chat/turns/stream` tiếp tục phát `started`, `sources`, `delta`, `completed` và `error` qua SSE. WebApi giữ nguyên quyền truy cập tài liệu và mã hóa lịch sử chat. Nếu Ollama ngừng hoạt động hoặc thiếu model, lượt chat thất bại và giao diện báo lỗi; hệ thống không gọi dịch vụ AI trả phí.
 
-Before generation, retrieval compares the best company-wide indexed match with the signed-in user's existing document access. If the best match is a department-scoped document, meets `Chat__DepartmentMatchThreshold`, and is not accessible under the existing membership, ownership, or grant rules, chat returns `No access` without loading that document's chunk content. Otherwise, the model receives only authorized passages. If no relevant company document matches, the existing no-source response is returned.
+## Luồng chọn cách trả lời
+
+1. Lời chào hoặc small talk độc lập (chẳng hạn `Xin chào`, `How are you?`) đi thẳng tới Ollama, không tạo embedding hoặc gọi Qdrant. Nếu câu có thêm nội dung hỏi về công ty/tài liệu, hệ thống xử lý phần hỏi qua RAG.
+2. Các câu hỏi còn lại tìm kiếm vector. Hệ thống kiểm tra phạm vi phòng ban trước. Nếu kết quả tốt nhất thuộc tài liệu phòng ban mà người dùng không được xem và vượt `Chat__DepartmentMatchThreshold`, câu trả lời bị từ chối và không đọc nội dung chunk.
+3. Sau kiểm tra quyền, chunk có cosine score từ `Chat__MinimumRagScore` trở lên chỉ là ứng viên. Ollama local kiểm tra đoạn trích có trả lời đúng câu hỏi hay không; backend xác nhận đoạn trích nguyên văn và chỉ đưa nguồn đã được chấp nhận vào `sources`, context và citation.
+4. Nếu không có căn cứ, câu hỏi về số liệu hiện tại hoặc thông tin nội bộ nhận phản hồi thiếu căn cứ; yêu cầu giới thiệu chung có thể được trả lời ở mức khái quát, không có citation. Lỗi embedding, Qdrant hoặc Ollama làm lượt chat thất bại, không tự chuyển sang câu trả lời tổng quát.
+
+Câu hỏi và nguồn truy xuất được đánh dấu thành các phần riêng. Nguồn tài liệu được xem là dữ liệu không đáng tin, không phải chỉ thị cho model. System Prompt đã xuất bản của organization điều khiển cách diễn đạt; mã nguồn chỉ giữ quy tắc bảo mật tối thiểu. Bước đánh giá thêm một lần gọi Ollama và có thể đánh giá sai với model nhỏ, nên cần đo độ trễ và chất lượng trên câu hỏi thật. Bản nháp System Prompt chưa xuất bản không ảnh hưởng tới lượt chat.

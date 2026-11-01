@@ -95,12 +95,10 @@ public sealed class ProviderKeyTests
     }
 
     [Fact]
-    public void Models_require_the_corresponding_provider_key()
+    public void Local_model_does_not_require_a_provider_key()
     {
-        var models = new ChatModelStreamer(new HttpClient(), Options.Create(new ChatOptions()));
-        Assert.Empty(models.AvailableModels(false, false));
-        Assert.All(models.AvailableModels(true, false), model => Assert.Equal("Gemini", model.Provider));
-        Assert.Single(models.AvailableModels(false, true));
+        var models = new ChatModelStreamer(new HttpClient(), Options.Create(new ChatOptions()), new LocalInferenceScheduler());
+        Assert.Equal("Ollama", Assert.Single(models.AvailableModels()).Provider);
     }
 
     private static NexoraDbContext Database() => new(new DbContextOptionsBuilder<NexoraDbContext>()

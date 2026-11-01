@@ -106,6 +106,7 @@ internal sealed class AiTurnConfiguration : IEntityTypeConfiguration<AiTurn>
         builder.Property(x => x.ModelProvider).HasColumnName("modelProvider").HasMaxLength(100);
         builder.Property(x => x.ModelName).HasColumnName("modelName").HasMaxLength(200);
         builder.Property(x => x.PromptVersion).HasColumnName("promptVersion").HasMaxLength(100);
+        builder.Property(x => x.SystemPromptVersionId).HasColumnName("systemPromptVersionId");
         builder.Property(x => x.InputTokens).HasColumnName("inputTokens");
         builder.Property(x => x.OutputTokens).HasColumnName("outputTokens");
         builder.Property(x => x.LatencyMs).HasColumnName("latencyMs");
@@ -124,6 +125,7 @@ internal sealed class AiTurnConfiguration : IEntityTypeConfiguration<AiTurn>
         builder.HasOne<Conversation>().WithMany().HasForeignKey(x => x.ConversationId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Message>().WithMany().HasForeignKey(x => x.RequestMessageId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Message>().WithMany().HasForeignKey(x => x.ResponseMessageId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<SystemPromptVersion>().WithMany().HasForeignKey(x => x.SystemPromptVersionId).OnDelete(DeleteBehavior.Restrict);
     }
 }
 

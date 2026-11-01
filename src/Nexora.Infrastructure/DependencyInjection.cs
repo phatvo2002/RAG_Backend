@@ -101,13 +101,21 @@ public static class DependencyInjection
         services.AddOptions<StorageOptions>().Bind(configuration.GetSection(StorageOptions.SectionName));
         services.AddOptions<QdrantOptions>().Bind(configuration.GetSection(QdrantOptions.SectionName));
         services.AddOptions<EmbeddingOptions>().Bind(configuration.GetSection(EmbeddingOptions.SectionName));
+        services.AddOptions<OllamaOptions>().Bind(configuration.GetSection(OllamaOptions.SectionName));
         services.AddOptions<DocumentProcessingOptions>().Bind(configuration.GetSection(DocumentProcessingOptions.SectionName));
         services.AddOptions<ChatOptions>()
             .Bind(configuration.GetSection(ChatOptions.SectionName))
             .Validate(options => float.IsFinite(options.DepartmentMatchThreshold) &&
                 options.DepartmentMatchThreshold is >= 0f and <= 1f &&
-                options.MaxOutputTokens is >= 256 and <= 2048,
-                "Chat:DepartmentMatchThreshold must be between 0 and 1 and MaxOutputTokens between 256 and 2048.")
+                float.IsFinite(options.MinimumRagScore) &&
+                options.MinimumRagScore is >= 0f and <= 1f &&
+                options.EvidenceAssessmentTimeoutSeconds is >= 10 and <= 300 &&
+                options.MaxOutputTokens is >= 256 and <= 2048 &&
+                options.ContextWindowTokens is >= 4096 and <= 32768 &&
+                options.MaxOutputTokens < options.ContextWindowTokens &&
+                options.EstimatedRetrievedContextTokens >= 0 &&
+                options.EstimatedRetrievedContextTokens < options.ContextWindowTokens - options.MaxOutputTokens,
+                "Chat context window must be 4096-32768 tokens, output 256-2048 tokens, RAG score thresholds must be between 0 and 1, and the retrieved-context estimate must fit the remaining prompt budget.")
             .ValidateOnStart();
         services.AddSingleton<IDepartmentScopeOptions>(serviceProvider =>
             serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<ChatOptions>>().Value);
@@ -187,9 +195,19 @@ public static class DependencyInjection
         services.AddScoped<IProviderEndpointSettings>(serviceProvider => serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<ProviderKeyOptions>>().Value);
         services.AddScoped<IAccountStore, AccountSettingsStore>();
         services.AddScoped<IChatStore, ChatStore>();
+        services.AddScoped<ISystemPromptStore, SystemPromptStore>();
         services.AddScoped<IChatWorkflow, ChatWorkflow>();
         services.AddScoped<IChatProviderService, ChatProviderService>();
-        services.AddHttpClient<ChatModelStreamer>();
+        services.AddHttpClient<ChatModelStreamer>((provider, client) =>
+        {
+            client.BaseAddress = new Uri(provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<OllamaOptions>>().Value.Url.TrimEnd('/') + "/");
+            client.Timeout = TimeSpan.FromMinutes(5);
+        });
+        services.AddHttpClient<IChatEvidenceAssessor, OllamaChatEvidenceAssessor>((provider, client) =>
+        {
+            client.BaseAddress = new Uri(provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<OllamaOptions>>().Value.Url.TrimEnd('/') + "/");
+            client.Timeout = TimeSpan.FromSeconds(provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<ChatOptions>>().Value.EvidenceAssessmentTimeoutSeconds);
+        });
         services.AddScoped<IChatModelResolver>(serviceProvider => serviceProvider.GetRequiredService<ChatModelStreamer>());
         services.AddScoped<IDocumentTextExtractor, DocumentTextExtractor>();
 
@@ -204,13 +222,15 @@ public static class DependencyInjection
         services.AddSingleton<IMinioClient>(minioBuilder.Build());
         services.AddScoped<IObjectStorage, MinioObjectStorage>();
         services.AddSingleton(TimeProvider.System);
-        services.AddSingleton<EmbeddingRateLimiter>();
-        services.AddSingleton<IEmbeddingRateLimiter>(provider => provider.GetRequiredService<EmbeddingRateLimiter>());
-        services.AddSingleton<IEmbeddingBatchScheduler>(provider => provider.GetRequiredService<EmbeddingRateLimiter>());
-        services.AddHttpClient<IEmbeddingProvider, GeminiEmbeddingProvider>();
-        services.AddScoped<GeminiEmbeddingGeneratorAdapter>();
+        services.AddSingleton<ILocalInferenceScheduler, LocalInferenceScheduler>();
+        services.AddHttpClient<IEmbeddingProvider, OllamaEmbeddingProvider>((provider, client) =>
+        {
+            client.BaseAddress = new Uri(provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<OllamaOptions>>().Value.Url.TrimEnd('/') + "/");
+            client.Timeout = TimeSpan.FromMinutes(5);
+        });
+        services.AddScoped<EmbeddingGeneratorAdapter>();
         services.AddScoped<Microsoft.Extensions.AI.IEmbeddingGenerator<string, Microsoft.Extensions.AI.Embedding<float>>>(
-            provider => provider.GetRequiredService<GeminiEmbeddingGeneratorAdapter>());
+            provider => provider.GetRequiredService<EmbeddingGeneratorAdapter>());
         services.AddHttpClient<IVectorStore, QdrantVectorStore>((serviceProvider, client) =>
         {
             var options = serviceProvider.GetRequiredService<Microsoft.Extensions.Options.IOptions<QdrantOptions>>().Value;

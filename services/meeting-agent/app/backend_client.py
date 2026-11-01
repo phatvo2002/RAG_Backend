@@ -43,6 +43,26 @@ class BackendClient:
                 await asyncio.sleep(2 ** attempt)
         raise RuntimeError("Speaker language lookup failed after retries")
 
+    async def translation_prompt(self, meeting_id: UUID) -> tuple[str, str]:
+        url = f"/internal/meetings/{meeting_id}/translation-prompt"
+        for attempt in range(3):
+            try:
+                response = await self._client.get(url, headers=self._headers)
+                if response.status_code < 500 and response.status_code != 429:
+                    response.raise_for_status()
+                    payload = response.json()
+                    data = payload.get("data", payload)
+                    instructions = data.get("instructions")
+                    version_id = data.get("versionId")
+                    if isinstance(instructions, str) and isinstance(version_id, str):
+                        return version_id, instructions
+                    raise RuntimeError("Meeting translation prompt response was invalid")
+            except httpx.RequestError:
+                pass
+            if attempt < 2:
+                await asyncio.sleep(2 ** attempt)
+        raise RuntimeError("Meeting translation prompt lookup failed after retries")
+
     async def save_final(self, meeting_id: UUID, segment: TranscriptSegment) -> bool:
         url = f"/internal/meetings/{meeting_id}/transcript/{segment.segment_id}"
         payload = segment.payload()

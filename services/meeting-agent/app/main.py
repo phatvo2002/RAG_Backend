@@ -4,6 +4,7 @@ import signal
 
 from .backend_client import BackendClient
 from .config import Settings
+from .ollama_client import OllamaClient
 from .room_runner import RoomRunner
 from .transcriber import Transcriber
 
@@ -15,11 +16,12 @@ async def run() -> None:
     settings = Settings.from_env()
     transcriber = Transcriber(settings.model_path)
     backend = BackendClient(settings)
+    translator = OllamaClient(settings.ollama_url, settings.translation_model)
     stopping = asyncio.Event()
     loop = asyncio.get_running_loop()
     for current in (signal.SIGINT, signal.SIGTERM):
         loop.add_signal_handler(current, stopping.set)
-    runner = RoomRunner(backend, transcriber, settings.poll_seconds)
+    runner = RoomRunner(backend, transcriber, settings.poll_seconds, translator)
     try:
         while not stopping.is_set():
             try:
@@ -36,6 +38,7 @@ async def run() -> None:
                 pass
     finally:
         await backend.close()
+        await translator.close()
 
 
 if __name__ == "__main__":

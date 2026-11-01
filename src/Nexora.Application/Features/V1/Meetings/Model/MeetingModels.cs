@@ -19,6 +19,7 @@ public sealed record MeetingDetailResponse(Guid Id, string Title, string Status,
     long RowVersion, IReadOnlyList<MeetingUserOption> Participants)
 {
     public string? MySourceLanguage { get; init; }
+    public string? MyTargetLanguage { get; init; }
     internal static MeetingDetailResponse FromMeeting(Meeting meeting, IReadOnlyList<MeetingUserOption> participants) =>
         new(meeting.Id, meeting.Title, meeting.Status, meeting.OrganizerUserId, meeting.ScheduledStart, meeting.ScheduledEnd,
             meeting.ActualStartedAt, meeting.ActualEndedAt, meeting.RowVersion, participants);

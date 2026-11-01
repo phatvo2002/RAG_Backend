@@ -14,7 +14,8 @@ public sealed class ChatWorkflow(
     IDocumentRetrievalStore retrievalStore,
     IClock clock,
     IChatCipher cipher,
-    IChatModelResolver models) : IChatWorkflow
+    IChatModelResolver models,
+    ISystemPromptStore systemPrompts) : IChatWorkflow
 {
     private async Task<(Guid OrganizationId, Guid UserId)> IdentityAsync(CancellationToken ct)
     {
@@ -64,6 +65,7 @@ public sealed class ChatWorkflow(
     {
         var model = models.Resolve(modelId);
         var (organizationId, userId) = await IdentityAsync(ct);
+        var systemPrompt = await systemPrompts.GetActiveVersionAsync(organizationId, SystemPromptTypes.Chat, ct);
         if (await store.RequestExistsAsync(organizationId, clientRequestId, ct))
             throw new InvalidOperationException("This chat request was already submitted.");
 
@@ -81,11 +83,12 @@ public sealed class ChatWorkflow(
         var message = Message.Create(Guid.NewGuid(), organizationId, conversation.Id, "user", userId,
             cipher.Encrypt(question.Trim()), cipher.Hash(question.Trim()), nextSequence + 1, clock.UtcNow);
         var turn = AiTurn.Create(Guid.NewGuid(), organizationId, conversation.Id, message.Id,
-            clientRequestId.ToString(), model.Provider, model.Model, RagContextComposer.PromptVersion, clock.UtcNow);
+            clientRequestId.ToString(), model.Provider, model.Model, RagContextComposer.PromptVersion,
+            systemPrompt.Id, clock.UtcNow);
         store.AddMessage(message);
         store.AddTurn(turn);
         await store.SaveChangesAsync(ct);
-        return new ChatTurnStart(conversation.Id, message.Id, turn.Id, model);
+        return new ChatTurnStart(conversation.Id, message.Id, turn.Id, model, systemPrompt.Id, systemPrompt.Instructions);
     }
 
     public async Task<ChatMessageDto> CompleteTurnAsync(ChatTurnStart start, string answer,
